@@ -1,0 +1,35 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+logoFile="logo.png"
+authors="${mod_authors}"
+credits="A rewrite of the GTNH fork of NotEnoughItems (https://github.com/GTNewHorizons/NotEnoughItems, LGPL-3.0-or-later) by Chicken-Bones, mitchej123 and the GTNH team. Parts of the search and panel design come from JustEnoughItems by mezz (MIT)."
+description='''
+NEI Rewrite is an unofficial rewrite of the GTNH fork of NotEnoughItems (NEI) for modern Minecraft, made by Iambda.
+It is new code, not the original 1.7.10 mod: it follows NEI's behaviour but is written from scratch for NeoForge and Fabric.
+
+IMPORTANT: recipes of modded machines (AE2, Create, Mekanism ...) need JEI installed. NEI reads them from JEI's plugins
+(JEI's own screens are turned off). Without JEI only vanilla recipes show.
+
+Item panel with NEI search syntax, recipe and usage lookup, bookmarks with groups, todo lists and crafting trees,
+recipe transfer, autocrafting, item subsets, cheat tools and more.
+'''
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="${neo_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"

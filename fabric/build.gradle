@@ -1,0 +1,63 @@
+plugins {
+    id 'java-library'
+    id 'fabric-loom' version '1.10-SNAPSHOT'
+}
+
+base {
+    archivesName = "${mod_id}-fabric-${minecraft_version}"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+
+// The shared code (plain Minecraft code) is compiled into this jar together with the Fabric glue in this module.
+sourceSets.main.java.srcDir '../common/src/main/java'
+sourceSets.main.resources.srcDir '../common/src/main/resources'
+
+loom {
+    // mojmap, like the NeoForge module (and the shared code)
+    accessWidenerPath = file('src/main/resources/notenoughitems.accesswidener')
+    mixin {
+        defaultRefmapName = 'notenoughitems.refmap.json'
+    }
+    runs {
+        client {
+            client()
+            ideConfigGenerated true
+        }
+        server {
+            server()
+            ideConfigGenerated true
+        }
+    }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+}
+
+processResources {
+    var props = [
+            mod_id                : mod_id,
+            mod_name              : mod_name,
+            mod_license           : mod_license,
+            mod_version           : mod_version,
+            mod_authors           : mod_authors,
+            minecraft_version     : minecraft_version,
+            fabric_loader_version : fabric_loader_version,
+    ]
+    inputs.properties props
+    filesMatching('fabric.mod.json') {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}

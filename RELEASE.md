@@ -1,25 +1,17 @@
-# Publishing checklist
+# Publishing checklist (1.21.1)
 
 The store texts are in `store/` (`modrinth.md`, `curseforge.html`, `summary.txt`); the changelog is `CHANGELOG.md`.
 
 ## Before the first upload
 
-1. `./gradlew build`, then run `build/libs/notenoughitems-1.0.0.jar` in a clean 26.2 NeoForge instance.
-2. Start a **dedicated server** with the jar and join it: with the mod on both sides, on the client only and on the server only.
-3. Make the GitHub repository public, then add `issueTrackerURL` and `displayURL` to `src/main/templates/META-INF/neoforge.mods.toml`
-   and a source link to the store texts.
-4. `jei_version` in `gradle.properties` is pinned (30.47.0.240); raise it when you test against a newer JEI.
-5. Upload the jar as **Beta**.
+1. `./gradlew :neoforge:build :fabric:build`, then run each jar in a clean 1.21.1 instance
+   (`neoforge/build/libs/notenoughitems-neoforge-1.21.1-1.1.0.jar`, `fabric/build/libs/notenoughitems-fabric-1.21.1-1.1.0.jar`;
+   the Fabric one with Fabric API).
+2. Start a **dedicated server** with each jar and join it: mod on both sides, on the client only, on the server only.
+3. Make the GitHub repository public, then add the source link to the store texts and the mod metadata.
+4. Upload as **Beta**: the NeoForge jar as NeoForge 1.21.1, the Fabric jar as Fabric 1.21.1 (one project page per site, two files).
 
 ## Project settings
 
-| Field | Value |
-|---|---|
-| Project name | NEI Rewrite |
-| Slug (not `nei`, Modrinth already has the original NEI under it) | `nei-rewrite` |
-| License | LGPL-3.0-or-later |
-| Environment | client required; server optional |
-| Loader / game version | NeoForge / 26.2 |
-| Dependencies | JEI: optional |
-| Icon | `src/main/resources/logo.png` |
-| Summary | `store/summary.txt` |
+Same as the other versions (slug `nei-rewrite`, LGPL-3.0-or-later, client required, server optional). The JEI dependency is not
+listed yet (the bridge is not in this version).

@@ -1,0 +1,1 @@
+NEI for Minecraft 1.21.1 (NeoForge and Fabric): item panel, search, recipes, bookmarks, crafting trees. Modded machine recipes (JEI bridge) come later.
