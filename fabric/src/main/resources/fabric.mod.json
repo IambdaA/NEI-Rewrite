@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_name}",
+  "description": "An unofficial rewrite of the GTNH fork of NotEnoughItems (NEI): item panel with NEI search syntax, recipe and usage lookup, bookmarks, crafting trees, autocrafting, cheat tools. Recipes of modded machines need JEI.",
+  "authors": ["${mod_authors}"],
+  "contributors": [
+    {
+      "name": "Chicken-Bones, mitchej123 and the GTNH team (original NotEnoughItems, LGPL-3.0-or-later)",
+      "contact": { "homepage": "https://github.com/GTNewHorizons/NotEnoughItems" }
+    },
+    {
+      "name": "mezz (JustEnoughItems, MIT: parts of the search and panel design)",
+      "contact": { "homepage": "https://github.com/mezz/JustEnoughItems" }
+    }
+  ],
+  "license": "${mod_license}",
+  "icon": "logo.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["codechicken.nei.fabric.FabricEntry"],
+    "client": ["codechicken.nei.fabric.FabricClient"],
+    "jei_mod_plugin": ["codechicken.nei.jei.NEIJeiPlugin"]
+  },
+  "mixins": ["notenoughitems.mixins.json"],
+  "accessWidener": "notenoughitems.accesswidener",
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "jei": "*"
+  }
+}

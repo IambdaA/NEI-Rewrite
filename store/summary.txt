@@ -1,0 +1,1 @@
+NEI for Minecraft 26.2: item panel, search, recipes, bookmarks, crafting trees. Modded machine recipes need JEI installed.

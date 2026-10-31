@@ -1,0 +1,49 @@
+<h1 style="color:#d32f2f;">&#9888;&#65039; MODDED MACHINE RECIPES REQUIRE JEI &#9888;&#65039;</h1>
+<blockquote>
+<p><strong>Want recipes for AE2, Create, Mekanism or any other mod's machines? Install <a href="https://www.curseforge.com/minecraft/mc-mods/jei">Just Enough Items (JEI)</a> too.</strong></p>
+<p>NEI Rewrite shows vanilla recipes on its own and reads every other mod's recipes from JEI's plugins. <strong>Without JEI, modded machine recipes will not show</strong> (and the <code>+</code> button will not work in modded crafting screens such as the AE2 crafting terminal). JEI's own screens are switched off, so you only ever see NEI.</p>
+</blockquote>
+<hr>
+<h2>NEI Rewrite</h2>
+<p>An <strong>unofficial rewrite of the GTNH fork of NotEnoughItems</strong> for Minecraft 26.2 on NeoForge and Fabric. It looks and works like NEI in GregTech: New Horizons.</p>
+<p><em>Based on <a href="https://github.com/GTNewHorizons/NotEnoughItems">NotEnoughItems (GregTech: New Horizons fork)</a> by Chicken-Bones, mitchej123 and the GTNH team. See <strong>Credits &amp; original work</strong> below.</em></p>
+<h3>Features</h3>
+<ul>
+<li><strong>Item panel</strong> with NEI's search syntax: <code>@mod</code>, <code>#tooltip</code>, <code>$tag</code>, <code>&amp;id</code>, <code>%subset</code>, <code>-not</code>, <code>"quotes"</code>, regex and expression mode</li>
+<li><strong>Recipe and usage lookup</strong>: click an item, or press <code>R</code> / <code>U</code>. Recipe window with tabs, station column and recipe search</li>
+<li><strong>Recipe transfer</strong> (the <code>+</code> button) into crafting grids, missing ingredients marked red, <strong>autocrafting</strong>, pulling items from containers</li>
+<li><strong>Bookmarks</strong> with pages, groups, todo lists, whole-recipe bookmarks and crafting chains</li>
+<li><strong>Crafting tree window</strong> with stats, chat links and tree screenshots</li>
+<li><strong>Item subsets</strong>, hidden items, history and craftables panels, item zoom, presets</li>
+<li><strong>Cheat tools</strong>: toolbar (time, weather, heal, game mode), delete mode, item magnet, extended creative inventory, mob spawner items, mob spawn overlay (<code>F7</code>), enchantment and potion creator</li>
+<li><strong>With JEI</strong>: recipes of every mod that has a JEI plugin (fluids included) and the <code>+</code> in modded crafting screens</li>
+<li><strong>AE2 terminal search sync</strong>: type in the terminal and NEI's search follows, and the other way round</li>
+<li><strong>Mod API</strong> for other mods</li>
+</ul>
+<p>Hold <strong>Alt</strong> over an item to see its hotkeys. All keys are under <em>Options &gt; Controls &gt; NotEnoughItems</em>; the wrench button opens the settings window.</p>
+<h3>Requirements</h3>
+<ul>
+<li>Minecraft <strong>26.2</strong>, NeoForge <strong>26.2.0.90</strong> or newer, or Fabric Loader 0.19+ with Fabric API</li>
+<li><a href="https://www.curseforge.com/minecraft/mc-mods/jei">JEI</a> 30 or newer to see <strong>modded machine recipes</strong> (optional: vanilla recipes work without it)</li>
+</ul>
+<h3>Multiplayer</h3>
+<p>Works on the client alone. Install it on the <strong>server too</strong> to get recipe lookup for everything the server knows, and for the delete mode, item magnet and extended creative inventory (they need the mod on the server and creative mode or operator rights). JEI's recipe transfer in modded screens also needs the mod's JEI part on the server.</p>
+<h3>Status</h3>
+<p>Beta. Not everything from NEI is ported yet (for example giving items with cheats off). Please report bugs together with your <code>latest.log</code>.</p>
+<h3>Credits &amp; original work</h3>
+<p>NEI Rewrite is a <strong>derivative work</strong>. It is based on <strong>NotEnoughItems (NEI)</strong>, and the credit for the design, the features and the look belongs to the original authors:</p>
+<ul>
+<li><strong>NotEnoughItems</strong> by <strong>Chicken-Bones</strong> (original author): <a href="https://github.com/Chicken-Bones/NotEnoughItems">https://github.com/Chicken-Bones/NotEnoughItems</a></li>
+<li><strong>NotEnoughItems, GregTech: New Horizons fork</strong> by <strong>mitchej123</strong> and the <strong>GTNH team</strong>, the version this mod follows: <a href="https://github.com/GTNewHorizons/NotEnoughItems">https://github.com/GTNewHorizons/NotEnoughItems</a></li>
+<li><strong>JustEnoughItems (JEI)</strong> by <strong>mezz</strong> (MIT license): parts of the search and panel design are inspired by it, and NEI Rewrite reads other mods' recipes through JEI's plugin API: <a href="https://github.com/mezz/JustEnoughItems">https://github.com/mezz/JustEnoughItems</a></li>
+</ul>
+<p>The original NEI is open source under <strong>LGPL-3.0-or-later</strong>. NEI Rewrite is released under the same license and is a modified, rewritten version of it. The GUI textures come unchanged from the GTNH repository. NEI Rewrite is made by <strong>Iambda</strong> and is <strong>not affiliated with or endorsed by</strong> the original authors or the GTNH team. Please do not report problems of this mod to them.</p>
+<h3>How NEI Rewrite differs from the original</h3>
+<ul>
+<li><strong>A new implementation, not a copy of the old mod.</strong> The original is a Forge mod for Minecraft 1.7.10. NEI Rewrite is new Java code written for modern Minecraft on NeoForge. It follows NEI's behaviour, look and search rules, and the GUI textures come unchanged from the GTNH repository.</li>
+<li><strong>Recipes come from the game and from JEI.</strong> The original reads recipes through its own recipe handler system (and GregTech: New Horizons' machine handlers). NEI Rewrite reads vanilla recipes from the game's recipe system and the recipes of other mods from JEI's plugins, so modded machines need JEI installed. There are no GregTech / GTNH-specific recipe handlers.</li>
+<li><strong>Tags instead of the ore dictionary.</strong> The <code>$</code> search matches item tags, which replaced the ore dictionary in modern Minecraft.</li>
+<li><strong>Own settings and keys.</strong> Options are kept in a config file and edited in the wrench button's settings window; hotkeys are normal Minecraft key binds. NEI's 1.7.10 config files are not read.</li>
+<li><strong>A smaller mod API.</strong> The API class is the same idea as NEI's, but mods register through a NeoForge event (<code>NEIRegisterEvent</code>) or a Fabric entrypoint (<code>NEIPlugin</code>). NEI's 1.7.10 GUI handler and overlay APIs are not carried over.</li>
+<li><strong>Not everything is ported.</strong> A few NEI features are still missing (for example giving items with cheats off). See the changelog.</li>
+</ul>

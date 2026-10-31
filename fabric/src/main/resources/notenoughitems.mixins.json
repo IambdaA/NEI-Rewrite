@@ -1,0 +1,16 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "codechicken.nei.fabric.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "client": [
+    "ContainerScreenMixin",
+    "GuiMixin",
+    "KeyMappingMixin",
+    "KeyboardHandlerMixin",
+    "MouseHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
