@@ -755,3 +755,82 @@ New "Search Settings" section in the settings window: pattern mode, space mode, 
 - New / rewritten: `README.md` (warning on top, feature list), `CHANGELOG.md`, `RELEASE.md` (checklist), `store/modrinth.md`, `store/curseforge.html`, `store/summary.txt` (one line, 122 characters). All store texts open with the JEI warning. No source link is in them: the repository URL is not known yet (also missing: `issueTrackerURL` / `displayURL` in `neoforge.mods.toml`).
 - Release label suggested: Beta (a dedicated server start was never tested here).
 
+
+## Credits text (stage: CurseForge credit fix)
+CurseForge asked for a credit and a link to the original content in the description, and for how the project differs. `store/curseforge.html`, `store/modrinth.md`, `README.md` and the mods.toml credits now have a "Credits & original work" section (links to Chicken-Bones/NEI, GTNH NEI, JEI) and a "How NEI Rewrite differs" list.
+
+
+## Stage 42: fluid display items no longer depend on the item registry
+- Report (26.2, NeoForge 26.2.0.90, on a modded server): fluids cannot be bookmarked, have no uses / recipes, are missing from bookmark groups and draw blank in bookmark trees, although the log said "fluids with recipes: 199, with uses: 202".
+- Suspected cause (NOT confirmed): after joining a server that does not have the client-only display items, the item registry no longer holds them, so every `BuiltInRegistries.ITEM.getKey(item)` answers `minecraft:air` (ids, bookmarks, history, panel list all go through that).
+- Change: `FluidDisplay` remembers the id of each display item (`add(item, fluid, id)`, `idOf(item)`); every `BuiltInRegistries.ITEM.getKey(...).toString()` for stacks now calls `FluidDisplay.idOf`; `ItemEntry.registryId` / `numericId` use it; `ItemList.load` adds the display items from `FluidDisplay.items()` even if the registry lacks them.
+- New log lines to read: `NEI item list: N items, F fluid display items made, R of them still in the item registry` (R < F confirms the cause) and `NEI cannot draw fluid <id>: no still sprite` (once per fluid; says the blank slots are a drawing problem instead).
+- Untested: parse-checked only.
+
+
+## Stage 42b: favorite result choice, fluids in JEI-drawn recipes
+- Report: viewing a recipe drawn by JEI, R / U over another fluid did nothing (the layout only reported item stacks under the mouse); and a recipe favorited with the heart was stored under its FIRST result, so a recipe tree could not find it for an ingredient that is a later result (e.g. unsaturated hydrocarbons, the 1st / 4th output).
+- As in NEI (`GuiFavoriteButton`): while the mouse is on a recipe's heart, the mouse wheel changes which result the heart is about (`selectedResult`); that result is greyed with the heart on it (`drawItemOverlay`), the heart shows whether the recipe is that result's favorite, and the click favorites it for that result (`RecipeBookmarks.toggleFavorite(view, itemId)`). Alt over the heart lists "MOUSE WHEEL: Change favorite result" when the recipe has several results.
+- JEI-drawn recipes: `JeiDrawn.itemAt` now uses the slot under the mouse (items and fluids; a fluid is its display item), so R / U / bookmark work on fluids. `Drawn.highlightResult` marks the chosen result with JEI's `IRecipeSlotView.drawHighlight`.
+- Not changed (as in NEI): a favorite is per item; a tree only uses the favorite recipe of the ingredient itself.
+- Untested: parse-checked only.
+
+
+## Stage 42d: favorite for a chosen result without the wheel
+- Report: a recipe favorited with the heart is stored under its first result only (NEI does the same), so Shift + A (recipe tree) did not find it for an ingredient that is a later result (oil refinery: unsaturated hydrocarbons is the 4th output). The user wants no scrolling, and doubts that "any favorite that makes it" is right (a better recipe may be favorited elsewhere).
+- Main fix: Shift + F (`favorite_item`) over a RESULT slot of a recipe in the recipe window favorites that recipe for that result (`RecipeOverlay.favoriteItemKey`, extends NEI's key, which over an ingredient with alternatives favorites the item); again removes it. The item's own favorite always wins in trees. Alt help lists "Favorite Recipe for this Result" over a result.
+- Option "Single favorite counts for all its results" (`favoriteAnyResult`, default OFF): `RecipeBookmarks.favoriteKeyFor(item)` = the item's own favorite, else the ONE favorited recipe that has it among its results; with two or more candidates nothing is guessed. Used by the recipe tree, favorite-tree save, Shift + overlay, chat link.
+- The stage 42b wheel over the heart (NEI's `selectedResult`) is the option "Choose favorite result with the mouse wheel" (`favoriteWheel`, default OFF).
+- Untested: parse-checked only.
+
+
+## Stage 42e / version 1.1.0
+- The item tooltip of a recipe result (recipe window, `Where.RECIPE`, `HotkeyHelp.recipeResult`) gets one more line in the same box, just above the mod name: "SHIFT + F: Favorite recipe for this result" (`ItemTooltip.favoriteLine`). Not a separate box.
+- Version 1.1.0 (`gradle.properties`, `CHANGELOG.md`, `RELEASE.md` jar names).
+- Multiloader: the JEI bridge (`NEIJeiPlugin`, `JeiGui`) is in `pending/jei/` again: the multiloader build has no JEI dependency yet, so it must not be in `common/`. It is uncompiled, written from JEI 26.2 source (JEI 19.x names unverified).
+- Untested: parse-checked only.
+
+
+## Stage 43: 26.2 is now a multiloader project (NeoForge + Fabric)
+- Same layout as the 1.21.1 multiloader: `common/` (all mod code, no loader API), `neoforge/`, `fabric/`; each loader module compiles `common/` with its glue.
+- Seams in `common/`: `Platform` (configDir, modName, isModLoaded, fluidName, sendToServer, serverHas, sendToPlayer, canSend), `ClientPlatform` (category, newKey, fluidColor), `ClientHooks` (the one door for the loaders), `ScreenEv` (screen event with Minecraft's own `MouseButtonEvent` / `KeyEvent` / `CharacterEvent`), own `Cfg` JSON config (`config/notenoughitems-client.json`; NeoForge's `ModConfigSpec` is gone, so the old NeoForge config file is not read any more and the NeoForge config screen button is gone), `NEINetwork.TO_SERVER / TO_CLIENT`, `ClientRecipes.set(RecipeMap)` / `clear()`, `FluidRegistration.create(sink)`, `NEIPlugin` (Fabric entrypoint).
+- NeoForge glue (`neoforge/`): `NeoForgeEntry`, `NeoForgeClient` (all former `@SubscribeEvent` handlers are listeners that call `ClientHooks` / the static methods), `NeoPlatform`, `NeoClientPlatform` (fluid tint via `FluidTintSource`), `NeoClientNet` (`ClientPacketDistributor`), `api/NEIRegisterEvent`, and `jei/NEIJeiPlugin` (the JEI bridge stays NeoForge-only: it uses NeoForge's `FluidStack`).
+- Fabric glue (`fabric/`, written from JEI 26.2's Fabric module, not compiled): Loom `net.fabricmc.fabric-loom` 1.17.20, Fabric API 0.158.0+26.2. Recipes: server `RecipeSynchronization.synchronizeRecipeSerializer` for every serializer, client `ClientRecipeSynchronizedEvent` -> `RecipeMap.create(...)`. Screen events through `ScreenEvents.afterExtract` + `ScreenMouseEvents` / `ScreenKeyboardEvents`; mixins (config `required: false`, so a wrong name logs instead of crashing): `AbstractContainerScreen.extractRenderState` (render-pre cancel) and `mouseClicked` RETURN, `Gui.setScreen` (creative+), `KeyboardHandler.charTyped`, `MouseHandler.onScroll`, `KeyMapping.resetMapping` (GUI-only hotkeys, see `KeyTable`). HUD: `HudElementRegistry.addLast`. Fluids: `FluidVariantAttributes` / `FluidVariantRendering`. Access widener: `blitTiledSprite`.
+- Differences from the single-loader 26.2 build: MAX_DATA for chat-shared bookmarks is 30000 (Fabric's packet limit; was 60000); Ctrl for creative+ scrolling is read from GLFW; the tree screenshot frame hook on Fabric runs one frame later (queued task at the start of the next frame) instead of `RenderFrameEvent.Post`.
+- Not in the Fabric build: the JEI bridge (modded machines' recipes). A Fabric JEI plugin needs the `jei_mod_plugin` entrypoint and JEI's Fabric fluid ingredient type; to do.
+- Untested: parse-checked only (no Minecraft jars here).
+
+
+## Stage 44: 26.1.x multiloader (from the 26.2 multiloader)
+- Copy of the 26.2 multiloader with the three 26.1.x differences found by diffing the single-loader 26.2 / 26.1.2 projects: the open screen is `Minecraft.screen` (26.2: `Minecraft.gui.screen()`), `setScreen` is on `Minecraft` (so the Fabric mixin is `MinecraftMixin`, not `GuiMixin`), and the mods.toml uses `neo_version_range` / `jei_version_range`.
+- `gradle.properties`: compiled against 26.1.2, accepts [26.1, 26.1.2]; jar name label `26.1.x`; NeoForge 26.1.2.114; Fabric API 0.154.2+26.1.2 (the version exists on Fabric's maven; Fabric loader / Loom versions taken from 26.2, not verified for 26.1).
+- `jei_version=none`: the NeoForge JEI bridge is left out of the build until a JEI 26.1.2 version is set (as in the single-loader 26.1.x project).
+- Untested: parse-checked only.
+
+- Build fix: Fabric Loom 1.17.20 needs Gradle 9.5.0, so the wrapper is 9.5.0 now (it was 9.2.1).
+
+- First compile fixes: `KeyMapping.getKey()` is a NeoForge addition (new seam `ClientPlatform.boundKey`; Fabric uses `KeyMappingHelper.getBoundKeyOf`); `getGuiLeft/getGuiTop/getXSize/getYSize/getSlotUnderMouse` are NeoForge extensions (deprecated for removal), so the code reads `leftPos/topPos/imageWidth/imageHeight/hoveredSlot` and both loaders widen those fields (AT / AW); `SettingsWindow` imports `Cfg`.
+
+## Stage 45: JEI bridge on both loaders
+- Report: with JEI installed on 26.1.2 (NeoForge and Fabric, and 1.21.1) both JEI's panels and NEI's showed, and NEI did not behave: the bridge (which switches JEI's own screens off and reads its recipes) was missing in those builds.
+- `NEIJeiPlugin` is loader-free now and lives in `common/` (`jei/`): the fluid ingredient class (`FluidStack` on NeoForge, JEI's `IJeiFluidIngredient` on Fabric, read by reflection) comes from the new seam `Platform.fluidOf`, the mod name from `Platform.modName`. NeoForge finds the plugin by `@JeiPlugin`, Fabric by the `jei_mod_plugin` entrypoint in `fabric.mod.json`.
+- Both modules compile it against `jei-<mc>-common-api` (+ the loader's api) when `jei_version` is set in `gradle.properties`; `jei_version=none` leaves the package out (then JEI's own panels stay on). 26.2: 30.47.0.240. 26.1.x: set the version of the JEI you run (file name `jei-26.1.2-<loader>-<VERSION>.jar`).
+- Untested: parse-checked only; Fabric part written from JEI's Fabric module source.
+
+## Stage 46: 26.1.x becomes 26.1.2
+- JEI only exists for 26.1.2 (no 26.1 / 26.1.1), so the project, jar label and `minecraft_version_range` are 26.1.2 only; `jei_version=29.53.0.114` (the JEI bridge is on in this build). Older notes saying 26.1.x mean this project.
+
+## Stage 47: fluid lookup (R) listed every fluid
+- Report: R on an NTM fluid showed every fluid of the mod. Cause (not seen in a log, inferred): a JEI recipe with an "any fluid" slot lists all fluid display items, and the index added that recipe to each of them. `RecipeIndex.wildcardFluids` now skips slots with more than 16 fluid options (inputs and outputs). The recipe still shows when looked up by its other items.
+- Stage 47b: the 16-fluid rule did not cure it (still reproduced). `RecipeOverlay.show` now logs every lookup (item, recipe count, slot option counts of the first 12) to find the real cause.
+- Stage 47c: real cause found in the log: HBM (NTM) shows every fluid as the ONE item `hbm:fluid_icon` with the fluid in a data component, so the item-keyed index found 523 recipes for any of its 157 fluids. A lookup now remembers the stack (`RecipeOverlay.focusNext`) and, when the stack carries components, keeps only recipes with the same item + components (`ItemStack.isSameItemSameComponents`) in the looked-at slots. Not covered: lookups started from history/bookmarks/tree (they only have the item). The stage-47 16-fluid rule stays (harmless).
+- Stage 47d: exact component equality found nothing (the panel's fluid stack lacks components the recipe's has, e.g. an amount). The match is now subset-based (`RecipeOverlay.covers`: every component of the looked-up stack must be on the recipe's stack and equal); a miss logs both component sets.
+- Stage 47e: following the addon notes (JEI subtype identity): `FluidDisplay.subtypeOf` is fed by the JEI bridge (`getUid(stack, UidContext.Recipe)` -> list[1]); a lookup matches recipe stacks by that identity (fallback: component subset). Not done yet from those notes: ids `registry~base64(subtype)` for bookmarks/favorites/history/search (they still collapse all hbm:fluid_icon fluids), real JEI fluid ingredients carried with amounts, tree/favorites rules.
+- Stage 48: version 1.1.1. Fixed a compile error of stage 7 on 26.1.2 (`DataComponentPatch.get` needs a getter in 26.1: the component fallback in `RecipeOverlay.covers` reads `option.get(type)` instead). The other mod's `StackIds` (registryId~base64url(JEI subtype data)) matches what `FluidDisplay.subtypeOf` does for lookups.
+- Stage 49: ids are subtype-aware: `FluidDisplay.idOf(ItemStack)` = registry id, or `registry~base64url(JEI subtype data)` when JEI says the stack has a subtype (NTM fluid icons); `FluidDisplay.stackOf(id)` rebuilds the stack (stacks seen so far, else one scan of JEI's ingredient list, set by the bridge). `ItemList.find` makes entries for such ids on demand. All `idOf(x.getItem())` over stacks (bookmarks, favorites keys, tree, pull, history copies, recipe overlay) now use the stack. `give` uses the plain id. Old saved bookmarks/favorites of fluid icons keep the old plain id (clear them). Mirrors the addon's StackIds.
+- Stage 50: (1) crafting-tree sub-recipes are saved with only the result the parent needs (`RecipeBookmarks.tree`: lead map, `results(view, leadId)`); the top recipe keeps all results. (2) The heart's tooltip names the selected result ("Result: <name>", "Scroll to choose the result") when the recipe has several. (3) Not done: the dark squares left of the recipe window (3 in Cracking, 4 in Oil Refinery) - not identified yet; the station column is the only thing drawn there.
+- Stage 50b: fixed an ambiguous overload (results(view, null)): the String variant is now resultsFor.
+- Stage 51: the dark squares floating at the top left while the heart is hovered were `highlightResult`: JEI's `drawHighlight` draws at slot positions relative to the layout, so it must be translated to `layout.getRect()` first, and it matched outputs by item (every NTM fluid is `hbm:fluid_icon`) instead of by `FluidDisplay.idOf`. Fix written by another agent and tested by the user on 26.1.2; applied to 26.2 too.
+- Stage 52: fluid amounts and the terminal key. (1) Fluids carry their amount in millibuckets as the stack count: real JEI fluid ingredients (NeoForge `FluidStack.getAmount`, Fabric droplets/81 via the new `Platform.fluidAmount`), and fluids that are items (NTM - Continuum) from the "<n>mB" line of the stack's tooltip (`FluidDisplay.itemFluidAmount`, only for stacks JEI gives a subtype). Recipes/bookmarks add counts as before, so groups and the chain math now work in mB. JEI-drawn recipes get a small amount label on fluid slots; the recipe tooltip of a fluid display item names the amount; bookmark and tree amounts of fluids end in mB. (2) New key T (`terminal_name`, not in NEI): over an item or fluid, types its name into an open AE2 terminal's search field (only in a terminal screen); the existing terminal sync carries it to NEI's search.
+- Stage 53: (1) the labels floating at the top left of JEI-drawn recipes: `getAreaIncludingBackground` can start at the layout origin (union with an empty background), so only its far edges are used. (2) Fluids-as-items whose recipe stack has no amount (NTM - Continuum oil refinery): the category puts it in the slot's tooltip, so `NEIJeiPlugin.slotAmount` reads "<n>mB" from there when the view is built (and the label uses the same, cached per slot); no label when the amount is unknown, instead of "1mB". (3) Fluid amounts in bookmarks/tree use `FluidDisplay.amountLabel` (250mB, 2.5B, 12B) so neighbours no longer overlap.
+- Stage 54: version 1.1.2. New option `fluidAmountsInMillibuckets` ("Fluid amounts in mB only", off): `FluidDisplay.amountLabel` keeps mB from 1000 on. Release notes in CHANGELOG 1.1.2.
