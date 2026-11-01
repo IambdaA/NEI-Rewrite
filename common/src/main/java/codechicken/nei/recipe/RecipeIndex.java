@@ -63,10 +63,18 @@ public final class RecipeIndex {
         final List<List<String>> out = new ArrayList<>();
         for (SlotView slot : view.slots()) {
             final List<String> ids = new ArrayList<>();
-            for (ItemStack option : slot.options()) ids.add(codechicken.nei.item.FluidDisplay.idOf(option.getItem()));
+            for (ItemStack option : slot.options()) ids.add(codechicken.nei.item.FluidDisplay.idOf(option));
             (slot.output() ? out : in).add(ids);
         }
         return RecipeRemoval.keep(in, out, removed);
+    }
+
+    /** More distinct fluids than any real recipe names: the slot stands for "any fluid" (e.g. a fluid identifier or tank). */
+    private static boolean wildcardFluids(SlotView slot) {
+        if (slot.options().size() <= 16) return false;
+        int fluids = 0;
+        for (ItemStack option : slot.options()) if (codechicken.nei.item.FluidDisplay.isFluidItem(option.getItem())) fluids++;
+        return fluids > 16;
     }
 
     /** A view with outputs only: a modded machine's display whose inputs the converter could not read. */
@@ -97,6 +105,7 @@ public final class RecipeIndex {
                 for (SlotView slot : view.slots()) {
                     final Map<Item, List<RecipeView>> target = slot.output() ? outputs : inputs;
                     if (!slot.output() && !slot.indexed()) continue;
+                    if (wildcardFluids(slot)) continue; // "any fluid" slot: not a recipe of each fluid
 
                     for (ItemStack option : slot.options()) {
                         final List<RecipeView> list = target.computeIfAbsent(option.getItem(), k -> new ArrayList<>());

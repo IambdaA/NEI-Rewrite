@@ -331,7 +331,7 @@ public final class CraftingTreeOverlay {
             for (Slot slot : container.getMenu().slots) {
                 final ItemStack stack = slot.getItem();
                 if (stack.isEmpty() || slot instanceof ResultSlot || player != null && !slot.mayPickup(player)) continue;
-                counts.merge(codechicken.nei.item.FluidDisplay.idOf(stack.getItem()), stack.getCount(), Integer::sum);
+                counts.merge(codechicken.nei.item.FluidDisplay.idOf(stack), stack.getCount(), Integer::sum);
             }
 
             counts.forEach((id, count) -> items.add(new BookmarkGrid.Item(id, count, BookmarkGrid.DEFAULT_GROUP_ID)));
@@ -472,7 +472,9 @@ public final class CraftingTreeOverlay {
             final boolean own = hovered && !resolved && node.prefItem != null && HotkeyHelp.isCtrlDown()
                     && view.graph.roots.contains(node)
                     && view.grid.group(view.groupId).collapsedRecipes.contains(node.prefItem.recipeId);
-            final String text = amountText(own ? node.currentRequestedAmount : node.requestedAmount);
+            final long shownAmount = own ? node.currentRequestedAmount : node.requestedAmount;
+            final String text = codechicken.nei.item.FluidDisplay.isFluidId(node.itemId)
+                    ? codechicken.nei.item.FluidDisplay.amountLabel(shownAmount) : amountText(shownAmount);
             // bottom right of the 16 x 16 item area, as NEI's drawNEIOverlayText
             Draw.smallText(g, font, text, (float) Math.ceil(p.x + 1 + 16 - font.width(text) * 0.5),
                     (float) Math.ceil(p.y + 1 + 16 - 4.5), resolved ? 0x55FF55 : 0xFFFFFF);

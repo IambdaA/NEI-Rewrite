@@ -89,6 +89,7 @@ public final class NEIClientEvents {
     /** NEI's {@code gui.hide}: while set, NEI draws and handles nothing except the key that brings it back. */
     // shortcut: not saved between sessions (NEI keeps inventory.hidden in its config), upgrade if that is missed
     private static boolean hidden;
+    private static final java.util.Set<Class<?>> LOGGED_SCREENS = new java.util.HashSet<>();
     private static final TextHistory SEARCH_HISTORY = new TextHistory();
     private static boolean searchWasFocused;
 
@@ -129,9 +130,13 @@ public final class NEIClientEvents {
     /** NEI's {@code ItemHistoryPanel#addItem}: newest first, no repeats, at most 50. */
     private static void addHistory(Item item) {
         loadHistory(); // so a first lookup does not overwrite the saved list
-        final ItemEntry entry = ItemList.find(codechicken.nei.item.FluidDisplay.idOf(item));
+        // the stack the lookup is about (an NTM fluid icon is one item for many fluids: the item alone would be "None")
+        final ItemStack focus = RecipeOverlay.pendingFocus();
+        final String id = focus.getItem() == item ? codechicken.nei.item.FluidDisplay.idOf(focus)
+                : codechicken.nei.item.FluidDisplay.idOf(item);
+        final ItemEntry entry = ItemList.find(id);
         if (entry == null) return;
-        HISTORY_LIST.removeIf(e -> e.stack.getItem() == item);
+        HISTORY_LIST.removeIf(e -> e.registryId.equals(entry.registryId));
         HISTORY_LIST.add(0, entry);
         if (HISTORY_LIST.size() > 50) HISTORY_LIST.remove(HISTORY_LIST.size() - 1);
         if (NEIConfig.HISTORY_SAVE.getAsBoolean()) {
@@ -314,6 +319,12 @@ public final class NEIClientEvents {
         final int mx = (int) event.getMouseX();
         final int my = (int) event.getMouseY();
         layout((AbstractContainerScreen<?>) screen);
+        if (LOGGED_SCREENS.add(screen.getClass())) {
+            final var c = (AbstractContainerScreen<?>) screen;
+            NotEnoughItems.LOGGER.info("NEI panel on {}: gui {}x{} at {},{} of {}x{}, panel {}..{}, {} items listed, hidden={}", screen.getClass().getName(),
+                    c.imageWidth, c.imageHeight, c.leftPos, c.topPos, screen.width, screen.height, panelLeft, panelRight,
+                    ItemList.getFiltered().size(), hidden);
+        }
         // NEI remembers the search text whenever the box gains or loses focus
         if (searchBox != null && searchBox.isFocused() != searchWasFocused) {
             searchWasFocused = searchBox.isFocused();
@@ -427,6 +438,7 @@ public final class NEIClientEvents {
             // NEI: a left click gives the quantity field's amount (a full stack when it is empty), a right click gives one
             NEIActions.give(entry, button == 1 ? 1 : QuantityBar.multiplier(entry.stack.getMaxStackSize()), screen);
         } else {
+            RecipeOverlay.focusNext(entry.stack);
             openRecipes(screen, entry.stack.getItem(), button == 1);
         }
     }
@@ -856,7 +868,7 @@ public final class NEIClientEvents {
         if (HotkeyHelp.isShiftDown() && treeWindow == null && NEIKeys.is(NEIKeys.FAVORITE, pressed)
                 && (ITEMS.contains(lastMouseX, lastMouseY) || HISTORY.contains(lastMouseX, lastMouseY))) {
             final ItemStack over = panelStackAt(lastMouseX, lastMouseY);
-            if (!over.isEmpty()) RecipeBookmarks.saveFavoriteTree(codechicken.nei.item.FluidDisplay.idOf(over.getItem()));
+            if (!over.isEmpty()) RecipeBookmarks.saveFavoriteTree(codechicken.nei.item.FluidDisplay.idOf(over));
             event.setCanceled(true);
             return;
         }
@@ -878,7 +890,7 @@ public final class NEIClientEvents {
                 && screen instanceof AbstractContainerScreen<?> container) {
             final ItemStack over = hoveredStack(screen);
             if (!over.isEmpty()) {
-                final String id = codechicken.nei.item.FluidDisplay.idOf(over.getItem());
+                final String id = codechicken.nei.item.FluidDisplay.idOf(over);
                 final BookmarkGrid.Item slot = bookmarksVisible ? BOOKMARKS.itemAt(lastMouseX, lastMouseY) : null;
                 final String recipeKey = slot != null && slot.recipeId != null ? slot.recipeId : RecipeBookmarks.favoriteKeyFor(id);
                 final RecipeView view = recipeKey == null ? null : RecipeBookmarks.resolve(id, recipeKey);
@@ -929,7 +941,7 @@ public final class NEIClientEvents {
                 }
             } else if (linkWindow != null && !linkWindow.hovered().isEmpty()) { // an item of the recipe window
                 final ItemStack shown = linkWindow.hovered();
-                ChatLinks.sendItem(codechicken.nei.item.FluidDisplay.idOf(shown.getItem()), Math.max(1, shown.getCount()));
+                ChatLinks.sendItem(codechicken.nei.item.FluidDisplay.idOf(shown), Math.max(1, shown.getCount()));
                 event.setCanceled(true);
                 return;
             }
@@ -952,7 +964,7 @@ public final class NEIClientEvents {
             final ItemStack stack = bookmarked != null ? bookmarked.stack : hoveredStack(screen);
             if (!stack.isEmpty()) {
                 final int amount = slot != null && slot.amount > 0 ? slot.amount : QuantityBar.multiplier(stack.getMaxStackSize());
-                ContainerPull.pullStack(codechicken.nei.item.FluidDisplay.idOf(stack.getItem()), amount, shift);
+                ContainerPull.pullStack(codechicken.nei.item.FluidDisplay.idOf(stack), amount, shift);
                 event.setCanceled(true);
                 return;
             }
@@ -1020,8 +1032,8 @@ public final class NEIClientEvents {
                 return;
             }
 
-            final Item target = hoveredItem(screen);
-            if (target != null) {
+            final ItemStack target = hoveredStack(screen);
+            if (!target.isEmpty()) {
                 // As in NEI: inside the recipe window the item remembers its recipe; Ctrl keeps a count of 1
                 final String recipeId = recipeWindow != null && recipeWindow.hoveredRecipe() != null
                         ? RecipeBookmarks.key(recipeWindow.hoveredRecipe())
@@ -1063,11 +1075,22 @@ public final class NEIClientEvents {
             }
         }
 
+        // Not in NEI: T over an item or fluid types its name into an open AE2 terminal's search field (NEI's own search
+        // follows through the terminal sync). Only in a terminal; anywhere else the key does nothing.
+        if (NEIKeys.is(NEIKeys.TERMINAL_NAME, pressed) && !HotkeyHelp.isShiftDown() && TerminalSearchSync.isTerminal(screen)) {
+            final ItemStack named = hoveredStack(screen);
+            if (!named.isEmpty() && TerminalSearchSync.type(screen, named.getHoverName().getString())) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+
         final boolean recipe = NEIKeys.is(NEIKeys.RECIPE, pressed);
         final boolean usage = NEIKeys.is(NEIKeys.USAGE, pressed);
         if (recipe || usage) {
             final Item target = hoveredItem(screen);
             if (target != null) {
+                RecipeOverlay.focusNext(hoveredStack(screen));
                 openRecipes(screen, target, usage);
                 event.setCanceled(true);
             }
@@ -1089,7 +1112,7 @@ public final class NEIClientEvents {
             return name.contains(" ") ? '"' + name.replace("\"", "\\\"") + '"' : name;
         }
         if (NEIKeys.is(NEIKeys.COPY_ID, pressed)) {
-            return codechicken.nei.item.FluidDisplay.idOf(stack.getItem());
+            return codechicken.nei.item.FluidDisplay.idOf(stack);
         }
         if (NEIKeys.is(NEIKeys.COPY_TAGS, pressed)) {
             return BuiltInRegistries.ITEM.wrapAsHolder(stack.getItem()).tags().map(t -> t.location().toString()).sorted()

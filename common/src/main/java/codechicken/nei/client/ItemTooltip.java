@@ -68,7 +68,10 @@ final class ItemTooltip {
     }
 
     /** Asks for the "Favorite" tooltip of a recipe's heart button. */
-    static void requestHeart(boolean severalResults) {
+    private static List<Component> pendingHeartState = List.of();
+
+    static void requestHeart(boolean severalResults, List<Component> stateLines) {
+        pendingHeartState = stateLines;
         pendingHeart = true;
         pendingHeartMulti = severalResults;
         pending = ItemStack.EMPTY;
@@ -107,7 +110,11 @@ final class ItemTooltip {
             if (HotkeyHelp.isAltDown()) {
                 HotkeyHelp.drawHeart(g, mx, my, sw, sh, pendingHeartMulti);
             } else {
-                box(g, mx, my, sw, sh, List.of(Component.literal("Favorite"), hintLine()), 0, 0);
+                final List<Component> heartLines = new java.util.ArrayList<>();
+                heartLines.add(Component.literal("Favorite"));
+                heartLines.addAll(pendingHeartState);
+                heartLines.add(hintLine());
+                box(g, mx, my, sw, sh, heartLines, 0, 0);
             }
             return;
         }

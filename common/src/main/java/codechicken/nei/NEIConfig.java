@@ -114,6 +114,10 @@ public final class NEIConfig {
             .comment("While the mouse is on a crafting recipe's \"+\", draw the ingredients faded over the open screen's crafting grid. The recipe window covers that grid, so this is off by default.")
             .define("recipeGhostItems", false);
 
+    public static final Cfg.BooleanValue FLUID_MB_ONLY = BUILDER
+            .comment("Show fluid amounts always in millibuckets (2500mB) instead of buckets from 1000 on (2.5B). Off by default.")
+            .define("fluidAmountsInMillibuckets", false);
+
     public static final Cfg.BooleanValue FAVORITE_ANY_RESULT = BUILDER
             .comment("A favorite recipe also counts for its other results: a recipe tree finds a favorite recipe of an ingredient even if the recipe was favorited under another result (an oil refinery recipe makes several fluids). NEI only knows the first result.")
             .define("favoriteAnyResult", false);
@@ -386,6 +390,7 @@ public final class NEIConfig {
     OPTIONS.add(new Option("craftables", "Rows", "How many rows the craftables panel may use.", CRAFTABLES_ROWS, Kind.INT, 1, 5));
     OPTIONS.add(new Option("recipe", "Item presence overlay", "Ingredients of a crafting recipe while the mouse is on its \"+\" button: Off, Icon (a cross / tick in the slot's corner) or Highlight (red = missing, green = you have it). NEI's default is Icon.", PRESENCE_OVERLAY, Kind.CHOICE, 0, 2));
     OPTIONS.add(new Option("recipe", "Ghost items on the + button", "While the mouse is on a crafting recipe's \"+\", draw the ingredients faded over the open screen's crafting grid (NEI's overlay). Off by default: the recipe window covers that grid.", RECIPE_GHOST, Kind.BOOL, 0, 0));
+    OPTIONS.add(new Option("recipe", "Fluid amounts in mB only", "Show fluid amounts in recipes, bookmarks and the crafting tree always in millibuckets (2500mB) instead of switching to buckets from 1000 on (2.5B). Off by default.", FLUID_MB_ONLY, Kind.BOOL, 0, 0));
     OPTIONS.add(new Option("recipe", "Single favorite counts for all its results", "If exactly one favorited recipe makes an ingredient, a recipe tree uses it even when it was favorited under another of its results (oil refinery recipes make several fluids). With several candidates nothing is guessed: Shift + F over the result in the recipe window picks one. NEI itself only uses the first result. Off by default.", FAVORITE_ANY_RESULT, Kind.BOOL, 0, 0));
     OPTIONS.add(new Option("recipe", "Choose favorite result with the mouse wheel", "NEI's way: while the mouse is on a recipe's heart, the wheel picks which result the heart favorites. Shift + F over a result in the recipe window does the same without scrolling.", FAVORITE_WHEEL, Kind.BOOL, 0, 0));
     OPTIONS.add(new Option("recipe", "Highlight present items", "Also mark the ingredients you have, not only the missing ones.", PRESENCE_HIGHLIGHT_PRESENT, Kind.BOOL, 0, 0));

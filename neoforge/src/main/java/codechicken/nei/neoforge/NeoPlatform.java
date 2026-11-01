@@ -27,6 +27,16 @@ public final class NeoPlatform implements Platform {
     }
 
     @Override
+    public net.minecraft.world.level.material.Fluid fluidOf(Object ingredient) {
+        return ingredient instanceof net.neoforged.neoforge.fluids.FluidStack stack ? stack.getFluid() : null;
+    }
+
+    @Override
+    public long fluidAmount(Object ingredient) {
+        return ingredient instanceof net.neoforged.neoforge.fluids.FluidStack stack ? stack.getAmount() : -1;
+    }
+
+    @Override
     public void sendToServer(CustomPacketPayload payload) {
         NeoClientNet.send(payload);
     }

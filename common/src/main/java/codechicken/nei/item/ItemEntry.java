@@ -48,7 +48,7 @@ public final class ItemEntry {
         this.name = stack.getHoverName().getString().toLowerCase(Locale.ROOT);
 
         this.modId = FluidDisplay.ownerNamespace(stack); // a fluid display item belongs to the fluid's mod
-        this.registryId = FluidDisplay.idOf(stack.getItem());
+        this.registryId = FluidDisplay.idOf(stack);
         this.modDisplay = NotEnoughItems.platform().modName(this.modId);
         this.modName = this.modDisplay.toLowerCase(Locale.ROOT);
     }

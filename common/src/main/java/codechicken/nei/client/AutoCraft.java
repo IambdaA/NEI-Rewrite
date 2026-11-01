@@ -145,7 +145,7 @@ final class AutoCraft {
     }
 
     private static String id(ItemStack stack) {
-        return codechicken.nei.item.FluidDisplay.idOf(stack.getItem());
+        return codechicken.nei.item.FluidDisplay.idOf(stack);
     }
 
     /** What the player carries (main inventory and hotbar) by item id; the grid and the result do not count. */

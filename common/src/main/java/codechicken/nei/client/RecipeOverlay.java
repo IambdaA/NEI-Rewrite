@@ -64,7 +64,48 @@ public final class RecipeOverlay {
 
     private record Group(String title, ItemStack icon, List<RecipeView> views, List<ItemStack> stations) {}
 
-    private record Nav(Item item, boolean uses) {}
+    private record Nav(Item item, boolean uses, ItemStack focus) {}
+
+    /**
+     * The stack a lookup was asked for. Some mods (NTM's fluid icons) use ONE item for many things and tell them apart by a
+     * data component; a lookup of such a stack must only find recipes with that very stack, not with the item's other kinds.
+     */
+    private static ItemStack pendingFocus = ItemStack.EMPTY;
+
+    /** The stack the next lookup is about (set by {@link #focusNext}), or empty. */
+    static ItemStack pendingFocus() {
+        return pendingFocus;
+    }
+    private ItemStack focus = ItemStack.EMPTY;
+
+    public static void focusNext(ItemStack stack) {
+        pendingFocus = stack == null ? ItemStack.EMPTY : stack;
+    }
+
+    /**
+     * Does {@code option} (a recipe's stack) have everything the focused stack has? The recipe's stack may carry more
+     * (an amount, say) than the panel's entry, so equal components are too strict: every component of the focus must be
+     * present and equal, extra ones on the recipe side are fine.
+     */
+    private static boolean covers(ItemStack option, ItemStack focus) {
+        if (option.getItem() != focus.getItem()) return false;
+        final String wanted = codechicken.nei.item.FluidDisplay.subtypeOf(focus);
+        if (!wanted.isEmpty()) return wanted.equals(codechicken.nei.item.FluidDisplay.subtypeOf(option)); // JEI's identity
+        for (var e : focus.getComponentsPatch().entrySet()) {
+            final Object want = e.getValue().orElse(null);
+            if (!java.util.Objects.equals(option.get(e.getKey()), want)) return false;
+        }
+        return true;
+    }
+
+    /** Does a recipe have the focused stack (same item and components) in the slots a lookup looks at? */
+    private static boolean hasFocus(RecipeView view, ItemStack focus, boolean uses) {
+        for (SlotView s : view.slots()) {
+            if (s.output() == uses) continue;
+            for (ItemStack o : s.options()) if (covers(o, focus)) return true;
+        }
+        return false;
+    }
 
     private record Hit(int x, int y, int w, int h, ItemStack stack) {
 
@@ -172,11 +213,38 @@ public final class RecipeOverlay {
     }
 
     public void show(Item item, boolean uses, boolean pushHistory) {
-        if (pushHistory && this.item != null) history.push(new Nav(this.item, this.uses));
+        if (pushHistory && this.item != null) history.push(new Nav(this.item, this.uses, this.focus));
         this.item = item;
         this.uses = uses;
+        this.focus = pendingFocus.getItem() == item ? pendingFocus : ItemStack.EMPTY;
+        pendingFocus = ItemStack.EMPTY;
 
-        final List<RecipeView> views = uses ? RecipeIndex.usesOf(item) : RecipeIndex.recipesFor(item);
+        List<RecipeView> views = uses ? RecipeIndex.usesOf(item) : RecipeIndex.recipesFor(item);
+        // only for a stack that differs from its item's plain form: a component on the stack marks a kind of the item
+        if (!focus.isEmpty() && !focus.getComponentsPatch().isEmpty()) {
+            final ItemStack wanted = focus;
+            final int before = views.size();
+            views = views.stream().filter(v -> hasFocus(v, wanted, uses)).toList();
+            if (views.isEmpty() && before > 0) { // diagnostic for the next report
+                codechicken.nei.NotEnoughItems.LOGGER.info("NEI lookup filter: no recipe of {} has the stack {}; first recipe's stacks:",
+                        codechicken.nei.item.FluidDisplay.idOf(item), wanted.getComponentsPatch());
+                final var all = uses ? RecipeIndex.usesOf(item) : RecipeIndex.recipesFor(item);
+                for (SlotView s : all.get(0).slots()) for (ItemStack o : s.options()) {
+                    if (o.getItem() == item) codechicken.nei.NotEnoughItems.LOGGER.info("  {}", o.getComponentsPatch());
+                }
+            }
+        }
+        // diagnostic: what a lookup found (to see why a lookup lists unrelated things)
+        codechicken.nei.NotEnoughItems.LOGGER.info("NEI lookup {} of {}: {} recipes", uses ? "uses" : "recipes",
+                codechicken.nei.item.FluidDisplay.idOf(item), views.size());
+        for (int i = 0; i < Math.min(views.size(), 12); i++) {
+            final StringBuilder sb = new StringBuilder();
+            for (SlotView s : views.get(i).slots()) {
+                sb.append(s.output() ? " out" : " in").append('[').append(s.options().size()).append(": ")
+                        .append(codechicken.nei.item.FluidDisplay.idOf(s.options().get(0))).append(']');
+            }
+            codechicken.nei.NotEnoughItems.LOGGER.info("  {}:{}", views.get(i).title(), sb);
+        }
         final Map<String, List<RecipeView>> byTitle = new LinkedHashMap<>();
         for (RecipeView v : views) byTitle.computeIfAbsent(v.title(), k -> new ArrayList<>()).add(v);
 
@@ -471,9 +539,28 @@ public final class RecipeOverlay {
         }
 
         HotkeyHelp.recipeResult = !hovered.isEmpty() && hoveredView != null
-                && RecipeBookmarks.favoriteChoices(hoveredView).contains(codechicken.nei.item.FluidDisplay.idOf(hovered.getItem()));
-        if (!hovered.isEmpty()) ItemTooltip.request(hovered, HotkeyHelp.Where.RECIPE);
-        else if (hoveredHeart != null) ItemTooltip.requestHeart(codechicken.nei.NEIConfig.FAVORITE_WHEEL.getAsBoolean() && RecipeBookmarks.favoriteChoices(hoveredHeart).size() > 1);
+                && RecipeBookmarks.favoriteChoices(hoveredView).contains(codechicken.nei.item.FluidDisplay.idOf(hovered));
+        if (!hovered.isEmpty()) {
+            // a fluid display item has no tooltip of its own: the amount the recipe needs goes under its name
+            final List<Component> amount = codechicken.nei.item.FluidDisplay.is(hovered) && hovered.getCount() > 1
+                    ? List.of(Component.literal(hovered.getCount() + " mB").withStyle(net.minecraft.ChatFormatting.GRAY)) : List.of();
+            ItemTooltip.request(hovered, HotkeyHelp.Where.RECIPE, amount);
+        }
+        else if (hoveredHeart != null) {
+            final boolean wheel = codechicken.nei.NEIConfig.FAVORITE_WHEEL.getAsBoolean();
+            final boolean several = wheel && RecipeBookmarks.favoriteChoices(hoveredHeart).size() > 1;
+            // which result the heart is about (the wheel changes it): shown under "Favorite" when there is a choice
+            final List<Component> state = new ArrayList<>();
+            if (several && choice != null) {
+                final ItemEntry chosen = codechicken.nei.ItemList.find(choice);
+                if (chosen != null) {
+                    state.add(Component.literal("Result: ").withStyle(net.minecraft.ChatFormatting.GRAY)
+                            .append(chosen.stack.getHoverName()));
+                    state.add(Component.literal("Scroll to choose the result").withStyle(net.minecraft.ChatFormatting.DARK_GRAY));
+                }
+            }
+            ItemTooltip.requestHeart(several, state);
+        }
         else if (hoveredPick) ItemTooltip.requestPlain(List.of(Component.literal("Use for recipe tree")));
     }
 
@@ -645,7 +732,7 @@ public final class RecipeOverlay {
             }
             if (slot.output() && stack.getCount() > 1) Gfx.decorations(g, font, stack, sx + 1, sy + 1);
             if (slot.output() && view == prevChoiceView && choice != null
-                    && choice.equals(codechicken.nei.item.FluidDisplay.idOf(stack.getItem()))) {
+                    && choice.equals(codechicken.nei.item.FluidDisplay.idOf(stack))) {
                 drawChoice(g, sx + 1, sy + 1, 16, RecipeBookmarks.isFavoriteFor(view, choice));
             }
 
@@ -862,6 +949,7 @@ public final class RecipeOverlay {
     public boolean back() {
         if (history.isEmpty()) return false;
         final Nav nav = history.pop();
+        pendingFocus = nav.focus();
         show(nav.item(), nav.uses(), false);
         return true;
     }
@@ -881,12 +969,12 @@ public final class RecipeOverlay {
         if (hoveredView == null || hovered.isEmpty()) return false;
         for (SlotView s : hoveredView.slots()) {
             if (s.options().size() > 1 && s.options().stream().anyMatch(o -> o.getItem() == hovered.getItem())) {
-                RecipeBookmarks.toggleFavoriteItem(codechicken.nei.item.FluidDisplay.idOf(hovered.getItem()));
+                RecipeBookmarks.toggleFavoriteItem(codechicken.nei.item.FluidDisplay.idOf(hovered));
                 return true;
             }
         }
         // a result of the recipe: favorite this recipe for it (no mouse wheel needed; the item's own favorite wins in trees)
-        final String id = codechicken.nei.item.FluidDisplay.idOf(hovered.getItem());
+        final String id = codechicken.nei.item.FluidDisplay.idOf(hovered);
         if (RecipeBookmarks.favoriteChoices(hoveredView).contains(id)) {
             final boolean was = RecipeBookmarks.isFavoriteFor(hoveredView, id);
             RecipeBookmarks.toggleFavorite(hoveredView, id);

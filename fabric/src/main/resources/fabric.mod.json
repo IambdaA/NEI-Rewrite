@@ -20,7 +20,8 @@
   "environment": "*",
   "entrypoints": {
     "main": ["codechicken.nei.fabric.FabricEntry"],
-    "client": ["codechicken.nei.fabric.FabricClient"]
+    "client": ["codechicken.nei.fabric.FabricClient"],
+    "jei_mod_plugin": ["codechicken.nei.jei.NEIJeiPlugin"]
   },
   "mixins": ["notenoughitems.mixins.json"],
   "accessWidener": "notenoughitems.accesswidener",
@@ -29,5 +30,8 @@
     "minecraft": "~${minecraft_version}",
     "java": ">=21",
     "fabric-api": "*"
+  },
+  "suggests": {
+    "jei": "*"
   }
 }

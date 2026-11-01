@@ -9,6 +9,7 @@ import java.util.Map;
 
 import com.mojang.blaze3d.platform.InputConstants;
 
+import codechicken.nei.NotEnoughItems;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 
@@ -56,22 +57,50 @@ public final class KeyTable {
         return table;
     }
 
-    public static void fix() {
-        final Map<InputConstants.Key, KeyMapping> map = table();
-        final var options = Minecraft.getInstance().options;
-        if (map == null || options == null || GUI_ONLY.isEmpty()) return;
+    private static boolean reported;
+    private static boolean notFoundReported;
 
-        for (KeyMapping gui : GUI_ONLY) {
-            final String name = gui.saveString();
-            final InputConstants.Key key = InputConstants.getKey(name);
-            final KeyMapping current = map.get(key);
-            if (current == null || !GUI_ONLY.contains(current)) continue;
-            map.remove(key);
-            for (KeyMapping other : options.keyMappings) {
-                if (!GUI_ONLY.contains(other) && other.saveString().equals(name)) {
-                    map.put(key, other);
-                    break;
+    /** A mapping the table must not keep for a key that the game also uses: NEI's own, and JEI's (GUI-only too). */
+    private static boolean guiOnly(KeyMapping m) {
+        return GUI_ONLY.contains(m) || m.getName().startsWith("key.jei.");
+    }
+
+    public static void fix() {
+        try {
+            final Map<InputConstants.Key, KeyMapping> map = table();
+            final var options = Minecraft.getInstance().options;
+            if (map == null) {
+                if (!notFoundReported) {
+                    notFoundReported = true;
+                    NotEnoughItems.LOGGER.warn("NEI Rewrite: the key table was not found, NEI's hotkeys may take keys from the game (A = walk left)");
                 }
+                return;
+            }
+            if (options == null || GUI_ONLY.isEmpty()) return;
+
+            int changed = 0;
+            for (var entry : new ArrayList<>(map.entrySet())) {
+                final KeyMapping current = entry.getValue();
+                if (!guiOnly(current)) continue;
+                // the mapping of the game (or another mod) bound to that key takes it back; vanilla's own first
+                KeyMapping back = null;
+                for (KeyMapping other : options.keyMappings) {
+                    if (guiOnly(other) || !InputConstants.getKey(other.saveString()).equals(entry.getKey())) continue;
+                    if (back == null || other.getCategory().startsWith("key.categories.")) back = other;
+                    if (back == other && other.getCategory().startsWith("key.categories.")) break;
+                }
+                if (back != null) map.put(entry.getKey(), back);
+                else map.remove(entry.getKey());
+                changed++;
+            }
+            if (changed > 0 && !reported) {
+                reported = true;
+                NotEnoughItems.LOGGER.info("NEI Rewrite: gave {} key(s) back to the game's own controls", changed);
+            }
+        } catch (RuntimeException | LinkageError e) {
+            if (!notFoundReported) {
+                notFoundReported = true;
+                NotEnoughItems.LOGGER.warn("NEI Rewrite: could not fix the key table ({})", e.toString());
             }
         }
     }

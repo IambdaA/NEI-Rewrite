@@ -9,6 +9,7 @@
   "key.notenoughitems.bookmark": "Add / remove bookmark",
   "key.notenoughitems.toggle_bookmarks": "Show / hide bookmark panel",
   "key.notenoughitems.back": "Recipe window: previous view",
+  "key.notenoughitems.terminal_name": "Search Item in AE2 Terminal",
   "key.notenoughitems.open_crafting_tree": "Open Crafting Tree Window",
   "key.notenoughitems.chat_link": "Send Link to Chat (Ctrl +)",
   "key.notenoughitems.craft_items": "Craft Items (Shift +)",

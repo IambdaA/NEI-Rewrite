@@ -5,7 +5,7 @@ The store texts are in `store/` (`modrinth.md`, `curseforge.html`, `summary.txt`
 ## Before the first upload
 
 1. `./gradlew :neoforge:build :fabric:build`, then run each jar in a clean 1.21.1 instance
-   (`neoforge/build/libs/notenoughitems-neoforge-1.21.1-1.1.0.jar`, `fabric/build/libs/notenoughitems-fabric-1.21.1-1.1.0.jar`;
+   (`neoforge/build/libs/notenoughitems-neoforge-1.21.1-1.1.2.jar`, `fabric/build/libs/notenoughitems-fabric-1.21.1-1.1.2.jar`;
    the Fabric one with Fabric API).
 2. Start a **dedicated server** with each jar and join it: mod on both sides, on the client only, on the server only.
 3. Make the GitHub repository public, then add the source link to the store texts and the mod metadata.

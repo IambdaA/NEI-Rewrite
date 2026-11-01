@@ -20,6 +20,12 @@ public interface Platform {
 
     boolean isModLoaded(String id);
 
+    /** The fluid inside one of the loader's fluid ingredient objects (as JEI hands them out), or null when it is not one. */
+    net.minecraft.world.level.material.Fluid fluidOf(Object ingredient);
+
+    /** The amount in millibuckets of one of the loader's fluid ingredient objects, or -1 when it is not one. */
+    long fluidAmount(Object ingredient);
+
     /** Sends a payload from the client to the server (client side only). */
     void sendToServer(CustomPacketPayload payload);
 

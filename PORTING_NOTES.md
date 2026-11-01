@@ -89,3 +89,43 @@ Same credits / "how it differs" sections as the 26.x projects (store texts, READ
 - Version 1.1.0 (`gradle.properties`, `CHANGELOG.md`, `RELEASE.md` jar names).
 - Multiloader: the JEI bridge (`NEIJeiPlugin`, `JeiGui`) is in `pending/jei/` again: the multiloader build has no JEI dependency yet, so it must not be in `common/`. It is uncompiled, written from JEI 26.2 source (JEI 19.x names unverified).
 - Untested: parse-checked only.
+
+## Stage 43 / version 1.1.2 (1.21.1)
+
+- Ported the 26.x changes to this project: 21 files patched in `common/` (fluid ids with JEI subtype identity, amounts, T key,
+  mB-only option, lead-result bookmark rows, R lookup focus).
+- New `jei/NEIJeiPlugin.java` (JEI 19 API: `ResourceLocation`, `createRecipeCatalystLookup`, `createRecipeLayoutDrawable` returning
+  `Optional`) and `jei/JeiGui.java`. JEI 19 has no `IJeiFeatures.disableJeiGui()`, so `JeiGui.hide()` sets
+  `Internal.getClientToggleState()` overlay/bookmark off by reflection.
+- NeoForge: JEI repo, `compileOnly` common-api + neoforge-api, `localRuntime` neoforge jar, optional `jei` dependency in `neoforge.mods.toml`;
+  `NeoPlatform.fluidOf/fluidAmount`.
+- Fabric: Loom remaps, JEI Fabric jars are intermediary, so `modCompileOnly` / `modRuntimeOnly`; `jei_mod_plugin` entrypoint;
+  `FabricPlatform.fluidOf/fluidAmount` by reflection (amount / 81).
+- `neo_version` 21.1.235. `jei_version=19.+` is dynamic until the exact version of the user's build is known.
+- Not compiled here (no Minecraft jars): everything above is unverified against 1.21.1 until the user builds it.
+
+### Toolchain bump (1.21.1, after the first build report)
+- First build failed: "Mod was built with a newer version of Loom (1.18.2), you are using Loom (1.10.5)". Loom's cache is shared between
+  projects, and the user's other projects had already written 1.21.1 files with Loom 1.18.2. Now: Loom `net.fabricmc.fabric-loom-remap`
+  1.18.3 (the remapping plugin id of Loom 1.18+, still mojmap + intermediary JEI jars), ModDevGradle 2.0.148, Gradle 9.7.0 (Loom 1.18.3 needs it; the 26.x projects use 9.5.0 with Loom 1.17.20).
+- Not built here.
+
+### First play test (1.21.1)
+- JEI 19 draws `configButton`, `bookmarkButton` and `historyButton` whenever it has valid GUI properties, whatever the toggle state says.
+  `JeiGui.hide(screenHelper)` replaces JEI's handler for `AbstractContainerScreen` (map `guiScreenHandlers` of the library `ScreenHelper`, by
+  reflection, once the runtime is up: JEI's own GUI plugin registers in an order we cannot rely on) with one that reports the whole screen
+  as the GUI, so JEI has no room left for its panels and buttons.
+- `NEIClientEvents.addHistory` used the item only, so every fluid of `hbm:fluid_icon` became the plain item ("None") and replaced the others.
+  It now records the lookup's focus stack (`RecipeOverlay.pendingFocus()`) and dedupes by id. The same bug is in the 26.x projects.
+- Input priority: Fabric `EARLY` phase before the default phase (`addPhaseOrdering`) for key press, click and scroll; NeoForge `EventPriority.HIGHEST`.
+- Open: "NEI does not show in creative" is not understood yet; a log line per screen class now prints the panel layout.
+- Not built here.
+
+### Second play test (1.21.1 Fabric, JEI 19.70.0.464)
+- Log: JEI version is 19.70.0.464 (kept dynamic as `19.+` on purpose). NEI panel code ran on `class_481` (creative) but nothing was visible.
+- `FabricClient.live` compared a global init counter: creative opens inside the survival screen's init, so the survival init event comes last
+  and the creative screen was "dead". The counter is per screen now (WeakHashMap) and the screen must be the open one; a log line says
+  when the open screen is not live.
+- `KeyTable.fix` handled only NEI mappings sitting in vanilla's table; it now also takes JEI's (`key.jei.*`) out, gives the key back to a vanilla
+  mapping first, and runs again every 20 ticks. Logs once what it changed, or that the table was not found.
+- Not built here.

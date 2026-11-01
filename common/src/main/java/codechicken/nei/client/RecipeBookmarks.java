@@ -33,7 +33,7 @@ final class RecipeBookmarks {
     private RecipeBookmarks() {}
 
     private static String id(ItemStack stack) {
-        return codechicken.nei.item.FluidDisplay.idOf(stack.getItem());
+        return codechicken.nei.item.FluidDisplay.idOf(stack);
     }
 
     /** A stable id for the recipe: its type plus what it makes and uses. */
@@ -70,13 +70,18 @@ final class RecipeBookmarks {
      *             (NEI: {@code Recipe#getResult(stack)})
      */
     static List<RecipeItem> results(RecipeView view, ItemStack only) {
+        return resultsFor(view, only == null ? null : only.isEmpty() ? "" : id(only));
+    }
+
+    /** Like {@link #results(RecipeView, ItemStack)} with the wanted result as an id ("" for the first one, null for all). */
+    static List<RecipeItem> resultsFor(RecipeView view, String onlyId) {
         final Map<String, Integer> counts = new LinkedHashMap<>();
         for (SlotView s : view.slots()) {
             if (!s.output() || s.options().isEmpty() || s.options().get(0).isEmpty()) continue;
             counts.merge(id(s.options().get(0)), Math.max(1, s.options().get(0).getCount()), Integer::sum);
         }
-        if (only != null && counts.size() > 1) {
-            final String keep = !only.isEmpty() && counts.containsKey(id(only)) ? id(only)
+        if (onlyId != null && counts.size() > 1) {
+            final String keep = !onlyId.isEmpty() && counts.containsKey(onlyId) ? onlyId
                     : counts.keySet().iterator().next();
             final int count = counts.get(keep);
             counts.clear();
@@ -118,6 +123,11 @@ final class RecipeBookmarks {
 
     static RecipeSpec spec(RecipeView view, Map<SlotView, String> chosen, ItemStack onlyResult) {
         return new RecipeSpec(key(view), results(view, onlyResult), ingredients(view, chosen));
+    }
+
+    /** A recipe of a tree: only the result the parent needs (the lead result), so byproducts do not crowd the row. */
+    private static RecipeSpec leadSpec(RecipeView view, Map<SlotView, String> chosen, String leadId) {
+        return new RecipeSpec(key(view), resultsFor(view, leadId), ingredients(view, chosen));
     }
 
     /** SHIFT + bookmark key over a recipe: adds it to the bookmarks, or removes it if it is there. */
@@ -221,6 +231,7 @@ final class RecipeBookmarks {
         final Map<SlotView, String> chosen = new IdentityHashMap<>();
         final Set<String> items = new HashSet<>();
         final List<RecipeView> result = new ArrayList<>();
+        final Map<RecipeView, String> lead = new IdentityHashMap<>(); // sub-recipe -> the result its parent needs
         List<RecipeView> loop = new ArrayList<>();
         loop.add(main);
         result.add(main);
@@ -256,6 +267,7 @@ final class RecipeBookmarks {
                         } else {
                             items.add(stack);
                             if (depth >= 0) {
+                                lead.put(recipe, stack);
                                 result.add(recipe);
                                 next.add(recipe);
                             }
@@ -269,7 +281,7 @@ final class RecipeBookmarks {
         }
 
         final List<RecipeSpec> specs = new ArrayList<>();
-        for (RecipeView v : result) specs.add(spec(v, chosen, null));
+        for (RecipeView v : result) specs.add(lead.containsKey(v) ? leadSpec(v, chosen, lead.get(v)) : spec(v, chosen, null));
         return specs;
     }
 

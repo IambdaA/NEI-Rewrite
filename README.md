@@ -1,7 +1,5 @@
 # NEI Rewrite
 
-> **Work in progress: the 1.21.1 version has no JEI bridge yet** (stage 1), so recipes of modded machines are missing.
-> Vanilla recipes, search, bookmarks, trees, cheat tools and the rest work.
 
 An **unofficial** rewrite of the [GTNH fork of NotEnoughItems](https://github.com/GTNewHorizons/NotEnoughItems) for
 Minecraft 1.21.1 on **NeoForge and Fabric**, by Iambda. It follows NEI's design and rules, but the code is new. It aims to look and work
@@ -31,9 +29,8 @@ Not affiliated with the GTNH team. See `PORTING_NOTES.md` for the porting log an
 
 ## Requirements
 
-- Minecraft 1.21.1 with NeoForge 21.1.x, or Fabric Loader 0.16+ with Fabric API
-- JEI support (**recipes of modded machines**) is not in this version yet: it comes in the next stage. Until then only
-  vanilla recipes show.
+- Minecraft 1.21.1 with NeoForge 21.1.235 or newer 21.1.x, or Fabric Loader 0.16+ with Fabric API
+- **JEI 19 is expected** (NEI loads without it but shows only vanilla recipes; the JEI bridge reads modded machines' recipes and turns JEI's own panels off, which would overlap NEI's).
 - Works on the client alone. Install it on the **server too** if you want recipe lookup on a multiplayer server: the
   server sends the recipes (without it you only see recipes the server shares with the recipe book).
 

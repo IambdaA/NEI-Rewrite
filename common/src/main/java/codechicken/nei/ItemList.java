@@ -62,8 +62,19 @@ public final class ItemList {
         return all;
     }
 
+    /** Entries made for subtyped ids that the item list does not hold (every fluid of an NTM fluid icon). */
+    private static final java.util.Map<String, ItemEntry> SUBTYPED = new java.util.concurrent.ConcurrentHashMap<>();
+
     public static ItemEntry find(String registryId) {
-        return byId.get(registryId);
+        final ItemEntry e = byId.get(registryId);
+        if (e != null || registryId == null || registryId.indexOf(codechicken.nei.item.FluidDisplay.MARK) < 0) return e;
+        final ItemEntry made = SUBTYPED.get(registryId);
+        if (made != null) return made;
+        final ItemStack stack = codechicken.nei.item.FluidDisplay.stackOf(registryId);
+        if (stack.isEmpty()) return null;
+        final ItemEntry entry = new ItemEntry(stack);
+        SUBTYPED.put(registryId, entry);
+        return entry;
     }
 
     public static int totalCount() {

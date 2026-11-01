@@ -83,7 +83,7 @@ final class HotkeyHelp {
     static boolean draw(GuiGraphics g, int mx, int my, int sw, int sh, ItemStack stack, Where where) {
         if (!altDown || stack.isEmpty()) return false;
 
-        final boolean bookmarked = Bookmarks.contains(codechicken.nei.item.FluidDisplay.idOf(stack.getItem()));
+        final boolean bookmarked = Bookmarks.contains(codechicken.nei.item.FluidDisplay.idOf(stack));
 
         // Wording and order follow NEI's ShortcutInputHandler#handleHotkeys and its lang file. Only actions this port
         // has are listed.
@@ -144,6 +144,9 @@ final class HotkeyHelp {
         }
         lines.add(new Line(NEIKeys.name(NEIKeys.RECIPE), "Recipe to make this item"));
         lines.add(new Line(NEIKeys.name(NEIKeys.USAGE), "Recipes that use this item"));
+        if (TerminalSearchSync.isTerminal(net.minecraft.client.Minecraft.getInstance().screen)) {
+            lines.add(new Line(NEIKeys.name(NEIKeys.TERMINAL_NAME), "Search this in the terminal"));
+        }
         // As in NEI: the three copy lines follow the recipe / uses lines everywhere (oredict is "tags" here)
         lines.add(new Line("CTRL + " + NEIKeys.name(NEIKeys.COPY_NAME), "Copy Item Name"));
         lines.add(new Line("CTRL + " + NEIKeys.name(NEIKeys.COPY_TAGS), "Copy Item Tags"));

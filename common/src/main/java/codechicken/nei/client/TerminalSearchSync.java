@@ -25,6 +25,26 @@ final class TerminalSearchSync {
 
     private TerminalSearchSync() {}
 
+    /** Is this an ME terminal screen with a search field? */
+    static boolean isTerminal(Screen screen) {
+        return screen != null && screen.getClass().getName().startsWith(TERMINALS) && field(screen) != null;
+    }
+
+    private static EditBox field(Screen screen) {
+        for (GuiEventListener child : screen.children()) if (child instanceof EditBox box) return box;
+        return null;
+    }
+
+    /** Types a name into the terminal's search field (its own text is replaced). Returns false when there is no terminal. */
+    static boolean type(Screen screen, String text) {
+        if (screen == null || !screen.getClass().getName().startsWith(TERMINALS)) return false;
+        final EditBox box = field(screen);
+        if (box == null) return false;
+        box.setValue(text);
+        return true;
+    }
+
+
     public static void onTick() {
         final Screen screen = Minecraft.getInstance().screen;
         if (screen == null || !NEIConfig.SYNC_TERMINAL_SEARCH.get() || !screen.getClass().getName().startsWith(TERMINALS)) {

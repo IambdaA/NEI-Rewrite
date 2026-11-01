@@ -11,6 +11,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.registries.Registries;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModLoader;
 import net.neoforged.fml.common.Mod;
@@ -56,7 +57,7 @@ public final class NeoForgeClient {
         });
         bus.addListener((ScreenEvent.Render.Post e) ->
                 ClientHooks.renderPost(e.getScreen(), e.getGuiGraphics(), e.getMouseX(), e.getMouseY(), e.getPartialTick()));
-        bus.addListener((ScreenEvent.MouseButtonPressed.Pre e) -> {
+        bus.addListener(EventPriority.HIGHEST, (ScreenEvent.MouseButtonPressed.Pre e) -> {
             if (ClientHooks.mousePressed(e.getScreen(), e.getMouseX(), e.getMouseY(), e.getButton())) e.setCanceled(true);
         });
         bus.addListener((ScreenEvent.MouseButtonPressed.Post e) ->
@@ -64,10 +65,10 @@ public final class NeoForgeClient {
         bus.addListener((ScreenEvent.MouseButtonReleased.Pre e) -> {
             if (ClientHooks.mouseReleased(e.getScreen(), e.getMouseX(), e.getMouseY(), e.getButton())) e.setCanceled(true);
         });
-        bus.addListener((ScreenEvent.MouseScrolled.Pre e) -> {
+        bus.addListener(EventPriority.HIGHEST, (ScreenEvent.MouseScrolled.Pre e) -> {
             if (ClientHooks.mouseScrolled(e.getScreen(), e.getMouseX(), e.getMouseY(), e.getScrollDeltaY())) e.setCanceled(true);
         });
-        bus.addListener((ScreenEvent.KeyPressed.Pre e) -> {
+        bus.addListener(EventPriority.HIGHEST, (ScreenEvent.KeyPressed.Pre e) -> {
             if (ClientHooks.keyPressed(e.getScreen(), e.getKeyCode(), e.getScanCode(), e.getModifiers())) e.setCanceled(true);
         });
         bus.addListener((ScreenEvent.KeyReleased.Pre e) ->

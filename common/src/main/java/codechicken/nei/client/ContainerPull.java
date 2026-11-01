@@ -65,7 +65,7 @@ public final class ContainerPull {
     }
 
     private static String id(ItemStack stack) {
-        return codechicken.nei.item.FluidDisplay.idOf(stack.getItem());
+        return codechicken.nei.item.FluidDisplay.idOf(stack);
     }
 
     private static Map<String, Long> count(List<ItemStack> stacks) {

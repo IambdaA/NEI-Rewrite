@@ -44,7 +44,7 @@ public final class NEIActions {
         if (player == null) return false;
 
         // the command is sent without the leading slash
-        player.connection.sendCommand("give @s " + entry.registryId + components(entry.stack) + " " + count);
+        player.connection.sendCommand("give @s " + codechicken.nei.item.FluidDisplay.plainId(entry.registryId) + components(entry.stack) + " " + count);
         return true;
     }
 

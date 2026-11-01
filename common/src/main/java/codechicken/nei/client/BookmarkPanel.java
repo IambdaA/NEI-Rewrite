@@ -624,7 +624,7 @@ public final class BookmarkPanel {
                 : shown == Shown.SHIFT ? calc.shiftAmount : calc.amount();
 
         if (amount > 0 || shown == Shown.REAL && item.factor > 0) {
-            final String text = readable(amount);
+            final String text = codechicken.nei.item.FluidDisplay.isFluidId(item.id) ? codechicken.nei.item.FluidDisplay.amountLabel(amount) : readable(amount);
             smallText(g, font, text, cx + 17 - font.width(text) * 0.5f, cy + 17 - 4.5f, 0xFFFFFF);
         }
 

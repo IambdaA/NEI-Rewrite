@@ -36,6 +36,9 @@ public final class NEIKeys {
     /** NEI's {@code bookmark.open_crafting_tree}. */
     public static final KeyMapping OPEN_TREE = key("open_crafting_tree", GLFW.GLFW_KEY_T);
 
+    /** Not in NEI: over an item or fluid, types its name into the search field of an open Applied Energistics terminal. */
+    public static final KeyMapping TERMINAL_NAME = key("terminal_name", GLFW.GLFW_KEY_T);
+
     /** NEI's {@code copy.name}, {@code copy.identifier} and {@code copy.oredict} (tags here); used with Ctrl held. */
     public static final KeyMapping COPY_NAME = key("copy_name", GLFW.GLFW_KEY_C);
     public static final KeyMapping COPY_ID = key("copy_id", GLFW.GLFW_KEY_X);

@@ -1,6 +1,6 @@
 plugins {
     id 'java-library'
-    id 'net.neoforged.moddev' version '2.0.78'
+    id 'net.neoforged.moddev' version '2.0.148'
     id 'idea'
 }
 
@@ -9,6 +9,23 @@ base {
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+repositories {
+    // JEI's API (for the JEI recipe bridge, codechicken.nei.jei)
+    maven {
+        url = 'https://maven.blamejared.com'
+        // JEI's config library (mezz_config) lives on the same maven; JEI's pom needs it at runtime
+        content {
+            includeGroup 'mezz.jei'
+            includeGroup 'net.mezzdev.config'
+        }
+    }
+}
+
+// Without JEI (jei_version=none) the JEI bridge package is not compiled
+if (jei_version == 'none') {
+    sourceSets.main.java.exclude('codechicken/nei/jei/**')
+}
 
 // The shared code (plain Minecraft code) is compiled into this jar together with the NeoForge glue in this module.
 sourceSets.main.java.srcDir '../common/src/main/java'
@@ -51,6 +68,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             mod_license            : mod_license,
             mod_version            : mod_version,
             mod_authors            : mod_authors,
+            jei_version_range      : jei_version_range,
     ]
     inputs.properties replaceProperties
     expand replaceProperties
@@ -59,6 +77,21 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 }
 sourceSets.main.resources.srcDir generateModMetadata
 neoForge.ideSyncTask generateModMetadata
+
+// 'localRuntime': like runtimeOnly, but not pulled in by dependents of this mod (the dev client gets the full JEI through it).
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+dependencies {
+    // The JEI recipe bridge reads the recipes of every mod that has a JEI plugin. Only the API is needed to compile;
+    // the full JEI goes to localRuntime so the dev client has it, and it is not a dependency of the published mod.
+    if (jei_version != 'none') {
+        compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
+        compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+        localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    }
+}
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

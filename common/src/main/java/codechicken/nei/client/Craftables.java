@@ -62,7 +62,7 @@ final class Craftables {
     }
 
     private static String id(ItemStack stack) {
-        return codechicken.nei.item.FluidDisplay.idOf(stack.getItem());
+        return codechicken.nei.item.FluidDisplay.idOf(stack);
     }
 
     static void update(net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen, int columns) {
