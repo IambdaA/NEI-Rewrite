@@ -129,9 +129,13 @@ public final class NEIClientEvents {
     /** NEI's {@code ItemHistoryPanel#addItem}: newest first, no repeats, at most 50. */
     private static void addHistory(Item item) {
         loadHistory(); // so a first lookup does not overwrite the saved list
-        final ItemEntry entry = ItemList.find(codechicken.nei.item.FluidDisplay.idOf(item));
+        // the stack the lookup is about (an NTM fluid icon is one item for many fluids: the item alone would be "None")
+        final ItemStack focus = RecipeOverlay.pendingFocus();
+        final String id = focus.getItem() == item ? codechicken.nei.item.FluidDisplay.idOf(focus)
+                : codechicken.nei.item.FluidDisplay.idOf(item);
+        final ItemEntry entry = ItemList.find(id);
         if (entry == null) return;
-        HISTORY_LIST.removeIf(e -> e.stack.getItem() == item);
+        HISTORY_LIST.removeIf(e -> e.registryId.equals(entry.registryId));
         HISTORY_LIST.add(0, entry);
         if (HISTORY_LIST.size() > 50) HISTORY_LIST.remove(HISTORY_LIST.size() - 1);
         if (NEIConfig.HISTORY_SAVE.getAsBoolean()) {
