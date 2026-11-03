@@ -2,7 +2,7 @@ package codechicken.nei.recipe;
 
 import java.util.List;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -40,18 +40,18 @@ public record RecipeView(String title, ItemStack station, List<SlotView> slots, 
         int height();
 
         /** Draws the recipe with its top-left corner at (x, y). */
-        void draw(GuiGraphicsExtractor g, int x, int y, int mx, int my);
+        void draw(GuiGraphics g, int x, int y, int mx, int my);
 
         /** The item stack under the mouse as of the last draw, or empty. */
         ItemStack itemAt(int mx, int my);
 
         /** Tooltips of what the mouse is over (fluids, bars); items are left to NEI's own tooltip. */
-        void overlays(GuiGraphicsExtractor g, int mx, int my);
+        void overlays(GuiGraphics g, int mx, int my);
 
         boolean contains(int mx, int my);
 
         /** Marks the slot that holds this result (the favorite button's chosen result); nothing by default. Call after {@link #draw}. */
-        default void highlightResult(GuiGraphicsExtractor g, ItemStack result, int color) {}
+        default void highlightResult(GuiGraphics g, ItemStack result, int color) {}
 
         /** Whether a "+" can place this recipe into the open screen's menu: none, possible, or known to be impossible right now. */
         enum Transfer {

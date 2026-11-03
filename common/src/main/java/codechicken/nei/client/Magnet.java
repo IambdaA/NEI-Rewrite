@@ -37,6 +37,7 @@ final class Magnet {
         NEIConfig.SPEC.save();
         NotEnoughItems.platform().sendToServer(new CheatPackets.Magnet(now));
     }
+
     public static void onTick() {
         final LocalPlayer player = Minecraft.getInstance().player;
         if (player == lastPlayer) return;

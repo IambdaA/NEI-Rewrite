@@ -1,25 +1,17 @@
-# Publishing checklist
+# Publishing checklist (1.20.1)
 
 The store texts are in `store/` (`modrinth.md`, `curseforge.html`, `summary.txt`); the changelog is `CHANGELOG.md`.
 
 ## Before the first upload
 
-1. `./gradlew build`, then run `neoforge/build/libs/notenoughitems-neoforge-26.2-1.1.2.jar` in a clean 26.2 NeoForge instance and `fabric/build/libs/notenoughitems-fabric-26.2-1.1.2.jar` (with Fabric API) in a Fabric one.
-2. Start a **dedicated server** with the jar and join it: with the mod on both sides, on the client only and on the server only.
-3. Make the GitHub repository public, then add `issueTrackerURL` and `displayURL` to `neoforge/src/main/templates/META-INF/neoforge.mods.toml`
-   and a source link to the store texts.
-4. `jei_version` in `gradle.properties` is pinned (30.47.0.240); raise it when you test against a newer JEI.
-5. Upload each jar as **Beta** (one NeoForge file, one Fabric file).
+1. `./gradlew :forge:build :fabric:build`, then run each jar in a clean 1.20.1 instance with JEI 15
+   (`forge/build/libs/notenoughitems-forge-1.20.1-1.1.2.jar`, `fabric/build/libs/notenoughitems-fabric-1.20.1-1.1.2.jar`;
+   the Fabric one with Fabric API). The Forge build puts the reobfuscated jar in `build/libs` (the `-dev` jar is not for players).
+2. Start a **dedicated server** with each jar and join it: mod on both sides, on the client only, on the server only.
+3. Make the GitHub repository public, then add the source link to the store texts and the mod metadata.
+4. Upload as **Beta**: the Forge jar as Forge 1.20.1, the Fabric jar as Fabric 1.20.1 (one project page per site, two files).
 
 ## Project settings
 
-| Field | Value |
-|---|---|
-| Project name | NEI Rewrite |
-| Slug (not `nei`, Modrinth already has the original NEI under it) | `nei-rewrite` |
-| License | LGPL-3.0-or-later |
-| Environment | client required; server optional |
-| Loader / game version | NeoForge and Fabric / 26.2 |
-| Dependencies | JEI: optional |
-| Icon | `common/src/main/resources/logo.png` |
-| Summary | `store/summary.txt` |
+Same as the other versions (slug `nei-rewrite`, LGPL-3.0-or-later, client required, server optional). The JEI dependency is
+listed as optional (recommended), JEI 15.

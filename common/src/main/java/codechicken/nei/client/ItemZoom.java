@@ -6,7 +6,7 @@ import codechicken.nei.NEIConfig;
 import codechicken.nei.item.ZoomMath;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.BlockItem;
@@ -50,7 +50,7 @@ final class ItemZoom {
         stack = ItemStack.EMPTY;
         place = null;
         screenWidth = screen.width;
-        xSize = screen.imageWidth;
+        xSize = Frame.width(screen);
         if (hovered.isEmpty()) return;
         if (NEIConfig.ZOOM_ONLY_SOLID.getAsBoolean()
                 && !(hovered.getItem() instanceof BlockItem b && b.getBlock().defaultBlockState().canOcclude())) return;
@@ -61,7 +61,7 @@ final class ItemZoom {
         if (place != null) stack = hovered;
     }
 
-    static void render(GuiGraphicsExtractor g, AbstractContainerScreen<?> screen) {
+    static void render(GuiGraphics g, AbstractContainerScreen<?> screen) {
         if (!hasItem() || !(NEIConfig.ZOOM_ENABLED.getAsBoolean() || holdDown)) return;
         // NEI: no zoom while something is held on the cursor (GuiContainerManager#shouldShowTooltip)
         if (!screen.getMenu().getCarried().isEmpty()) return;
@@ -71,18 +71,18 @@ final class ItemZoom {
         final int cx = (int) (place.x + size / 2);
         final int below = (int) (place.y + size);
 
-        g.pose().pushMatrix();
-        g.pose().translate(place.x, place.y);
-        g.pose().scale(place.scale, place.scale);
+        g.pose().pushPose();
+        g.pose().translate(place.x, place.y, 0f);
+        g.pose().scale(place.scale, place.scale, 1f);
         Draw.stack(g, stack, 0, 0);
-        g.pose().popMatrix();
+        g.pose().popPose();
 
         int shift = 10;
         if (NEIConfig.ZOOM_SHOW_NAME.getAsBoolean()) {
             final String name = ZoomMath.crop(stack.getHoverName().getString(), place.availableWidth, font::width);
             int color = NEIConfig.color(NEIConfig.ZOOM_NAME_COLOR);
             if (color >>> 24 == 0) color |= 0xFF000000;
-            g.text(font, Component.literal(name), cx - font.width(name) / 2, below + shift, color, true);
+            Gfx.text(g, font, Component.literal(name), cx - font.width(name) / 2, below + shift, color, true);
             shift += font.lineHeight;
         }
 
@@ -92,7 +92,7 @@ final class ItemZoom {
                     .getString();
             int y = below + 10 + shift;
             for (String line : ZoomMath.wrap(help, place.availableWidth, font::width)) {
-                g.text(font, Component.literal(line), cx - font.width(line) / 2, y, 0x66555555, false);
+                Gfx.text(g, font, Component.literal(line), cx - font.width(line) / 2, y, 0x66555555, false);
                 y += font.lineHeight;
             }
         }
@@ -105,7 +105,7 @@ final class ItemZoom {
     }
 
     private static boolean matches(net.minecraft.client.KeyMapping mapping, InputConstants.Key pressed) {
-        return !mapping.isUnbound() && ClientPlatform.HOLDER.get().boundKey(mapping).equals(pressed);
+        return NEIKeys.is(mapping, pressed);
     }
 
     /** The hold, zoom in and zoom out keys; they only act while an item is zoomed. Returns true if the key was used. */

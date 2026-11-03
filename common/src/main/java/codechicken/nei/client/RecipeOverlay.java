@@ -29,7 +29,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -71,6 +71,11 @@ public final class RecipeOverlay {
      * data component; a lookup of such a stack must only find recipes with that very stack, not with the item's other kinds.
      */
     private static ItemStack pendingFocus = ItemStack.EMPTY;
+
+    /** The stack the next lookup is about (set by {@link #focusNext}), or empty. */
+    static ItemStack pendingFocus() {
+        return pendingFocus;
+    }
     private ItemStack focus = ItemStack.EMPTY;
 
     public static void focusNext(ItemStack stack) {
@@ -79,18 +84,15 @@ public final class RecipeOverlay {
 
     /**
      * Does {@code option} (a recipe's stack) have everything the focused stack has? The recipe's stack may carry more
-     * (an amount, say) than the panel's entry, so equal components are too strict: every component of the focus must be
+     * (an amount, say) than the panel's entry, so equal NBT is too strict: every NBT entry of the focus must be
      * present and equal, extra ones on the recipe side are fine.
      */
     private static boolean covers(ItemStack option, ItemStack focus) {
         if (option.getItem() != focus.getItem()) return false;
         final String wanted = codechicken.nei.item.FluidDisplay.subtypeOf(focus);
         if (!wanted.isEmpty()) return wanted.equals(codechicken.nei.item.FluidDisplay.subtypeOf(option)); // JEI's identity
-        for (var e : focus.getComponentsPatch().entrySet()) {
-            final Object want = e.getValue().orElse(null);
-            if (!java.util.Objects.equals(option.get(e.getKey()), want)) return false;
-        }
-        return true;
+        // every NBT entry of the focus must be present and equal on the recipe's stack (extra ones there are fine)
+        return !focus.hasTag() || net.minecraft.nbt.NbtUtils.compareNbt(focus.getTag(), option.getTag(), true);
     }
 
     /** Does a recipe have the focused stack (same item and components) in the slots a lookup looks at? */
@@ -216,16 +218,16 @@ public final class RecipeOverlay {
 
         List<RecipeView> views = uses ? RecipeIndex.usesOf(item) : RecipeIndex.recipesFor(item);
         // only for a stack that differs from its item's plain form: a component on the stack marks a kind of the item
-        if (!focus.isEmpty() && !focus.getComponentsPatch().isEmpty()) {
+        if (!focus.isEmpty() && focus.hasTag()) {
             final ItemStack wanted = focus;
             final int before = views.size();
             views = views.stream().filter(v -> hasFocus(v, wanted, uses)).toList();
             if (views.isEmpty() && before > 0) { // diagnostic for the next report
                 codechicken.nei.NotEnoughItems.LOGGER.info("NEI lookup filter: no recipe of {} has the stack {}; first recipe's stacks:",
-                        codechicken.nei.item.FluidDisplay.idOf(item), wanted.getComponentsPatch());
+                        codechicken.nei.item.FluidDisplay.idOf(item), wanted.getTag());
                 final var all = uses ? RecipeIndex.usesOf(item) : RecipeIndex.recipesFor(item);
                 for (SlotView s : all.get(0).slots()) for (ItemStack o : s.options()) {
-                    if (o.getItem() == item) codechicken.nei.NotEnoughItems.LOGGER.info("  {}", o.getComponentsPatch());
+                    if (o.getItem() == item) codechicken.nei.NotEnoughItems.LOGGER.info("  {}", o.getTag());
                 }
             }
         }
@@ -418,7 +420,7 @@ public final class RecipeOverlay {
         return options.get((int) ((System.currentTimeMillis() / 1000) % options.size()));
     }
 
-    public void render(GuiGraphicsExtractor g, int mx, int my, int sw, int sh) {
+    public void render(GuiGraphics g, int mx, int my, int sw, int sh) {
         layout(sw, sh);
         final Font font = Minecraft.getInstance().font;
 
@@ -454,8 +456,8 @@ public final class RecipeOverlay {
             Draw.button(g, left - 3, ty + 2, 8, TAB - 4, Draw.in(mx, my, left - 3, ty + 2, 8, TAB - 4));
             Draw.button(g, left + 4 + TABS * TAB - 1, ty + 2, 8, TAB - 4,
                     Draw.in(mx, my, left + 4 + TABS * TAB - 1, ty + 2, 8, TAB - 4));
-            g.text(font, Component.literal("<"), left - 1, ty + 8, 0xFFE0E0E0, false);
-            g.text(font, Component.literal(">"), left + 4 + TABS * TAB + 1, ty + 8, 0xFFE0E0E0, false);
+            Gfx.text(g, font, Component.literal("<"), left - 1, ty + 8, 0xFFE0E0E0, false);
+            Gfx.text(g, font, Component.literal(">"), left + 4 + TABS * TAB + 1, ty + 8, 0xFFE0E0E0, false);
         }
 
         // title row and page row (NEI: darkened bars with a < > button at each end)
@@ -465,20 +467,20 @@ public final class RecipeOverlay {
         for (int row = 0; row < 2; row++) {
             final int by = top + 3 + row * 14;
             final int barLeft = left + 5 + NAV_W + (row == 1 ? 12 : 0);
-            g.fill(barLeft, by, rightX - 1, by + NAV_H, 0x30000000);
+            Gfx.fill(g, barLeft, by, rightX - 1, by + NAV_H, 0x30000000);
             if (row == 1 && searchOn) {
                 final String count = (page + 1) + "/" + pageCount();
-                g.text(font, Component.literal(count), left + 30 + SEARCH_W + 22 - font.width(count) / 2, by + 2,
+                Gfx.text(g, font, Component.literal(count), left + 30 + SEARCH_W + 22 - font.width(count) / 2, by + 2,
                         0xFFFFFFFF, true);
             } else {
                 final String text = row == 0 ? title : "Page " + (page + 1) + "/" + pageCount();
-                g.text(font, Component.literal(text), left + (W - font.width(text)) / 2, by + 2, 0xFFFFFFFF, true);
+                Gfx.text(g, font, Component.literal(text), left + (W - font.width(text)) / 2, by + 2, 0xFFFFFFFF, true);
             }
             if (row == 1 || groups.size() > 1) {
                 Draw.button(g, left + 5, by, NAV_W, NAV_H, Draw.in(mx, my, left + 5, by, NAV_W, NAV_H));
                 Draw.button(g, rightX, by, NAV_W, NAV_H, Draw.in(mx, my, rightX, by, NAV_W, NAV_H));
-                g.text(font, Component.literal("<"), left + 9, by + 2, 0xFFE0E0E0, false);
-                g.text(font, Component.literal(">"), rightX + 4, by + 2, 0xFFE0E0E0, false);
+                Gfx.text(g, font, Component.literal("<"), left + 9, by + 2, 0xFFE0E0E0, false);
+                Gfx.text(g, font, Component.literal(">"), rightX + 4, by + 2, 0xFFE0E0E0, false);
             }
         }
 
@@ -494,7 +496,7 @@ public final class RecipeOverlay {
             final boolean none = !query.isBlank() && views().isEmpty();
             search.setTextColor(none ? (search.isFocused() ? 0xFFCC3300 : 0xFF993300)
                     : (search.isFocused() ? 0xFFE0E0E0 : 0xFF909090));
-            search.extractRenderState(g, mx, my, 0f);
+            search.render(g, mx, my, 0f);
         }
         if (overSearch) {
             final Component filterTitle = Component.literal("Recipe Filter").withStyle(ChatFormatting.WHITE);
@@ -511,9 +513,9 @@ public final class RecipeOverlay {
         // recipes
         if (group == null) {
             final String msg = ClientRecipes.all().isEmpty()
-                    ? "No recipe data from the server (NEI must be installed on it)"
+                    ? "No recipe data yet (join a world first)"
                     : "No recipes found";
-            g.text(font, Component.literal(msg), left + 8, top + HEAD + 6, 0xFF702020, false);
+            Gfx.text(g, font, Component.literal(msg), left + 8, top + HEAD + 6, 0xFF702020, false);
         } else {
             final List<RecipeView> shown = views();
             final int start = page * perPage();
@@ -521,12 +523,12 @@ public final class RecipeOverlay {
                 drawRecipe(g, font, shown.get(start + r), top + HEAD + r * cellH(), mx, my, r > 0);
             }
             if (shown.isEmpty()) {
-                g.text(font, Component.literal("No recipes match"), left + 8, top + HEAD + 6, 0xFF702020, false);
+                Gfx.text(g, font, Component.literal("No recipes match"), left + 8, top + HEAD + 6, 0xFF702020, false);
             }
         }
 
         if (System.currentTimeMillis() < statusUntil) {
-            g.text(font, Component.literal(status), left + 8, top + height - 14, statusColor, false);
+            Gfx.text(g, font, Component.literal(status), left + 8, top + height - 14, statusColor, false);
         }
 
         if (ghostView != null && codechicken.nei.NEIConfig.RECIPE_GHOST.get() && screen instanceof AbstractContainerScreen<?> container) {
@@ -560,7 +562,7 @@ public final class RecipeOverlay {
     }
 
     /** NEI's station column ({@code GuiRecipeCatalyst}): left of the window, 16 px per item, wraps into more columns. */
-    private void drawStations(GuiGraphicsExtractor g, List<ItemStack> stations, int mx, int my) {
+    private void drawStations(GuiGraphics g, List<ItemStack> stations, int mx, int my) {
         if (stations.isEmpty()) {
             boxLeft = left;
             return;
@@ -584,7 +586,7 @@ public final class RecipeOverlay {
             final Hit hit = new Hit(ix, iy, 16, 16, stack);
             slotHits.add(hit);
             if (hit.at(mx, my)) {
-                g.fill(ix, iy, ix + 16, iy + 16, 0x80FFFFFF);
+                Gfx.fill(g, ix, iy, ix + 16, iy + 16, 0x80FFFFFF);
                 hovered = stack;
             }
         }
@@ -602,13 +604,13 @@ public final class RecipeOverlay {
     }
 
     /** NEI's {@code drawItemOverlay}: the chosen result is greyed with the heart on it. */
-    private static void drawChoice(GuiGraphicsExtractor g, int sx, int sy, int size, boolean on) {
-        g.fill(sx, sy, sx + size, sy + size, 0x66333333);
+    private static void drawChoice(GuiGraphics g, int sx, int sy, int size, boolean on) {
+        Gfx.fill(g, sx, sy, sx + size, sy + size, 0x66333333);
         heartIcon(g, sx + (size - 9) / 2, sy + (size - 10) / 2, on);
     }
 
     /** NEI's favorite icon ({@code GuiFavoriteButton.drawContent}): 9 x 10 at (10, 76) off, (19, 76) on, in a 12 x 12 button. */
-    private static void heartIcon(GuiGraphicsExtractor g, int bx, int by, boolean on) {
+    private static void heartIcon(GuiGraphics g, int bx, int by, boolean on) {
         Tex.blit(g, Tex.ICONS, 256, 256, bx + (BTN - 9 - 1) / 2, by + (BTN - 10) / 2, on ? 19 : 10, 76, 9, 10);
     }
 
@@ -617,16 +619,16 @@ public final class RecipeOverlay {
      * held the fill arrow (28, 76), or the red fill arrow (37, 76) when the recipe does not fit. A recipe that does not
      * fit is drawn at half strength (NEI: alpha 0.5 when the button is disabled).
      */
-    private static void plusIcon(GuiGraphicsExtractor g, int bx, int by, boolean fits) {
+    private static void plusIcon(GuiGraphics g, int bx, int by, boolean fits) {
         final int u = HotkeyHelp.isShiftDown() ? (fits ? 28 : 37) : 46;
         final int ix = bx + (BTN - 9 - 1) / 2;
         final int iy = by + (BTN - 10) / 2;
         Tex.blit(g, Tex.ICONS, 256, 256, ix, iy, u, 76, 9, 10);
-        if (!fits) g.fill(ix, iy, ix + 9, iy + 10, 0x80262E35);
+        if (!fits) Gfx.fill(g, ix, iy, ix + 9, iy + 10, 0x80262E35);
     }
 
     /** A recipe that draws itself (JEI layout): centered in the window, with NEI's heart and "+" buttons at the edge. */
-    private void drawSelfDrawn(GuiGraphicsExtractor g, Font font, RecipeView view, int cellTop, int mx, int my) {
+    private void drawSelfDrawn(GuiGraphics g, Font font, RecipeView view, int cellTop, int mx, int my) {
         final RecipeView.Drawn d = view.drawn();
         final int x = Math.max(left + 2, left + (W - d.width()) / 2);
         d.draw(g, x, cellTop, mx, my);
@@ -675,9 +677,9 @@ public final class RecipeOverlay {
         }
     }
 
-    private void drawRecipe(GuiGraphicsExtractor g, Font font, RecipeView view, int cellTop, int mx, int my,
+    private void drawRecipe(GuiGraphics g, Font font, RecipeView view, int cellTop, int mx, int my,
             boolean separator) {
-        if (separator) g.fill(left + 8, cellTop - 3, left + W - 8, cellTop - 2, 0xFF8B8B8B);
+        if (separator) Gfx.fill(g, left + 8, cellTop - 3, left + W - 8, cellTop - 2, 0xFF8B8B8B);
         if (Draw.in(mx, my, left + 8, cellTop - 3, W - 16, cellH())) hoveredView = view;
 
         if (view.drawn() != null) {
@@ -716,16 +718,16 @@ public final class RecipeOverlay {
 
             Draw.stack(g, stack, sx + 1, sy + 1);
             if (view == missingView && missing.contains(si) && System.currentTimeMillis() < statusUntil) {
-                g.fill(sx + 1, sy + 1, sx + 17, sy + 17, 0x70FF0000); // ingredient the player does not have
+                Gfx.fill(g, sx + 1, sy + 1, sx + 17, sy + 17, 0x70FF0000); // ingredient the player does not have
             }
             if (present != null && !slot.output() && (!present[si] || codechicken.nei.NEIConfig.PRESENCE_HIGHLIGHT_PRESENT.get())) {
                 if (presenceMode == 2) {
-                    g.fill(sx + 1, sy + 1, sx + 17, sy + 17, present[si] ? 0x8000AA00 : 0x80AA0000);
+                    Gfx.fill(g, sx + 1, sy + 1, sx + 17, sy + 17, present[si] ? 0x8000AA00 : 0x80AA0000);
                 } else { // NEI's icons: a tick / a cross in the slot's bottom right corner (nei_tabbed_sprites, 8 x 8)
                     Tex.blit(g, Tex.SPRITES, 256, 256, sx + 9, sy + 9, present[si] ? 8 : 0, 40, 8, 8);
                 }
             }
-            if (slot.output() && stack.getCount() > 1) g.itemDecorations(font, stack, sx + 1, sy + 1);
+            if (slot.output() && stack.getCount() > 1) Gfx.decorations(g, font, stack, sx + 1, sy + 1);
             if (slot.output() && view == prevChoiceView && choice != null
                     && choice.equals(codechicken.nei.item.FluidDisplay.idOf(stack))) {
                 drawChoice(g, sx + 1, sy + 1, 16, RecipeBookmarks.isFavoriteFor(view, choice));
@@ -734,7 +736,7 @@ public final class RecipeOverlay {
             final Hit hit = new Hit(sx, sy, 18, 18, stack);
             slotHits.add(hit);
             if (hit.at(mx, my)) {
-                g.fill(sx + 1, sy + 1, sx + 17, sy + 17, 0x80FFFFFF);
+                Gfx.fill(g, sx + 1, sy + 1, sx + 17, sy + 17, 0x80FFFFFF);
                 hovered = stack;
             }
         }
@@ -750,7 +752,7 @@ public final class RecipeOverlay {
         }
 
         if (!view.info().isEmpty()) {
-            g.text(font, Component.literal(view.info()), left + GRID_X + 66, cellTop + 50, 0xFF404040, false);
+            Gfx.text(g, font, Component.literal(view.info()), left + GRID_X + 66, cellTop + 50, 0xFF404040, false);
         }
 
         if (resultItem != null) {

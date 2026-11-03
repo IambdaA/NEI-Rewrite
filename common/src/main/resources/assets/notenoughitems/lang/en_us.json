@@ -3,7 +3,7 @@
   "notenoughitems.configuration.title": "NotEnoughItems Settings",
   "notenoughitems.configuration.section.notenoughitems.client.toml": "NotEnoughItems Settings",
   "notenoughitems.configuration.section.notenoughitems.client.toml.title": "NotEnoughItems Settings",
-  "key.category.notenoughitems.nei": "NotEnoughItems",
+  "key.categories.notenoughitems": "NotEnoughItems",
   "key.notenoughitems.recipe": "Show recipes",
   "key.notenoughitems.usage": "Show uses",
   "key.notenoughitems.bookmark": "Add / remove bookmark",

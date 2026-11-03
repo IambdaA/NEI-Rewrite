@@ -9,10 +9,10 @@ import java.util.Optional;
 import java.util.WeakHashMap;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.Item;
@@ -51,7 +51,7 @@ final class SpawnerLook {
         if (!stack.is(Items.SPAWNER)) return null;
         return MOBS.computeIfAbsent(stack, s -> {
             try {
-                for (Component line : s.getTooltipLines(Item.TooltipContext.EMPTY, Minecraft.getInstance().player, TooltipFlag.NORMAL)) {
+                for (Component line : s.getTooltipLines(Minecraft.getInstance().player, TooltipFlag.NORMAL)) {
                     final EntityType<?> type = names().get(line.getString());
                     if (type != null) return Optional.of(type);
                 }
@@ -82,17 +82,17 @@ final class SpawnerLook {
     }
 
     /** The mob's spawn egg, drawn small over the middle of the spawner icon at {@code (x, y)}. */
-    static void badge(GuiGraphicsExtractor g, ItemStack stack, int x, int y) {
+    static void badge(GuiGraphics g, ItemStack stack, int x, int y) {
         final EntityType<?> mob = mobOf(stack);
         if (mob == null) return;
-        final Identifier key = BuiltInRegistries.ENTITY_TYPE.getKey(mob);
-        final Identifier eggId = Identifier.fromNamespaceAndPath(key.getNamespace(), key.getPath() + "_spawn_egg");
+        final ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(mob);
+        final ResourceLocation eggId = new ResourceLocation(key.getNamespace(), key.getPath() + "_spawn_egg");
         if (!BuiltInRegistries.ITEM.containsKey(eggId)) return; // not every mob has an egg
-        final ItemStack egg = new ItemStack(BuiltInRegistries.ITEM.getValue(eggId));
-        g.pose().pushMatrix();
-        g.pose().translate(x + 4, y + 4);
-        g.pose().scale(0.5f, 0.5f);
-        g.item(egg, 0, 0);
-        g.pose().popMatrix();
+        final ItemStack egg = new ItemStack(BuiltInRegistries.ITEM.get(eggId));
+        g.pose().pushPose();
+        g.pose().translate(x + 4, y + 4, 0f);
+        g.pose().scale(0.5f, 0.5f, 1f);
+        Gfx.item(g, egg, 0, 0);
+        g.pose().popPose();
     }
 }

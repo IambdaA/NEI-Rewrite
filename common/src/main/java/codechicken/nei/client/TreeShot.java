@@ -2,8 +2,6 @@ package codechicken.nei.client;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
@@ -17,13 +15,14 @@ import codechicken.nei.NotEnoughItems;
 import codechicken.nei.bookmark.TreeCamera;
 import codechicken.nei.bookmark.TreeLayout;
 import net.minecraft.client.Minecraft;
+import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Screenshot;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 
 /**
- * NEI's "Save tree as image". NEI draws the tree into an off-screen framebuffer at twice the size; the retained mode GUI
- * of 26.2 has no such thing, so the tree is drawn on its own (no toolbar; the stats panel is added under it) one screenful at a time, each
+ * NEI's "Save tree as image". NEI draws the tree into an off-screen framebuffer at twice the size; the GUI
+ * has no such thing here, so the tree is drawn on its own (no toolbar; the stats panel is added under it) one screenful at a time, each
  * screenful is read back from the finished frame and the pieces are put together into one PNG in
  * {@code screenshots/}. The tree is shown at zoom 1 in GUI pixels, so a larger GUI scale gives a sharper picture.
  *
@@ -161,7 +160,7 @@ final class TreeShot {
                     if (player == null) return;
                     final File f = file.toFile();
                     player.sendSystemMessage(Component.literal("Saved tree image as ").append(Component.literal(f.getName())
-                            .withStyle(style -> style.withUnderlined(true).withClickEvent(new ClickEvent.OpenFile(f.getAbsolutePath())))));
+                            .withStyle(style -> style.withUnderlined(true).withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_FILE, f.getAbsolutePath())))));
                 });
             } catch (Exception e) {
                 NotEnoughItems.LOGGER.warn("Could not save the tree image: {}", e.toString());
@@ -170,65 +169,18 @@ final class TreeShot {
         }, "NEI-tree-image").start();
     }
 
-    private static RenderTarget target;
-    private static boolean searched;
-
-    /**
-     * The window's framebuffer. Found by its type because Minecraft's accessor for it has been renamed between versions
-     * (the game is not obfuscated, so the names can be read at run time). Looks at the game and the game renderer, public
-     * or not, methods and fields; whatever looks like a render target is logged (debug level) so a miss can be fixed from the log.
-     */
+    /** The window's framebuffer. */
     private static RenderTarget mainTarget() {
-        if (target != null || searched) return target;
-        searched = true;
-        final Minecraft mc = Minecraft.getInstance();
-        final java.util.List<Object> owners = new java.util.ArrayList<>();
-        owners.add(mc);
-        for (Field f : Minecraft.class.getDeclaredFields()) { // the renderer, found by type so its visibility does not matter
-            if (f.getType().getSimpleName().equals("GameRenderer")) {
-                try {
-                    f.setAccessible(true);
-                    owners.add(f.get(mc));
-                } catch (ReflectiveOperationException | RuntimeException ignored) {}
-            }
-        }
-        for (Object owner : owners) {
-            if (owner == null) continue;
-            for (Class<?> c = owner.getClass(); c != null && c != Object.class && target == null; c = c.getSuperclass()) {
-                for (Field f : c.getDeclaredFields()) {
-                    if (f.getType().getName().contains("Target")) NotEnoughItems.LOGGER.debug("TreeShot: field {}.{} : {}", c.getSimpleName(), f.getName(), f.getType().getName());
-                    if (target == null && RenderTarget.class.isAssignableFrom(f.getType())) target = read(f, owner);
-                }
-                for (Method m : c.getDeclaredMethods()) {
-                    if (m.getParameterCount() != 0) continue;
-                    if (m.getReturnType().getName().contains("Target")) NotEnoughItems.LOGGER.debug("TreeShot: method {}.{}() : {}", c.getSimpleName(), m.getName(), m.getReturnType().getName());
-                    if (target == null && RenderTarget.class.isAssignableFrom(m.getReturnType())) target = call(m, owner);
-                }
-            }
-        }
-        if (target == null) NotEnoughItems.LOGGER.warn("TreeShot: no render target found on Minecraft or GameRenderer");
-        return target;
+        return Minecraft.getInstance().getMainRenderTarget();
     }
 
-    private static RenderTarget read(Field f, Object owner) {
-        try {
-            f.setAccessible(true);
-            return (RenderTarget) f.get(owner);
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            NotEnoughItems.LOGGER.warn("TreeShot: cannot read {}: {}", f.getName(), e.toString());
-            return null;
-        }
+    /** A pixel of a screenshot as ARGB ({@code NativeImage} keeps ABGR in 1.21). */
+    private static int argb(NativeImage image, int x, int y) {
+        final int abgr = image.getPixelRGBA(x, y);
+        return 0xFF000000 | (abgr & 0xFF) << 16 | (abgr & 0xFF00) | (abgr >> 16 & 0xFF);
     }
 
-    private static RenderTarget call(Method m, Object owner) {
-        try {
-            m.setAccessible(true);
-            return (RenderTarget) m.invoke(owner);
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            NotEnoughItems.LOGGER.warn("TreeShot: cannot call {}: {}", m.getName(), e.toString());
-            return null;
-        }
-    }
+    /** Called at the end of the screen's drawing (the frame holds the finished picture then). */
     static void onFrame() {
         final TreeShot shot = active;
         if (shot == null || shot.pending) return;
@@ -249,7 +201,8 @@ final class TreeShot {
             return;
         }
         shot.pending = true;
-        Screenshot.takeScreenshot(main, image -> {
+        {
+            final NativeImage image = Screenshot.takeScreenshot(main);
             if (shot.statsTile()) { // under the tree, from the left
                 final int w = Math.min((int) Math.round(shot.stats[2] * shot.scale), shot.out.getWidth());
                 final int h = Math.min((int) Math.round(shot.stats[3] * shot.scale), shot.out.getHeight() - shot.treeH);
@@ -258,7 +211,7 @@ final class TreeShot {
                 for (int y = 0; y < h; y++) {
                     for (int x = 0; x < w; x++) {
                         if (fromX + x < image.getWidth() && fromY + y < image.getHeight()) {
-                            shot.out.setRGB(x, shot.treeH + y, image.getPixel(fromX + x, fromY + y) | 0xFF000000);
+                            shot.out.setRGB(x, shot.treeH + y, argb(image, fromX + x, fromY + y) | 0xFF000000);
                         }
                     }
                 }
@@ -273,7 +226,7 @@ final class TreeShot {
                     for (int x = 0; x < w; x++) {
                         final int sx = shot.viewX + x;
                         final int sy = shot.viewY + y;
-                        if (sx < image.getWidth() && sy < image.getHeight()) shot.out.setRGB(dx + x, dy + y, image.getPixel(sx, sy) | 0xFF000000);
+                        if (sx < image.getWidth() && sy < image.getHeight()) shot.out.setRGB(dx + x, dy + y, argb(image, sx, sy) | 0xFF000000);
                     }
                 }
             }
@@ -283,6 +236,6 @@ final class TreeShot {
             shot.wait = SETTLE_FRAMES;
             shot.pending = false;
             if (shot.tile >= shot.tiles()) shot.finish(true);
-        });
+        }
     }
 }

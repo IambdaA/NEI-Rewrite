@@ -13,7 +13,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.inventory.Slot;
@@ -122,7 +122,7 @@ final class RecipeTransfer {
      * NEI's ghost items ({@code OverlayHandler.renderObjects}): what the "+" would put into the grid, drawn faded over the grid's
      * slots while the mouse is on the button. {@code pick} chooses the shown option of each ingredient.
      */
-    static void drawGhosts(net.minecraft.client.gui.GuiGraphicsExtractor g, AbstractContainerScreen<?> screen, RecipeView view,
+    static void drawGhosts(net.minecraft.client.gui.GuiGraphics g, AbstractContainerScreen<?> screen, RecipeView view,
             java.util.function.Function<SlotView, ItemStack> pick) {
         final AbstractContainerMenu menu = screen.getMenu();
         final Grid grid = gridOf(menu);
@@ -133,17 +133,17 @@ final class RecipeTransfer {
             if (slot.output()) continue;
             final int[] cell = target(view, slot, ordinal++, grid);
             final Slot dest = menu.slots.get(grid.firstSlot() + cell[1] * grid.width() + cell[0]);
-            final int x = screen.leftPos + dest.x;
-            final int y = screen.topPos + dest.y;
+            final int x = Frame.left(screen) + dest.x;
+            final int y = Frame.top(screen) + dest.y;
             Draw.stack(g, pick.apply(slot), x, y);
-            g.fill(x, y, x + 16, y + 16, 0x908B8B8B); // the veil that makes it a ghost
+            Gfx.fill(g, x, y, x + 16, y + 16, 0x908B8B8B); // the veil that makes it a ghost
         }
     }
 
-    private static void click(AbstractContainerMenu menu, int slot, int button, ContainerInput input) {
+    private static void click(AbstractContainerMenu menu, int slot, int button, ClickType input) {
         final Minecraft mc = Minecraft.getInstance();
         final Player player = mc.player;
-        mc.gameMode.handleContainerInput(menu.containerId, slot, button, input, player);
+        mc.gameMode.handleInventoryMouseClick(menu.containerId, slot, button, input, player);
     }
 
     static Result transfer(AbstractContainerScreen<?> screen, RecipeView view) {
@@ -236,13 +236,13 @@ final class RecipeTransfer {
             final int dest = (int) (long) move.getKey();
             final int count = move.getValue();
             final boolean all = count == menu.slots.get(src).getItem().getCount();
-            click(menu, src, 0, ContainerInput.PICKUP);
+            click(menu, src, 0, ClickType.PICKUP);
             if (all) {
-                click(menu, dest, 0, ContainerInput.PICKUP); // the whole stack goes in with one click
+                click(menu, dest, 0, ClickType.PICKUP); // the whole stack goes in with one click
             } else {
-                for (int i = 0; i < count; i++) click(menu, dest, 1, ContainerInput.PICKUP);
+                for (int i = 0; i < count; i++) click(menu, dest, 1, ClickType.PICKUP);
             }
-            if (!menu.getCarried().isEmpty()) click(menu, src, 0, ContainerInput.PICKUP);
+            if (!menu.getCarried().isEmpty()) click(menu, src, 0, ClickType.PICKUP);
         }
 
         int filled = 0;
@@ -261,7 +261,7 @@ final class RecipeTransfer {
         if (grid == null) return true;
         for (int i = 0; i < grid.width() * grid.height(); i++) {
             final int slotIndex = grid.firstSlot() + i;
-            if (!menu.slots.get(slotIndex).getItem().isEmpty()) click(menu, slotIndex, 0, ContainerInput.QUICK_MOVE);
+            if (!menu.slots.get(slotIndex).getItem().isEmpty()) click(menu, slotIndex, 0, ClickType.QUICK_MOVE);
         }
         for (int i = 0; i < grid.width() * grid.height(); i++) {
             if (!menu.slots.get(grid.firstSlot() + i).getItem().isEmpty()) return false;
@@ -271,7 +271,7 @@ final class RecipeTransfer {
 
     /** Shift-clicks the result slot: crafts as many sets as the grid holds. */
     static void takeResult(AbstractContainerScreen<?> screen) {
-        click(screen.getMenu(), 0, 0, ContainerInput.QUICK_MOVE);
+        click(screen.getMenu(), 0, 0, ClickType.QUICK_MOVE);
     }
 
     private static boolean matches(SlotView slot, ItemStack candidate) {

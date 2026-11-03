@@ -27,9 +27,11 @@ final class HighlightTips {
     private static long screenSeen;
 
     private HighlightTips() {}
+
     public static void onScreenFrame(ScreenEv event) {
         screenSeen = System.nanoTime();
     }
+
     public static void onTick() {
         while (NEIKeys.HUD_TOGGLE.consumeClick()) {
             NEIConfig.HUD_ENABLED.set(!NEIConfig.HUD_ENABLED.getAsBoolean());
@@ -37,7 +39,8 @@ final class HighlightTips {
         }
         NEIConfig.flush();
     }
-    public static void onHud(net.minecraft.client.gui.GuiGraphicsExtractor g) {
+
+    public static void onHud(net.minecraft.client.gui.GuiGraphics g) {
         if (!NEIConfig.HUD_ENABLED.getAsBoolean() || System.nanoTime() - screenSeen < SCREEN_GRACE_NANOS) return;
 
         final Minecraft mc = Minecraft.getInstance();
@@ -60,12 +63,12 @@ final class HighlightTips {
         final int y = (sh - h - 1) * NEIConfig.HUD_Y.getAsInt() / 10000;
 
         // vanilla tooltip look: dark box with a purple frame
-        g.fill(x, y, x + w, y + h, 0xF0100010);
-        g.fill(x, y, x + w, y + 1, 0xFF3A1A80);
-        g.fill(x, y + h - 1, x + w, y + h, 0xFF3A1A80);
-        g.fill(x, y, x + 1, y + h, 0xFF3A1A80);
-        g.fill(x + w - 1, y, x + w, y + h, 0xFF3A1A80);
-        g.text(font, Component.literal(text), x + 24, y + (h - 8) / 2, 0xFFA0A0A0, true);
+        Gfx.fill(g, x, y, x + w, y + h, 0xF0100010);
+        Gfx.fill(g, x, y, x + w, y + 1, 0xFF3A1A80);
+        Gfx.fill(g, x, y + h - 1, x + w, y + h, 0xFF3A1A80);
+        Gfx.fill(g, x, y, x + 1, y + h, 0xFF3A1A80);
+        Gfx.fill(g, x + w - 1, y, x + w, y + h, 0xFF3A1A80);
+        Gfx.text(g, font, Component.literal(text), x + 24, y + (h - 8) / 2, 0xFFA0A0A0, true);
         if (!stack.isEmpty()) Draw.stack(g, stack, x + 5, y + h / 2 - 8);
     }
 }

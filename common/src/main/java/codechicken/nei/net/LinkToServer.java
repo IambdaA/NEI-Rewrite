@@ -1,21 +1,22 @@
 package codechicken.nei.net;
 
 import codechicken.nei.NotEnoughItems;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
 
 /** NEI's {@code C2S.SEND_CHAT_ITEM_LINK}: a player shares bookmarks; the server announces it in chat. */
-public record LinkToServer(String data) implements CustomPacketPayload {
+public record LinkToServer(String data) implements NEIPacket {
 
-    public static final Type<LinkToServer> TYPE = new Type<>(Identifier.fromNamespaceAndPath(NotEnoughItems.MODID, "link_to_server"));
-    public static final StreamCodec<ByteBuf, LinkToServer> CODEC = ByteBufCodecs.stringUtf8(NEINetwork.MAX_DATA)
-            .map(LinkToServer::new, LinkToServer::data);
+    public static final PacketType<LinkToServer> TYPE = new PacketType<>(
+            new ResourceLocation(NotEnoughItems.MODID, "link_to_server"), b -> new LinkToServer(b.readUtf(NEINetwork.MAX_DATA)));
 
     @Override
-    public Type<LinkToServer> type() {
+    public PacketType<LinkToServer> type() {
         return TYPE;
+    }
+
+    @Override
+    public void write(FriendlyByteBuf buf) {
+        buf.writeUtf(data, NEINetwork.MAX_DATA);
     }
 }

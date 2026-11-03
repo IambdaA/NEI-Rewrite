@@ -1,7 +1,7 @@
 package codechicken.nei.api;
 
-import net.neoforged.bus.api.Event;
-import net.neoforged.fml.event.IModBusEvent;
+import net.minecraftforge.eventbus.api.Event;
+import net.minecraftforge.fml.event.IModBusEvent;
 
 /**
  * Fired on the mod event bus, on the client, once the registries are filled (during client setup). It is NEI's

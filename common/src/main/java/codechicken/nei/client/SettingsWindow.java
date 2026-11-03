@@ -1,11 +1,11 @@
 package codechicken.nei.client;
 
-import codechicken.nei.Cfg;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import codechicken.nei.Cfg;
 import codechicken.nei.ItemList;
 import codechicken.nei.NEIConfig;
 import codechicken.nei.item.ColorMath;
@@ -13,7 +13,7 @@ import codechicken.nei.item.SortOrder;
 import codechicken.nei.item.ZoomMath;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -183,24 +183,24 @@ final class SettingsWindow implements ModalWindow {
 
     // ---- drawing ----
 
-    private static void checker(GuiGraphicsExtractor g, int x, int y, int w, int h) {
+    private static void checker(GuiGraphics g, int x, int y, int w, int h) {
         for (int cy = 0; cy < h; cy += 4) {
             for (int cx = 0; cx < w; cx += 4) {
-                g.fill(x + cx, y + cy, Math.min(x + cx + 4, x + w), Math.min(y + cy + 4, y + h),
+                Gfx.fill(g, x + cx, y + cy, Math.min(x + cx + 4, x + w), Math.min(y + cy + 4, y + h),
                         ((cx / 4 + cy / 4) & 1) == 0 ? 0xFF9A9A9A : 0xFF6A6A6A);
             }
         }
     }
 
     @Override
-    public void render(GuiGraphicsExtractor g, int mx, int my, int sw, int sh) {
+    public void render(GuiGraphics g, int mx, int my, int sw, int sh) {
         this.sw = sw;
         this.sh = sh;
         final Font font = Minecraft.getInstance().font;
         final List<Entry> entries = entries();
 
         scroll = Math.max(0, Math.min(scroll, Math.max(0, contentH(entries.size()) - viewH())));
-        g.fill(0, 0, sw, sh, 0xE0101010);
+        Gfx.fill(g, 0, 0, sw, sh, 0xE0101010);
 
         if (dragSort >= 0) { // the dragged key follows the mouse; the list is sorted again at each move
             final int to = Math.max(0, Math.min(entries.size() - 1, (my - rowY(0)) / ROW));
@@ -225,7 +225,7 @@ final class SettingsWindow implements ModalWindow {
             if (e.sort() != null) {
                 final String label = SortOrder.label(e.sort());
                 Draw.button(g, colX(), y, colW(), 20, overRow || dragSort == i);
-                g.text(font, Component.literal(label), colX() + (colW() - font.width(label)) / 2, y + 6,
+                Gfx.text(g, font, Component.literal(label), colX() + (colW() - font.width(label)) / 2, y + 6,
                         overRow || dragSort == i ? 0xFFFFFFA0 : 0xFFE0E0E0, true);
                 if (overRow && dragSort < 0) sortTip = SortOrder.tip(e.sort());
                 continue;
@@ -234,42 +234,42 @@ final class SettingsWindow implements ModalWindow {
             if (e.option() == null) {
                 final String label = NEIConfig.SECTIONS.get(e.section());
                 Draw.button(g, colX(), y, colW(), 20, overRow);
-                g.text(font, Component.literal(label), colX() + (colW() - font.width(label)) / 2, y + 6,
+                Gfx.text(g, font, Component.literal(label), colX() + (colW() - font.width(label)) / 2, y + 6,
                         overRow ? 0xFFFFFFA0 : 0xFFE0E0E0, true);
                 continue;
             }
 
             final NEIConfig.Option o = e.option();
             if (overRow) hoverTip = o;
-            g.text(font, Component.literal(o.label()), colX() + 14, y + 6, overRow ? 0xFFFFFFA0 : 0xFFE0E0E0, true);
+            Gfx.text(g, font, Component.literal(o.label()), colX() + 14, y + 6, overRow ? 0xFFFFFFA0 : 0xFFE0E0E0, true);
             final boolean overControl = overRow && mx >= controlX() && mx < controlX() + CONTROL_W;
             switch (o.kind()) {
                 case BOOL -> {
                     final boolean on = get(o);
                     Draw.button(g, controlX(), y, CONTROL_W, 20, overControl);
-                    g.text(font, Component.literal(on ? "Yes" : "No"), controlX() + (CONTROL_W - font.width(on ? "Yes" : "No")) / 2,
+                    Gfx.text(g, font, Component.literal(on ? "Yes" : "No"), controlX() + (CONTROL_W - font.width(on ? "Yes" : "No")) / 2,
                             y + 6, on ? 0xFFE0E0E0 : 0xFFA0A0A0, true);
                 }
                 case CHOICE -> {
                     final String[] names = NEIConfig.CHOICES.get(o.value());
                     final int v = Math.max(0, Math.min(names.length - 1, this.<Integer>get(o)));
                     Draw.button(g, controlX(), y, CONTROL_W, 20, overControl);
-                    g.text(font, Component.literal(names[v]), controlX() + (CONTROL_W - font.width(names[v])) / 2, y + 6,
+                    Gfx.text(g, font, Component.literal(names[v]), controlX() + (CONTROL_W - font.width(names[v])) / 2, y + 6,
                             0xFFE0E0E0, true);
                 }
                 case INT -> {
                     final EditBox b = box(o);
                     b.setX(controlX());
                     b.setY(y + 1);
-                    b.extractRenderState(g, mx, my, 0f);
+                    b.render(g, mx, my, 0f);
                 }
                 case COLOR -> {
                     final int argb = parse(o);
                     Draw.button(g, controlX(), y, CONTROL_W, 20, overControl);
                     checker(g, controlX() + 3, y + 3, CONTROL_W - 6, 14);
-                    g.fill(controlX() + 3, y + 3, controlX() + CONTROL_W - 3, y + 17, argb);
+                    Gfx.fill(g, controlX() + 3, y + 3, controlX() + CONTROL_W - 3, y + 17, argb);
                     final String hex = ColorMath.hex(argb);
-                    g.text(font, Component.literal(hex), controlX() + (CONTROL_W - font.width(hex)) / 2, y + 6,
+                    Gfx.text(g, font, Component.literal(hex), controlX() + (CONTROL_W - font.width(hex)) / 2, y + 6,
                             ((argb >> 16 & 255) + (argb >> 8 & 255) + (argb & 255)) / 3 > 128 && (argb >>> 24) > 128 ? 0xFF000000
                                     : 0xFFFFFFFF, false);
                 }
@@ -277,21 +277,21 @@ final class SettingsWindow implements ModalWindow {
         }
 
         // header and footer bars
-        g.fill(0, 0, sw, HEADER, 0xFF1B1B1B);
-        g.fill(0, HEADER - 1, sw, HEADER, 0xFF000000);
-        g.fill(0, sh - FOOTER, sw, sh, 0xFF1B1B1B);
-        g.fill(0, sh - FOOTER, sw, sh - FOOTER + 1, 0xFF000000);
+        Gfx.fill(g, 0, 0, sw, HEADER, 0xFF1B1B1B);
+        Gfx.fill(g, 0, HEADER - 1, sw, HEADER, 0xFF000000);
+        Gfx.fill(g, 0, sh - FOOTER, sw, sh, 0xFF1B1B1B);
+        Gfx.fill(g, 0, sh - FOOTER, sw, sh - FOOTER + 1, 0xFF000000);
         final String title = page == null ? "NEI Settings" : NEIConfig.SECTIONS.get(page);
-        g.text(font, Component.literal(title), (sw - font.width(title)) / 2, 10, 0xFFFFFFFF, true);
+        Gfx.text(g, font, Component.literal(title), (sw - font.width(title)) / 2, 10, 0xFFFFFFFF, true);
 
         final int by = sh - FOOTER + 7;
         final int bx = (sw - 200) / 2;
         Draw.button(g, bx, by, 200, 20, picking == null && Draw.in(mx, my, bx, by, 200, 20));
         final String back = page == null ? "Back" : "Back to the main settings";
-        g.text(font, Component.literal(back), bx + (200 - font.width(back)) / 2, by + 6, 0xFFE0E0E0, true);
+        Gfx.text(g, font, Component.literal(back), bx + (200 - font.width(back)) / 2, by + 6, 0xFFE0E0E0, true);
         if (defaultScreen != null && sw >= 620) {
             Draw.button(g, sw - 150, by, 140, 20, picking == null && Draw.in(mx, my, sw - 150, by, 140, 20));
-            g.text(font, Component.literal("NeoForge screen"), sw - 150 + (140 - font.width("NeoForge screen")) / 2, by + 6,
+            Gfx.text(g, font, Component.literal("NeoForge screen"), sw - 150 + (140 - font.width("NeoForge screen")) / 2, by + 6,
                     0xFFE0E0E0, true);
         }
 
@@ -300,7 +300,7 @@ final class SettingsWindow implements ModalWindow {
         if (total > viewH()) {
             final int barH = Math.max(20, viewH() * viewH() / total);
             final int barY = HEADER + (viewH() - barH) * scroll / (total - viewH());
-            g.fill(colX() + colW() + 4, barY, colX() + colW() + 8, barY + barH, 0xFFE0E0E0);
+            Gfx.fill(g, colX() + colW() + 4, barY, colX() + colW() + 8, barY + barH, 0xFFE0E0E0);
         }
 
         if (hoverTip != null && picking == null && my >= HEADER && my < sh - FOOTER) {
@@ -353,67 +353,67 @@ final class SettingsWindow implements ModalWindow {
         if (drag != Drag.NONE) hexBox.setValue(ColorMath.hex(current()));
     }
 
-    private void renderPicker(GuiGraphicsExtractor g, Font font, int mx, int my) {
+    private void renderPicker(GuiGraphics g, Font font, int mx, int my) {
         if (drag != Drag.NONE) updateDrag(mx, my);
         final int x = px();
         final int y = py();
-        g.fill(0, 0, sw, sh, 0xA0000000);
+        Gfx.fill(g, 0, 0, sw, sh, 0xA0000000);
         Draw.panel(g, x, y, PICK_W, PICK_H);
-        g.text(font, Component.literal(NEIConfig.SECTIONS.getOrDefault(picking.section(), "") + ": " + picking.label()), x + 12, y + 10,
+        Gfx.text(g, font, Component.literal(NEIConfig.SECTIONS.getOrDefault(picking.section(), "") + ": " + picking.label()), x + 12, y + 10,
                 0xFF404040, false);
 
         final int cells = SV / CELL;
         for (int cy = 0; cy < cells; cy++) {
             for (int cx = 0; cx < cells; cx++) {
-                g.fill(x + 12 + cx * CELL, y + 28 + cy * CELL, x + 12 + (cx + 1) * CELL, y + 28 + (cy + 1) * CELL,
+                Gfx.fill(g, x + 12 + cx * CELL, y + 28 + cy * CELL, x + 12 + (cx + 1) * CELL, y + 28 + (cy + 1) * CELL,
                         ColorMath.fromHsv(hsv[0], cx / (float) (cells - 1), 1 - cy / (float) (cells - 1), 1));
             }
         }
         // hue bar
         for (int cy = 0; cy < cells; cy++) {
-            g.fill(x + 150, y + 28 + cy * CELL, x + 164, y + 28 + (cy + 1) * CELL, ColorMath.fromHsv(cy / (float) (cells - 1) * 360f, 1, 1, 1));
+            Gfx.fill(g, x + 150, y + 28 + cy * CELL, x + 164, y + 28 + (cy + 1) * CELL, ColorMath.fromHsv(cy / (float) (cells - 1) * 360f, 1, 1, 1));
         }
         // alpha bar
         checker(g, x + 12, y + 164, SV, 12);
         for (int cx = 0; cx < cells; cx++) {
-            g.fill(x + 12 + cx * CELL, y + 164, x + 12 + (cx + 1) * CELL, y + 176,
+            Gfx.fill(g, x + 12 + cx * CELL, y + 164, x + 12 + (cx + 1) * CELL, y + 176,
                     ColorMath.fromHsv(hsv[0], hsv[1], hsv[2], cx / (float) (cells - 1)));
         }
 
         // markers
         final int sx = x + 12 + Math.round(hsv[1] * (SV - 1));
         final int sy = y + 28 + Math.round((1 - hsv[2]) * (SV - 1));
-        g.fill(sx - 3, sy - 3, sx + 4, sy - 2, 0xFFFFFFFF);
-        g.fill(sx - 3, sy + 3, sx + 4, sy + 4, 0xFFFFFFFF);
-        g.fill(sx - 3, sy - 3, sx - 2, sy + 4, 0xFFFFFFFF);
-        g.fill(sx + 3, sy - 3, sx + 4, sy + 4, 0xFFFFFFFF);
+        Gfx.fill(g, sx - 3, sy - 3, sx + 4, sy - 2, 0xFFFFFFFF);
+        Gfx.fill(g, sx - 3, sy + 3, sx + 4, sy + 4, 0xFFFFFFFF);
+        Gfx.fill(g, sx - 3, sy - 3, sx - 2, sy + 4, 0xFFFFFFFF);
+        Gfx.fill(g, sx + 3, sy - 3, sx + 4, sy + 4, 0xFFFFFFFF);
         final int hy = y + 28 + Math.round(hsv[0] / 360f * (SV - 1));
-        g.fill(x + 148, hy, x + 166, hy + 1, 0xFFFFFFFF);
+        Gfx.fill(g, x + 148, hy, x + 166, hy + 1, 0xFFFFFFFF);
         final int ax = x + 12 + Math.round(hsv[3] * (SV - 1));
-        g.fill(ax, y + 162, ax + 1, y + 178, 0xFFFFFFFF);
+        Gfx.fill(g, ax, y + 162, ax + 1, y + 178, 0xFFFFFFFF);
 
         // old / new swatches
-        g.text(font, Component.literal("Old"), x + 180, y + 28, 0xFF404040, false);
+        Gfx.text(g, font, Component.literal("Old"), x + 180, y + 28, 0xFF404040, false);
         checker(g, x + 180, y + 38, 40, 24);
-        g.fill(x + 180, y + 38, x + 220, y + 62, pickOld);
-        g.text(font, Component.literal("New"), x + 230, y + 28, 0xFF404040, false);
+        Gfx.fill(g, x + 180, y + 38, x + 220, y + 62, pickOld);
+        Gfx.text(g, font, Component.literal("New"), x + 230, y + 28, 0xFF404040, false);
         checker(g, x + 230, y + 38, 40, 24);
-        g.fill(x + 230, y + 38, x + 270, y + 62, current());
+        Gfx.fill(g, x + 230, y + 38, x + 270, y + 62, current());
 
-        g.text(font, Component.literal("Hex #AARRGGBB"), x + 180, y + 74, 0xFF404040, false);
+        Gfx.text(g, font, Component.literal("Hex #AARRGGBB"), x + 180, y + 74, 0xFF404040, false);
         hexBox.setX(x + 180);
         hexBox.setY(y + 86);
         hexBox.setWidth(90);
         if (!hexBox.isFocused() && drag == Drag.NONE && !hexBox.getValue().equalsIgnoreCase(ColorMath.hex(current()))) {
             hexBox.setValue(ColorMath.hex(current()));
         }
-        hexBox.extractRenderState(g, mx, my, 0f);
+        hexBox.render(g, mx, my, 0f);
 
         final int by = y + PICK_H - 30;
         Draw.button(g, x + 180, by - 4, 44, 20, Draw.in(mx, my, x + 180, by - 4, 44, 20));
-        g.text(font, Component.literal("OK"), x + 180 + (44 - font.width("OK")) / 2, by + 2, 0xFFE0E0E0, true);
+        Gfx.text(g, font, Component.literal("OK"), x + 180 + (44 - font.width("OK")) / 2, by + 2, 0xFFE0E0E0, true);
         Draw.button(g, x + 228, by - 4, 44, 20, Draw.in(mx, my, x + 228, by - 4, 44, 20));
-        g.text(font, Component.literal("Cancel"), x + 228 + (44 - font.width("Cancel")) / 2, by + 2, 0xFFE0E0E0, true);
+        Gfx.text(g, font, Component.literal("Cancel"), x + 228 + (44 - font.width("Cancel")) / 2, by + 2, 0xFFE0E0E0, true);
     }
 
     // ---- input ----

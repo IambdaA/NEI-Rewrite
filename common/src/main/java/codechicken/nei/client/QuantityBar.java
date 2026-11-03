@@ -4,7 +4,7 @@ import codechicken.nei.NEIConfig;
 import codechicken.nei.item.QuantityMath;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -143,28 +143,28 @@ final class QuantityBar {
         return true; // letters are swallowed too, so they do not reach the inventory
     }
 
-    void render(GuiGraphicsExtractor g, int mx, int my) {
+    void render(GuiGraphics g, int mx, int my) {
         final Font font = Minecraft.getInstance().font;
         Draw.button(g, x, y, H, H, overLess(mx, my));
         Draw.button(g, x + w - H, y, H, H, overMore(mx, my));
-        g.text(font, Component.literal("-"), x + (H - font.width("-")) / 2, y + (H - 8) / 2, 0xFFFFFFFF, true);
-        g.text(font, Component.literal("+"), x + w - H + (H - font.width("+")) / 2, y + (H - 8) / 2, 0xFFFFFFFF, true);
+        Gfx.text(g, font, Component.literal("-"), x + (H - font.width("-")) / 2, y + (H - 8) / 2, 0xFFFFFFFF, true);
+        Gfx.text(g, font, Component.literal("+"), x + w - H + (H - font.width("+")) / 2, y + (H - 8) / 2, 0xFFFFFFFF, true);
 
         final int fx = x + H + 1;
         final int fw = w - 2 * H - 2;
-        g.fill(fx, y, fx + fw, y + H, focused ? 0xFFFFFFFF : 0xFFA0A0A0);
-        g.fill(fx + 1, y + 1, fx + fw - 1, y + H - 1, 0xFF000000);
+        Gfx.fill(g, fx, y, fx + fw, y + H, focused ? 0xFFFFFFFF : 0xFFA0A0A0);
+        Gfx.fill(g, fx + 1, y + 1, fx + fw - 1, y + H - 1, 0xFF000000);
 
         final int q = NEIConfig.QUANTITY.getAsInt();
         final String shown = focused ? text : q == 0 ? "" : Integer.toString(q);
         final int ty = y + (H - 8) / 2;
         if (shown.isEmpty() && !focused) {
             final String hint = Component.translatable("nei.itempanel.quantity.default").getString();
-            g.text(font, Component.literal(hint), fx + (fw - font.width(hint)) / 2, ty, 0xFF808080, false);
+            Gfx.text(g, font, Component.literal(hint), fx + (fw - font.width(hint)) / 2, ty, 0xFF808080, false);
         } else {
             final boolean caret = focused && (System.currentTimeMillis() / 500) % 2 == 0;
             final String drawn = caret ? shown + "_" : shown;
-            g.text(font, Component.literal(drawn), fx + (fw - font.width(shown)) / 2, ty, 0xFFE0E0E0, false);
+            Gfx.text(g, font, Component.literal(drawn), fx + (fw - font.width(shown)) / 2, ty, 0xFFE0E0E0, false);
         }
     }
 }

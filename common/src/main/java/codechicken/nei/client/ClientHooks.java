@@ -1,14 +1,14 @@
 package codechicken.nei.client;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+
 import codechicken.nei.NEIConfig;
 import codechicken.nei.NotEnoughItems;
 import codechicken.nei.api.API;
 import codechicken.nei.item.FluidDisplay;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * The one door from the mod loaders into the client code. Each loader module listens for its own events (NeoForge's event
@@ -43,31 +43,32 @@ public final class ClientHooks {
     }
 
     /** Before a screen draws; true skips drawing it. */
-    public static boolean renderPre(Screen screen, GuiGraphicsExtractor g, int mx, int my, float partialTick) {
+    public static boolean renderPre(Screen screen, GuiGraphics g, int mx, int my, float partialTick) {
         final ScreenEv e = ScreenEv.render(screen, g, mx, my, partialTick);
         NEIClientEvents.onRenderPre(e);
         return e.isCanceled();
     }
 
     /** After a screen drew: NEI's panels, windows and tooltips go on top. */
-    public static void renderPost(Screen screen, GuiGraphicsExtractor g, int mx, int my, float partialTick) {
+    public static void renderPost(Screen screen, GuiGraphics g, int mx, int my, float partialTick) {
         final ScreenEv e = ScreenEv.render(screen, g, mx, my, partialTick);
         NEIClientEvents.onRender(e);
         HighlightTips.onScreenFrame(e);
+        TreeShot.onFrame(); // the picture is finished now
     }
 
-    public static boolean mousePressed(Screen screen, MouseButtonEvent mouse) {
-        final ScreenEv e = ScreenEv.mouse(screen, mouse);
+    public static boolean mousePressed(Screen screen, double mx, double my, int button) {
+        final ScreenEv e = ScreenEv.mouse(screen, mx, my, button);
         NEIClientEvents.onMousePressed(e);
         return e.isCanceled();
     }
 
-    public static void mousePressedPost(Screen screen, MouseButtonEvent mouse) {
-        NEIClientEvents.onMousePressedPost(ScreenEv.mouse(screen, mouse));
+    public static void mousePressedPost(Screen screen, double mx, double my, int button) {
+        NEIClientEvents.onMousePressedPost(ScreenEv.mouse(screen, mx, my, button));
     }
 
-    public static boolean mouseReleased(Screen screen, MouseButtonEvent mouse) {
-        final ScreenEv e = ScreenEv.mouse(screen, mouse);
+    public static boolean mouseReleased(Screen screen, double mx, double my, int button) {
+        final ScreenEv e = ScreenEv.mouse(screen, mx, my, button);
         NEIClientEvents.onMouseReleased(e);
         return e.isCanceled();
     }
@@ -78,18 +79,18 @@ public final class ClientHooks {
         return e.isCanceled();
     }
 
-    public static boolean keyPressed(Screen screen, KeyEvent key) {
-        final ScreenEv e = ScreenEv.key(screen, key);
+    public static boolean keyPressed(Screen screen, int key, int scan, int modifiers) {
+        final ScreenEv e = ScreenEv.key(screen, key, scan, modifiers);
         NEIClientEvents.onKeyPressed(e);
         return e.isCanceled();
     }
 
-    public static void keyReleased(Screen screen, KeyEvent key) {
-        NEIClientEvents.onKeyReleased(ScreenEv.key(screen, key));
+    public static void keyReleased(Screen screen, int key, int scan, int modifiers) {
+        NEIClientEvents.onKeyReleased(ScreenEv.key(screen, key, scan, modifiers));
     }
 
-    public static boolean charTyped(Screen screen, CharacterEvent character) {
-        final ScreenEv e = ScreenEv.chr(screen, character);
+    public static boolean charTyped(Screen screen, int codePoint, int modifiers) {
+        final ScreenEv e = ScreenEv.chr(screen, codePoint, modifiers);
         NEIClientEvents.onCharTyped(e);
         return e.isCanceled();
     }
@@ -105,12 +106,12 @@ public final class ClientHooks {
     }
 
     /** The in-game HUD was drawn. */
-    public static void hud(GuiGraphicsExtractor g) {
+    public static void hud(GuiGraphics g) {
         HighlightTips.onHud(g);
     }
 
-    /** A whole frame was drawn and is complete (the tree screenshot reads it back). */
-    public static void frameDone() {
-        TreeShot.onFrame();
+    /** The level was drawn (translucent part done); {@code pose} is rotated by the camera but not moved. */
+    public static void renderWorld(PoseStack pose, Vec3 camera) {
+        MobOverlay.renderWorld(pose, camera);
     }
 }

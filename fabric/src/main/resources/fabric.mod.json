@@ -26,9 +26,9 @@
   "mixins": ["notenoughitems.mixins.json"],
   "accessWidener": "notenoughitems.accesswidener",
   "depends": {
-    "fabricloader": ">=${fabric_loader_version}",
+    "fabricloader": ">=${fabric_loader_min}",
     "minecraft": "~${minecraft_version}",
-    "java": ">=25",
+    "java": ">=17",
     "fabric-api": "*"
   },
   "suggests": {

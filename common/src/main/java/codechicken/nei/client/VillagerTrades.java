@@ -32,8 +32,9 @@ final class VillagerTrades {
     private static final Map<String, RecipeView> LEARNED = new LinkedHashMap<>();
 
     private VillagerTrades() {}
+
     public static void onTick() {
-        if (!(Minecraft.getInstance().gui.screen() instanceof MerchantScreen screen)) return;
+        if (!(Minecraft.getInstance().screen instanceof MerchantScreen screen)) return;
         final String profession = screen.getTitle().getString();
 
         boolean added = false;
@@ -63,6 +64,6 @@ final class VillagerTrades {
 
     private static String keyOf(ItemStack stack) {
         if (stack.isEmpty()) return "-";
-        return BuiltInRegistries.ITEM.getKey(stack.getItem()) + "x" + stack.getCount() + "#" + stack.getComponentsPatch().hashCode();
+        return BuiltInRegistries.ITEM.getKey(stack.getItem()) + "x" + stack.getCount() + "#" + String.valueOf(stack.getTag());
     }
 }

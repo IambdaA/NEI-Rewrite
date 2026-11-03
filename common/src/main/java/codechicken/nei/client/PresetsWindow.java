@@ -16,7 +16,7 @@ import codechicken.nei.search.SearchParser;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -274,32 +274,32 @@ final class PresetsWindow implements ModalWindow {
 
     // ---- drawing ----
 
-    private void checkbox(GuiGraphicsExtractor g, Font font, int x, int y, boolean checked, String label, boolean over) {
+    private void checkbox(GuiGraphics g, Font font, int x, int y, boolean checked, String label, boolean over) {
         Draw.slot(g, x, y, 10);
-        if (checked) g.fill(x + 2, y + 2, x + 8, y + 8, 0xFF2A7A2A);
-        g.text(font, Component.literal(label), x + 14, y + 1, over ? 0xFF000000 : 0xFF404040, false);
+        if (checked) Gfx.fill(g, x + 2, y + 2, x + 8, y + 8, 0xFF2A7A2A);
+        Gfx.text(g, font, Component.literal(label), x + 14, y + 1, over ? 0xFF000000 : 0xFF404040, false);
     }
 
-    private void button(GuiGraphicsExtractor g, Font font, int x, int y, int w, String label, boolean over, boolean enabled) {
+    private void button(GuiGraphics g, Font font, int x, int y, int w, String label, boolean over, boolean enabled) {
         Draw.button(g, x, y, w, BTN, over && enabled);
-        g.text(font, Component.literal(label), x + (w - font.width(label)) / 2, y + 6, enabled ? 0xFFFFFFFF : 0xFF777777, true);
+        Gfx.text(g, font, Component.literal(label), x + (w - font.width(label)) / 2, y + 6, enabled ? 0xFFFFFFFF : 0xFF777777, true);
     }
 
     @Override
-    public void render(GuiGraphicsExtractor g, int mx, int my, int sw, int sh) {
+    public void render(GuiGraphics g, int mx, int my, int sw, int sh) {
         layout(sw, sh);
         final Font font = Minecraft.getInstance().font;
-        g.fill(0, 0, sw, sh, 0x90000000);
+        Gfx.fill(g, 0, 0, sw, sh, 0x90000000);
         Draw.panel(g, wx, wy, ww, wh);
 
         final String title = list ? "Presets List" : editIndex < 0 ? "Create Preset" : "Update Preset";
-        g.text(font, Component.literal(title), wx + (ww - font.width(title)) / 2, wy + 7, 0xFF404040, false);
+        Gfx.text(g, font, Component.literal(title), wx + (ww - font.width(title)) / 2, wy + 7, 0xFF404040, false);
 
         if (list) renderList(g, font, mx, my);
         else renderEditor(g, font, mx, my);
     }
 
-    private void renderList(GuiGraphicsExtractor g, Font font, int mx, int my) {
+    private void renderList(GuiGraphics g, Font font, int mx, int my) {
         final List<Preset> presets = Presets.list();
         final int by = wy + 20;
         button(g, font, wx + 6, by, 100, "New Preset", Draw.in(mx, my, wx + 6, by, 100, BTN), true);
@@ -307,7 +307,7 @@ final class PresetsWindow implements ModalWindow {
 
         final int rows = visibleRows();
         scroll = Math.max(0, Math.min(scroll, Math.max(0, presets.size() - rows)));
-        if (presets.isEmpty()) g.text(font, Component.literal("No presets yet"), wx + 8, listTop() + 4, 0xFF606060, false);
+        if (presets.isEmpty()) Gfx.text(g, font, Component.literal("No presets yet"), wx + 8, listTop() + 4, 0xFF606060, false);
 
         for (int i = 0; i < rows && scroll + i < presets.size(); i++) {
             final Preset p = presets.get(scroll + i);
@@ -317,12 +317,12 @@ final class PresetsWindow implements ModalWindow {
             final boolean overDel = Draw.in(mx, my, wx + ww - 6 - BTN, y, BTN, BTN);
 
             Draw.button(g, wx + 6, y, BTN, BTN, overOn || p.enabled);
-            g.text(font, Component.literal("✔"), wx + 13, y + 6, p.enabled ? 0xFFFFFFA0 : 0xFF707070, false);
+            Gfx.text(g, font, Component.literal("✔"), wx + 13, y + 6, p.enabled ? 0xFFFFFFA0 : 0xFF707070, false);
             Draw.button(g, wx + 32, y, ww - 64, BTN, overName);
-            g.text(font, Component.empty().append(modeChar(p.mode)).append(Component.literal(" " + p.name)), wx + 38, y + 6,
+            Gfx.text(g, font, Component.empty().append(modeChar(p.mode)).append(Component.literal(" " + p.name)), wx + 38, y + 6,
                     overName ? 0xFFFFFFA0 : 0xFFE0E0E0, false);
             Draw.button(g, wx + ww - 6 - BTN, y, BTN, BTN, overDel);
-            g.text(font, Component.literal("✕"), wx + ww - 6 - BTN + 7, y + 6, overDel ? 0xFFFFFFA0 : 0xFFE0E0E0, false);
+            Gfx.text(g, font, Component.literal("✕"), wx + ww - 6 - BTN + 7, y + 6, overDel ? 0xFFFFFFA0 : 0xFFE0E0E0, false);
 
             if (overOn) ItemTooltip.requestPlain(List.of(Component.literal("Enabled")));
             if (overName) ItemTooltip.requestPlain(List.of(Component.literal(modeKey(p.mode) + ": " + p.items.size() + " items"),
@@ -333,11 +333,11 @@ final class PresetsWindow implements ModalWindow {
         button(g, font, wx + (ww - 100) / 2, cy, 100, "Close", Draw.in(mx, my, wx + (ww - 100) / 2, cy, 100, BTN), true);
     }
 
-    private void renderEditor(GuiGraphicsExtractor g, Font font, int mx, int my) {
-        g.text(font, Component.literal("Preset Name"), colLeftX, contentTop, 0xFF404040, false);
-        name.extractRenderState(g, mx, my, 0f);
+    private void renderEditor(GuiGraphics g, Font font, int mx, int my) {
+        Gfx.text(g, font, Component.literal("Preset Name"), colLeftX, contentTop, 0xFF404040, false);
+        name.render(g, mx, my, 0f);
 
-        g.text(font, Component.literal("Mode"), colLeftX, contentTop + 34, 0xFF404040, false);
+        Gfx.text(g, font, Component.literal("Mode"), colLeftX, contentTop + 34, 0xFF404040, false);
         final Preset.Mode[] modes = { Preset.Mode.HIDE, Preset.Mode.SUBSET, Preset.Mode.REMOVE, Preset.Mode.GROUP };
         for (int i = 0; i < 4; i++) {
             final int x = colLeftX + (i % 2) * (colW / 2);
@@ -347,11 +347,11 @@ final class PresetsWindow implements ModalWindow {
             if (over) ItemTooltip.requestPlain(List.of(Component.literal(modeTip(modes[i]))));
         }
         checkbox(g, font, colLeftX, contentTop + 76, edit.enabled, "Enabled", Draw.in(mx, my, colLeftX, contentTop + 76, colW, 12));
-        g.text(font, Component.literal("Items (" + edit.items.size() + ")"), colLeftX, contentTop + 92, 0xFF404040, false);
+        Gfx.text(g, font, Component.literal("Items (" + edit.items.size() + ")"), colLeftX, contentTop + 92, 0xFF404040, false);
 
         mine.render(g, mx, my, sw, sh);
 
-        search.extractRenderState(g, mx, my, 0f);
+        search.render(g, mx, my, 0f);
         final boolean overF = Draw.in(mx, my, colRightX, contentTop + 22, 40, 12);
         checkbox(g, font, colRightX, contentTop + 22, hideUsed, "F", overF);
         if (overF) ItemTooltip.requestPlain(List.of(Component.literal("Hide items from another active presets")));

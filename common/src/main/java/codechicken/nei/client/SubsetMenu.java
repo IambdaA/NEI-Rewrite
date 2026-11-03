@@ -12,7 +12,7 @@ import codechicken.nei.item.ItemEntry;
 import codechicken.nei.search.SearchParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -99,7 +99,7 @@ final class SubsetMenu {
      * @param top true: the wide "Item Subsets" bar at the top centre; false: a square "%" button at (sx, sy), left of the
      *            search field, whose menus open upwards (NEI's {@code inventory.subsets.widgetPosition})
      */
-    static void render(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, boolean top, int sx, int sy, int size) {
+    static void render(GuiGraphics g, int mx, int my, int sw, int sh, boolean top, int sx, int sy, int size) {
         final Font font = Minecraft.getInstance().font;
         final long now = System.currentTimeMillis();
         up = !top;
@@ -111,7 +111,7 @@ final class SubsetMenu {
         final boolean overBar = overBar(mx, my);
         Draw.button(g, barX, barY, barW, barH, overBar || open);
         final String label = top ? "Item Subsets" : "%";
-        g.text(font, Component.literal(label), barX + (barW - font.width(label)) / 2, barY + (barH - 8) / 2,
+        Gfx.text(g, font, Component.literal(label), barX + (barW - font.width(label)) / 2, barY + (barH - 8) / 2,
                 0xFFE0E0E0, true);
         if (!open) return;
 
@@ -176,8 +176,8 @@ final class SubsetMenu {
                 if (index >= p.owner().children.size()) { // an icon row: the item, dark when hidden
                     final ItemEntry item = p.owner().own.get(index - p.owner().children.size());
                     if (Subsets.isHidden(item)) {
-                        g.fill(p.x(), ry, p.x() + p.w(), ry + ROW, 0xFF000000);
-                        g.fill(p.x() + 1, ry + 1, p.x() + p.w() - 1, ry + ROW - 1, 0xFF161D23);
+                        Gfx.fill(g, p.x(), ry, p.x() + p.w(), ry + ROW, 0xFF000000);
+                        Gfx.fill(g, p.x() + 1, ry + 1, p.x() + p.w() - 1, ry + ROW - 1, 0xFF161D23);
                     } else {
                         Draw.button(g, p.x(), ry, p.w(), ROW, over);
                     }
@@ -187,15 +187,15 @@ final class SubsetMenu {
                 final Subsets.Tag t = p.owner().children.get(index);
                 final int state = Subsets.state(t);
                 if (state == 0) {
-                    g.fill(p.x(), ry, p.x() + p.w(), ry + ROW, 0xFF000000);
-                    g.fill(p.x() + 1, ry + 1, p.x() + p.w() - 1, ry + ROW - 1, 0xFF161D23);
+                    Gfx.fill(g, p.x(), ry, p.x() + p.w(), ry + ROW, 0xFF000000);
+                    Gfx.fill(g, p.x() + 1, ry + 1, p.x() + p.w() - 1, ry + ROW - 1, 0xFF161D23);
                 } else {
                     Draw.button(g, p.x(), ry, p.w(), ROW, over || CHAIN.contains(t));
                 }
                 final int color = over ? 0xFFFFFFA0 : state == 2 ? 0xFFE0E0E0 : 0xFFA0A0A0;
-                g.text(font, Component.literal(t.name), p.x() + 4, ry + (ROW - 8) / 2, color, true);
+                Gfx.text(g, font, Component.literal(t.name), p.x() + 4, ry + (ROW - 8) / 2, color, true);
                 if (!t.children.isEmpty()) {
-                    g.text(font, Component.literal(">"), p.x() + p.w() - 8, ry + (ROW - 8) / 2, 0xFF909090, false);
+                    Gfx.text(g, font, Component.literal(">"), p.x() + p.w() - 8, ry + (ROW - 8) / 2, 0xFF909090, false);
                 }
             }
         }
@@ -254,7 +254,7 @@ final class SubsetMenu {
     /** NEI's SubsetSlot#slotClicked for an item row. */
     private static void clickItem(ItemEntry item, int button) {
         if (button != 0 && button != 1) return;
-        final var screen = Minecraft.getInstance().gui.screen();
+        final var screen = Minecraft.getInstance().screen;
         if (HotkeyHelp.isCtrlDown() && NEIConfig.CHEAT_ENABLED.getAsBoolean() && screen != null) {
             NEIActions.give(item, button == 1 ? 1 : QuantityBar.multiplier(item.stack.getMaxStackSize()), screen);
         } else if (HotkeyHelp.isShiftDown() && searchByClick()) {

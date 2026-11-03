@@ -1,0 +1,96 @@
+plugins {
+    id 'java-library'
+    // ModDevGradle's Legacy plugin: builds mods for MinecraftForge 1.17 - 1.20.1 (Mojang names in the code, reobfuscated to SRG
+    // for the finished jar). The same version number as the NeoForge plugin of the newer versions.
+    id 'net.neoforged.moddev.legacyforge' version '2.0.148'
+    id 'idea'
+}
+
+base {
+    archivesName = "${mod_id}-forge-${minecraft_version}"
+}
+
+// Minecraft 1.20.1 runs on Java 17
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+repositories {
+    // JEI's API (for the JEI recipe bridge, codechicken.nei.jei)
+    maven {
+        url = 'https://maven.blamejared.com'
+        // JEI's config library (mezz_config) lives on the same maven; JEI's pom needs it at runtime
+        content {
+            includeGroup 'mezz.jei'
+            includeGroup 'net.mezzdev.config'
+        }
+    }
+}
+
+// Without JEI (jei_version=none) the JEI bridge package is not compiled
+if (jei_version == 'none') {
+    sourceSets.main.java.exclude('codechicken/nei/jei/**')
+}
+
+// The shared code (plain Minecraft code) is compiled into this jar together with the Forge glue in this module.
+sourceSets.main.java.srcDir '../common/src/main/java'
+sourceSets.main.resources.srcDir '../common/src/main/resources'
+
+legacyForge {
+    version = "${minecraft_version}-${forge_version}"
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+            programArgument '--nogui'
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+dependencies {
+    // The JEI recipe bridge reads the recipes of every mod that has a JEI plugin. Only the API is needed to compile; the full
+    // JEI is on the dev client's runtime classpath only (it is not a dependency of the finished mod). JEI's Forge jar is
+    // SRG-mapped: the "mod" configurations remap it to the names the dev client uses.
+    if (jei_version != 'none') {
+        compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
+        modRuntimeOnly "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
+    }
+}
+
+// Fills ${...} in mods.toml from gradle.properties
+processResources {
+    var props = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            forge_version_range    : forge_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+            mod_authors            : mod_authors,
+            jei_version_range      : jei_version_range,
+    ]
+    inputs.properties props
+    filesMatching('META-INF/mods.toml') {
+        expand props
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

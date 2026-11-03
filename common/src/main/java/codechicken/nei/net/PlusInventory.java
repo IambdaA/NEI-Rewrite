@@ -1,5 +1,6 @@
 package codechicken.nei.net;
 
+import codechicken.nei.item.Stacks;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -12,11 +13,13 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonParser;
-import com.mojang.serialization.JsonOps;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
 import codechicken.nei.NotEnoughItems;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.TagParser;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -68,6 +71,7 @@ public final class PlusInventory {
             onChange.run();
         }
     }
+
     public static void onServerStopped() {
         STORES.clear(); // the next world may be a different one for the same player
     }
@@ -80,7 +84,7 @@ public final class PlusInventory {
 
     static void setSlot(ServerPlayer player, int slot, ItemStack stack) {
         if (!player.isCreative() || !(player.containerMenu instanceof Menu) || slot < 0 || slot >= SIZE) return;
-        store(player).setItem(slot, stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(Math.min(stack.getCount(), stack.getMaxStackSize())));
+        store(player).setItem(slot, stack.isEmpty() ? ItemStack.EMPTY : Stacks.withCount(stack, Math.min(stack.getCount(), stack.getMaxStackSize())));
     }
 
     static void cycle(ServerPlayer player, int steps) {
@@ -109,11 +113,12 @@ public final class PlusInventory {
         final Path file = file(server, id);
         if (Files.exists(file)) {
             try (Reader reader = Files.newBufferedReader(file)) {
-                final var ops = server.registryAccess().createSerializationContext(JsonOps.INSTANCE);
-                final List<ItemStack> list = ItemStack.OPTIONAL_CODEC.listOf().parse(ops, JsonParser.parseReader(reader)).result()
-                        .orElse(List.of());
-                for (int i = 0; i < Math.min(SIZE, list.size()); i++) store.setItem(i, list.get(i));
-            } catch (IOException | RuntimeException e) {
+                final JsonArray array = JsonParser.parseReader(reader).getAsJsonArray();
+                for (int i = 0; i < Math.min(SIZE, array.size()); i++) {
+                    final String snbt = array.get(i).getAsString();
+                    store.setItem(i, snbt.isEmpty() ? ItemStack.EMPTY : ItemStack.of(TagParser.parseTag(snbt)));
+                }
+            } catch (IOException | RuntimeException | CommandSyntaxException e) {
                 NotEnoughItems.LOGGER.warn("Could not read the extended creative inventory {}: {}", file, e.toString());
             }
         }
@@ -121,16 +126,18 @@ public final class PlusInventory {
         return store;
     }
 
+    /** Each slot is saved as the stack's NBT text (1.20.1 has no item codec); an empty slot is an empty string. */
     private static void save(MinecraftServer server, UUID id, Container store) {
         final Path file = file(server, id);
         try {
-            final List<ItemStack> list = new ArrayList<>();
-            for (int i = 0; i < SIZE; i++) list.add(store.getItem(i));
-            final var ops = server.registryAccess().createSerializationContext(JsonOps.INSTANCE);
-            final JsonElement json = ItemStack.OPTIONAL_CODEC.listOf().encodeStart(ops, list).getOrThrow();
+            final JsonArray array = new JsonArray();
+            for (int i = 0; i < SIZE; i++) {
+                final ItemStack stack = store.getItem(i);
+                array.add(stack.isEmpty() ? "" : stack.save(new CompoundTag()).toString());
+            }
             Files.createDirectories(file.getParent());
             try (Writer writer = Files.newBufferedWriter(file)) {
-                new Gson().toJson(json, writer);
+                new Gson().toJson(array, writer);
             }
         } catch (IOException | RuntimeException e) {
             NotEnoughItems.LOGGER.warn("Could not save the extended creative inventory {}: {}", file, e.toString());

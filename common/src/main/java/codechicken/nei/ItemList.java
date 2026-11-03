@@ -91,7 +91,7 @@ public final class ItemList {
     public static void load() {
         final List<ItemEntry> list = new ArrayList<>();
         final Set<Item> seenItems = new HashSet<>();
-        final Set<ItemStack> seenStacks = ItemStackLinkedSet.createTypeAndComponentsSet();
+        final Set<ItemStack> seenStacks = ItemStackLinkedSet.createTypeAndTagSet();
 
         // Variants first (enchanted books, potions, ...), straight from the creative search tab.
         for (ItemStack stack : creativeStacks()) {
@@ -110,7 +110,7 @@ public final class ItemList {
         // NEI's mob spawners: one for every mob.
         final var level = Minecraft.getInstance().level;
         if (level != null) {
-            for (ItemStack stack : codechicken.nei.item.MobSpawners.stacks(level.registryAccess())) {
+            for (ItemStack stack : codechicken.nei.item.MobSpawners.stacks()) {
                 if (seenStacks.add(stack)) add(list, stack.copy());
             }
         }

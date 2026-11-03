@@ -3,7 +3,6 @@ package codechicken.nei.item;
 import java.util.HashMap;
 import java.util.Map;
 
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -13,7 +12,7 @@ import net.minecraft.world.level.material.Fluid;
  * NEI's fluid display items ({@code ItemFluidDisplay}): every fluid gets an item of its own so fluids can sit in the item
  * panel, be searched, and be looked up like items (recipes that make or use them). GTNH NEI uses one item with the fluid in
  * its damage value; here every source fluid gets its own item (ids {@code notenoughitems:fluid/<mod>/<fluid>}), so every
- * place that keys by item works unchanged. They exist only on the client (see {@code client.FluidRegistration}): a server
+ * place that keys by item works unchanged. They exist only on the client (see {@code client.FluidRegistration}; each loader module registers them): a server
  * that sent them would be refused by clients without the mod. They are never obtainable.
  */
 public final class FluidDisplay {
@@ -48,7 +47,7 @@ public final class FluidDisplay {
     private static final java.util.Set<String> FLUID_ITEM_IDS = java.util.concurrent.ConcurrentHashMap.newKeySet();
     /** Ids of subtyped item stacks whose tooltip names an amount of fluid ("20mB"): fluids that are items (NTM - Continuum). */
     private static final java.util.Set<String> AMOUNT_IDS = java.util.concurrent.ConcurrentHashMap.newKeySet();
-    private static final Map<net.minecraft.core.component.DataComponentPatch, Integer> TOOLTIP_AMOUNTS = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<net.minecraft.nbt.CompoundTag, Integer> TOOLTIP_AMOUNTS = new java.util.concurrent.ConcurrentHashMap<>();
     private static final java.util.regex.Pattern MB = java.util.regex.Pattern.compile("(\\d[\\d,]*)\\s*mB", java.util.regex.Pattern.CASE_INSENSITIVE);
     private static final Map<String, ItemStack> KNOWN = new java.util.concurrent.ConcurrentHashMap<>();
     private static volatile java.util.function.Supplier<? extends Iterable<ItemStack>> scanner;
@@ -65,17 +64,17 @@ public final class FluidDisplay {
 
     /**
      * The id of a stack: its registry id, plus {@code ~} and JEI's subtype identity when JEI tells stacks of this item
-     * apart (NTM's {@code hbm:fluid_icon}: one item, a fluid in a component). Two stacks have the same id exactly when
+     * apart (NTM's {@code hbm:fluid_icon}: one item, a fluid in the stack's NBT). Two stacks have the same id exactly when
      * JEI treats them as the same ingredient, whatever else they carry (an amount). No tab, comma or | in it.
      */
     public static String idOf(ItemStack stack) {
         final String plain = idOf(stack.getItem());
-        if (stack.isEmpty() || stack.getComponentsPatch().isEmpty()) return plain;
+        if (stack.isEmpty() || !stack.hasTag()) return plain;
         final String sub = subtypeOf(stack);
         if (sub.isEmpty()) return plain;
         final String id = plain + MARK + java.util.Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(sub.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        KNOWN.putIfAbsent(id, stack.copyWithCount(1));
+        KNOWN.putIfAbsent(id, Stacks.withCount(stack, 1));
         return id;
     }
 
@@ -96,10 +95,10 @@ public final class FluidDisplay {
      * one item whose amount is in a component only that mod can read), or 0. Only stacks JEI says have a subtype are asked.
      */
     public static int itemFluidAmount(ItemStack stack) {
-        if (stack.isEmpty() || stack.getComponentsPatch().isEmpty() || subtypeOf(stack).isEmpty()) return 0;
-        final int amount = TOOLTIP_AMOUNTS.computeIfAbsent(stack.getComponentsPatch(), k -> {
+        if (stack.isEmpty() || !stack.hasTag() || subtypeOf(stack).isEmpty()) return 0;
+        final int amount = TOOLTIP_AMOUNTS.computeIfAbsent(stack.getTag().copy(), k -> {
             try {
-                for (var line : stack.getTooltipLines(net.minecraft.world.item.Item.TooltipContext.EMPTY,
+                for (var line : stack.getTooltipLines(
                         net.minecraft.client.Minecraft.getInstance().player, net.minecraft.world.item.TooltipFlag.NORMAL)) {
                     final var m = MB.matcher(line.getString());
                     if (m.find()) return Integer.parseInt(m.group(1).replace(",", ""));
@@ -203,7 +202,7 @@ public final class FluidDisplay {
 
     /** A fluid: one of NEI's display items, or an item whose tooltip names an amount of fluid. */
     public static boolean isFluid(ItemStack stack) {
-        return is(stack) || (!stack.isEmpty() && !stack.getComponentsPatch().isEmpty() && isFluidId(idOf(stack)));
+        return is(stack) || (!stack.isEmpty() && stack.hasTag() && isFluidId(idOf(stack)));
     }
 
     public static boolean is(ItemStack stack) {
@@ -228,8 +227,12 @@ public final class FluidDisplay {
     public static ItemStack named(ItemStack stack) {
         final Fluid fluid = fluidOf(stack);
         if (fluid != null) {
-            stack.set(DataComponents.CUSTOM_NAME,
-                    codechicken.nei.NotEnoughItems.platform().fluidName(fluid).copy().withStyle(s -> s.withItalic(false)));
+            // the fluid's block carries its name ("Water", "Lava", a mod's own); a fluid without a block shows its id
+            final var block = fluid.defaultFluidState().createLegacyBlock().getBlock();
+            final net.minecraft.network.chat.Component name = block == net.minecraft.world.level.block.Blocks.AIR
+                    ? net.minecraft.network.chat.Component.literal(BuiltInRegistries.FLUID.getKey(fluid).getPath())
+                    : block.getName();
+            stack.setHoverName(name.copy().withStyle(s -> s.withItalic(false)));
         }
         return stack;
     }

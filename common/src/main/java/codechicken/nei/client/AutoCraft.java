@@ -107,7 +107,7 @@ final class AutoCraft {
      */
     static boolean start(List<BookmarkGrid.Item> items, boolean missingOnly, String focus) {
         if (!enabled()) return false;
-        final var current = Minecraft.getInstance().gui.screen();
+        final var current = Minecraft.getInstance().screen;
         if (!(current instanceof AbstractContainerScreen<?> s) || !RecipeTransfer.hasGrid(s)) {
             say("Autocrafting needs a crafting grid: open a crafting table or your inventory");
             return true;
@@ -195,10 +195,11 @@ final class AutoCraft {
         phase = Phase.FILL;
         return true;
     }
+
     public static void onTick() {
         if (screen == null) return;
         final Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.gui.screen() != screen) { // NEI: any other screen stops it
+        if (mc.player == null || mc.screen != screen) { // NEI: any other screen stops it
             stop();
             return;
         }

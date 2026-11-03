@@ -10,17 +10,16 @@ import codechicken.nei.NEIActions;
 import codechicken.nei.item.GiveCommands;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 
 /**
  * NEI's enchantment modifier ({@code GuiEnchantmentModifier}) and potion creator ({@code GuiPotionCreator}) as windows over
@@ -80,16 +79,12 @@ final class CreatorWindow implements ModalWindow {
         if (level == null) return;
 
         if (kind == Kind.ENCHANT) {
-            // ItemEnchantments#getLevel(Holder)
-            final ItemEnchantments current = base.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
-            level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).listElements().forEach(ref -> {
-                final Enchantment e = ref.value();
-                final String id = ref.getRegisteredName();
-                if (!e.isSupportedItem(base) && current.getLevel(ref) == 0) return;
-                final int colon = id.indexOf(':');
-                rows.add(new Row(id, Component.translatable("enchantment." + id.substring(0, colon) + "."
-                        + id.substring(colon + 1)), current.getLevel(ref)));
-            });
+            final Map<Enchantment, Integer> current = EnchantmentHelper.getEnchantments(base);
+            for (Enchantment e : BuiltInRegistries.ENCHANTMENT) {
+                final int have = current.getOrDefault(e, 0);
+                if (!e.canEnchant(base) && have == 0) continue;
+                rows.add(new Row(BuiltInRegistries.ENCHANTMENT.getKey(e).toString(), Component.translatable(e.getDescriptionId()), have));
+            }
         } else {
             for (MobEffect effect : BuiltInRegistries.MOB_EFFECT) {
                 rows.add(new Row(BuiltInRegistries.MOB_EFFECT.getKey(effect).toString(), effect.getDisplayName(), 0));
@@ -164,18 +159,21 @@ final class CreatorWindow implements ModalWindow {
             return GiveCommands.enchanted(codechicken.nei.item.FluidDisplay.idOf(base.getItem()), levels);
         }
         final List<GiveCommands.Effect> effects = new ArrayList<>();
-        for (Row r : rows) if (r.level > 0) effects.add(new GiveCommands.Effect(r.id, r.level - 1, r.seconds));
+        for (Row r : rows) if (r.level > 0) {
+            final MobEffect effect = BuiltInRegistries.MOB_EFFECT.get(new net.minecraft.resources.ResourceLocation(r.id));
+            if (effect != null) effects.add(new GiveCommands.Effect(MobEffect.getId(effect), r.level - 1, r.seconds));
+        }
         return GiveCommands.potion(POTION_ITEMS[potionType], effects);
     }
 
     // ---- drawing ----
 
-    private void counter(GuiGraphicsExtractor g, Font font, int x, int y, String text, boolean over, boolean dim) {
+    private void counter(GuiGraphics g, Font font, int x, int y, String text, boolean over, boolean dim) {
         Draw.button(g, x, y + 1, 14, 18, over);
-        g.text(font, Component.literal("-"), x + 5, y + 7, 0xFFFFFFFF, true);
-        g.text(font, Component.literal(text), x + 14 + (34 - font.width(text)) / 2, y + 6, dim ? 0xFF808080 : 0xFF202020, false);
+        Gfx.text(g, font, Component.literal("-"), x + 5, y + 7, 0xFFFFFFFF, true);
+        Gfx.text(g, font, Component.literal(text), x + 14 + (34 - font.width(text)) / 2, y + 6, dim ? 0xFF808080 : 0xFF202020, false);
         Draw.button(g, x + 48, y + 1, 14, 18, over);
-        g.text(font, Component.literal("+"), x + 48 + 4, y + 7, 0xFFFFFFFF, true);
+        Gfx.text(g, font, Component.literal("+"), x + 48 + 4, y + 7, 0xFFFFFFFF, true);
     }
 
     private boolean overMinus(double mx, double my, int x, int y) {
@@ -187,34 +185,34 @@ final class CreatorWindow implements ModalWindow {
     }
 
     @Override
-    public void render(GuiGraphicsExtractor g, int mx, int my, int sw, int sh) {
+    public void render(GuiGraphics g, int mx, int my, int sw, int sh) {
         this.sw = sw;
         this.sh = sh;
         final Font font = Minecraft.getInstance().font;
-        g.fill(0, 0, sw, sh, 0x90000000);
+        Gfx.fill(g, 0, 0, sw, sh, 0x90000000);
         Draw.panel(g, wx(), WY, ww(), wh());
 
         final String title = kind == Kind.ENCHANT ? "Enchantment Modifier" : "Potion Creator";
-        g.text(font, Component.literal(title), wx() + (ww() - font.width(title)) / 2, WY + 7, 0xFF404040, false);
+        Gfx.text(g, font, Component.literal(title), wx() + (ww() - font.width(title)) / 2, WY + 7, 0xFF404040, false);
 
         if (kind == Kind.ENCHANT) {
             Draw.stack(g, base, wx() + 8, WY + 22);
-            g.text(font, base.getHoverName(), wx() + 30, WY + 27, 0xFF202020, false);
+            Gfx.text(g, font, base.getHoverName(), wx() + 30, WY + 27, 0xFF202020, false);
         } else {
             final boolean over = Draw.in(mx, my, wx() + 8, WY + 22, 130, BTN);
             Draw.button(g, wx() + 8, WY + 22, 130, BTN, over);
-            g.text(font, Component.literal(POTION_NAMES[potionType]), wx() + 8 + (130 - font.width(POTION_NAMES[potionType])) / 2,
+            Gfx.text(g, font, Component.literal(POTION_NAMES[potionType]), wx() + 8 + (130 - font.width(POTION_NAMES[potionType])) / 2,
                     WY + 28, 0xFFFFFFFF, true);
-            g.text(font, Component.literal("Level"), counterX(0) + 18, WY + 30, 0xFF404040, false);
-            g.text(font, Component.literal("Seconds"), counterX(1) + 12, WY + 30, 0xFF404040, false);
+            Gfx.text(g, font, Component.literal("Level"), counterX(0) + 18, WY + 30, 0xFF404040, false);
+            Gfx.text(g, font, Component.literal("Seconds"), counterX(1) + 12, WY + 30, 0xFF404040, false);
         }
 
         scroll = Math.max(0, Math.min(scroll, Math.max(0, rows.size() - visible())));
-        if (rows.isEmpty()) g.text(font, Component.literal("Nothing fits this item"), wx() + 10, top() + 4, 0xFF606060, false);
+        if (rows.isEmpty()) Gfx.text(g, font, Component.literal("Nothing fits this item"), wx() + 10, top() + 4, 0xFF606060, false);
         for (int i = 0; i < visible() && scroll + i < rows.size(); i++) {
             final Row r = rows.get(scroll + i);
             final int y = top() + i * ROW;
-            g.text(font, r.name, wx() + 10, y + 6, r.level > 0 ? 0xFF105010 : 0xFF404040, false);
+            Gfx.text(g, font, r.name, wx() + 10, y + 6, r.level > 0 ? 0xFF105010 : 0xFF404040, false);
             final boolean overRow = Draw.in(mx, my, counterX(0), y, 62, ROW);
             counter(g, font, counterX(0), y, r.level == 0 ? "-" : Integer.toString(r.level), overRow, r.level == 0);
             if (kind == Kind.POTION) {
@@ -227,9 +225,9 @@ final class CreatorWindow implements ModalWindow {
         final int bx = wx() + ww() / 2;
         final boolean give = canGive();
         Draw.button(g, bx - 100, by, 98, BTN, Draw.in(mx, my, bx - 100, by, 98, BTN));
-        g.text(font, Component.literal("Close"), bx - 100 + (98 - font.width("Close")) / 2, by + 6, 0xFFFFFFFF, true);
+        Gfx.text(g, font, Component.literal("Close"), bx - 100 + (98 - font.width("Close")) / 2, by + 6, 0xFFFFFFFF, true);
         Draw.button(g, bx + 2, by, 98, BTN, give && Draw.in(mx, my, bx + 2, by, 98, BTN));
-        g.text(font, Component.literal("Give"), bx + 2 + (98 - font.width("Give")) / 2, by + 6, give ? 0xFFFFFFFF : 0xFF777777, true);
+        Gfx.text(g, font, Component.literal("Give"), bx + 2 + (98 - font.width("Give")) / 2, by + 6, give ? 0xFFFFFFFF : 0xFF777777, true);
         if (Draw.in(mx, my, bx + 2, by, 98, BTN) && !give) {
             ItemTooltip.requestPlain(List.of(Component.literal(rows.stream().anyMatch(r -> r.level > 0)
                     ? "Needs cheats or operator permission" : "Choose at least one level first")));

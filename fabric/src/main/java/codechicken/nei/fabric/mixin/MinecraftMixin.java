@@ -6,12 +6,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import codechicken.nei.client.ClientHooks;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
-/** NeoForge's cancellable {@code ScreenEvent.Opening} (26.2 moved {@code setScreen} to {@code Gui}): the creative inventory is replaced by the extended one. */
-@Mixin(Gui.class)
-public abstract class GuiMixin {
+/** NeoForge's cancellable {@code ScreenEvent.Opening}: the creative inventory is replaced by the extended one. */
+@Mixin(Minecraft.class)
+public abstract class MinecraftMixin {
 
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
     private void nei$opening(Screen screen, CallbackInfo ci) {

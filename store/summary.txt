@@ -1,1 +1,1 @@
-NEI for Minecraft 26.2: item panel, search, recipes, bookmarks, crafting trees. Modded machine recipes need JEI installed.
+NEI for Minecraft 1.20.1 (Forge and Fabric): item panel, search, recipes, bookmarks, crafting trees. Modded machine recipes come from JEI (JEI 15 needed).

@@ -1,39 +1,47 @@
 package codechicken.nei.recipe;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import codechicken.nei.NotEnoughItems;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.crafting.Recipe;
 
-/** Holds the recipes the server synced to this client (each loader module hands them over: NeoForge {@code RecipesReceivedEvent}, Fabric {@code ClientRecipeSynchronizedEvent}). Cleared on logout. */
+/**
+ * The recipes this client knows. The server sends every recipe to every client, so they are read from the
+ * connection's recipe manager; a change (a reload, another world) is noticed by comparing the manager's collection with
+ * the one seen last, and makes {@link RecipeIndex} rebuild.
+ */
 public final class ClientRecipes {
 
-    private static volatile List<RecipeHolder<?>> all = List.of();
+    private static List<Recipe<?>> all = List.of();
+    private static Collection<Recipe<?>> seen;
+    private static int seenSize = -1;
 
     private ClientRecipes() {}
 
-    public static List<RecipeHolder<?>> all() {
-        return all;
+    /** Checks whether the recipes changed since the last call (cheap) and tells the index if so. */
+    public static synchronized void refresh() {
+        final var connection = Minecraft.getInstance().getConnection();
+        if (connection == null) {
+            if (seen != null) {
+                seen = null;
+                seenSize = -1;
+                all = List.of();
+                RecipeIndex.invalidate();
+            }
+            return;
+        }
+        final Collection<Recipe<?>> now = connection.getRecipeManager().getRecipes();
+        if (now != seen || now.size() != seenSize) {
+            seen = now;
+            seenSize = now.size();
+            all = List.copyOf(now);
+            RecipeIndex.invalidate();
+        }
     }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public static void set(net.minecraft.world.item.crafting.RecipeMap map) {
-        final List<RecipeHolder<?>> list = new ArrayList<>();
-        // raw types because the element type is a wildcard
-        for (RecipeType<?> type : BuiltInRegistries.RECIPE_TYPE) {
-            final Collection<RecipeHolder<?>> recipes = (Collection) map.byType((RecipeType) type);
-            list.addAll(recipes);
-        }
-        all = List.copyOf(list);
-        RecipeIndex.invalidate();
-        NotEnoughItems.LOGGER.info("NEI received {} recipes from the server", all.size());
-    }
-    public static void clear() {
-        all = List.of();
-        RecipeIndex.invalidate();
+    public static synchronized List<Recipe<?>> all() {
+        refresh();
+        return all;
     }
 }

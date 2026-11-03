@@ -1,5 +1,6 @@
 package codechicken.nei.client;
 
+import codechicken.nei.item.Stacks;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,6 +23,7 @@ import net.minecraft.world.item.ItemStack;
  * inventory, the inventory and the hotbar. Needs NEI Rewrite on the server; without it everything stays vanilla.
  */
 public final class CreativePlus {
+
 
     private CreativePlus() {}
 
@@ -66,14 +68,14 @@ public final class CreativePlus {
         for (int pass = 0; pass < 2 && left > 0; pass++) {
             for (int i = 0; i < 54 && left > 0; i++) {
                 final ItemStack at = slots.get(i);
-                if (pass == 0 && !at.isEmpty() && ItemStack.isSameItemSameComponents(at, stack) && at.getCount() < max) {
+                if (pass == 0 && !at.isEmpty() && ItemStack.isSameItemSameTags(at, stack) && at.getCount() < max) {
                     final int add = Math.min(left, max - at.getCount());
                     at.grow(add);
                     left -= add;
                     changed[i] = true;
                 } else if (pass == 1 && at.isEmpty()) {
                     final int add = Math.min(left, max);
-                    slots.set(i, stack.copyWithCount(add));
+                    slots.set(i, Stacks.withCount(stack, add));
                     left -= add;
                     changed[i] = true;
                 }
@@ -96,20 +98,14 @@ public final class CreativePlus {
 
     /** NEI's {@code checkCreativeInv}: the extended inventory closes when creative+ ends (the button, or another gamemode). */
     public static void onTick() {
-        final Screen screen = Minecraft.getInstance().gui.screen();
+        final Screen screen = Minecraft.getInstance().screen;
         if (isScreen(screen) && !active()) screen.onClose();
-    }
-
-    /** Ctrl is read from GLFW because HotkeyHelp only hears keys while a container screen is open. */
-    private static boolean ctrlDown() {
-        final long window = Minecraft.getInstance().getWindow().handle();
-        return org.lwjgl.glfw.GLFW.glfwGetKey(window, 341) == 1 || org.lwjgl.glfw.GLFW.glfwGetKey(window, 345) == 1;
     }
 
     /** NEI's {@code processCreativeCycling}: Ctrl + scroll with no screen open (it used to be a hotbar change). */
     public static boolean onScroll(double dy) {
         final Minecraft mc = Minecraft.getInstance();
-        if (!ctrlDown() || mc.gui.screen() != null || !active()) return false;
+        if (!Screen.hasControlDown() || mc.screen != null || !active()) return false;
         if (dy == 0) return false;
         // NEI: the wheel up moved the hotbar selection back, which cycled the rows by -1
         NotEnoughItems.platform().sendToServer(new PlusPackets.Cycle(dy > 0 ? -1 : 1));

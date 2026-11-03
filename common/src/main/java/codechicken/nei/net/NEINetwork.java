@@ -6,13 +6,10 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import codechicken.nei.NotEnoughItems;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -28,29 +25,27 @@ public final class NEINetwork {
     public static final int MAX_DATA = 30000;
 
     /** A packet the client sends and the server handles. */
-    public record ToServer<T extends CustomPacketPayload>(CustomPacketPayload.Type<T> type,
-            StreamCodec<? super RegistryFriendlyByteBuf, T> codec, BiConsumer<ServerPlayer, T> handler) {}
+    public record ToServer<T extends NEIPacket>(PacketType<T> type, BiConsumer<ServerPlayer, T> handler) {}
 
     /** A packet the server sends and the client handles (on the client thread). */
-    public record ToClient<T extends CustomPacketPayload>(CustomPacketPayload.Type<T> type,
-            StreamCodec<? super RegistryFriendlyByteBuf, T> codec, Consumer<T> handler) {}
+    public record ToClient<T extends NEIPacket>(PacketType<T> type, Consumer<T> handler) {}
 
     public static final List<ToServer<?>> TO_SERVER = List.of(
-            new ToServer<>(LinkToServer.TYPE, LinkToServer.CODEC, (sender, payload) -> share(sender, payload.data())),
-            new ToServer<>(PlusPackets.Open.TYPE, PlusPackets.Open.CODEC, (sender, payload) -> PlusInventory.open(sender)),
-            new ToServer<>(PlusPackets.Slot.TYPE, PlusPackets.Slot.CODEC,
+            new ToServer<>(LinkToServer.TYPE, (sender, payload) -> share(sender, payload.data())),
+            new ToServer<>(PlusPackets.Open.TYPE, (sender, payload) -> PlusInventory.open(sender)),
+            new ToServer<>(PlusPackets.Slot.TYPE,
                     (sender, payload) -> PlusInventory.setSlot(sender, payload.slot(), payload.stack())),
-            new ToServer<>(PlusPackets.Cycle.TYPE, PlusPackets.Cycle.CODEC,
+            new ToServer<>(PlusPackets.Cycle.TYPE,
                     (sender, payload) -> PlusInventory.cycle(sender, payload.steps())),
-            new ToServer<>(CheatPackets.SetSlot.TYPE, CheatPackets.SetSlot.CODEC,
+            new ToServer<>(CheatPackets.SetSlot.TYPE,
                     (sender, payload) -> CheatServer.setSlot(sender, payload.slot(), payload.stack())),
-            new ToServer<>(CheatPackets.DeleteAll.TYPE, CheatPackets.DeleteAll.CODEC,
+            new ToServer<>(CheatPackets.DeleteAll.TYPE,
                     (sender, payload) -> CheatServer.deleteAll(sender)),
-            new ToServer<>(CheatPackets.Magnet.TYPE, CheatPackets.Magnet.CODEC,
+            new ToServer<>(CheatPackets.Magnet.TYPE,
                     (sender, payload) -> CheatServer.setMagnet(sender, payload.on())));
 
     public static final List<ToClient<?>> TO_CLIENT = List.of(
-            new ToClient<>(LinkToClient.TYPE, LinkToClient.CODEC,
+            new ToClient<>(LinkToClient.TYPE,
                     payload -> codechicken.nei.client.ChatLinks.cache(payload.id(), payload.data())));
 
     private NEINetwork() {}
@@ -75,8 +70,9 @@ public final class NEINetwork {
 
         final MutableComponent link = Component.literal("[" + label + "]").withStyle(style -> style
                 .withColor(0x55FFFF)
-                .withClickEvent(new ClickEvent.RunCommand("/nei_bookmark " + id))
-                .withHoverEvent(new HoverEvent.ShowText(Component.literal("Click to add to your bookmarks (needs NEI Rewrite)"))));
+                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/nei_bookmark " + id))
+                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                        Component.literal("Click to add to your bookmarks (needs NEI Rewrite)"))));
         server.getPlayerList().broadcastSystemMessage(Component.literal("<" + sender.getName().getString() + "> ")
                 .append(Component.literal("Click to add bookmark: ").withStyle(net.minecraft.ChatFormatting.GOLD)).append(link), false);
     }

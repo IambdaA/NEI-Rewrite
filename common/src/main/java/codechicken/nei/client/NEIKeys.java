@@ -6,27 +6,21 @@ import com.mojang.blaze3d.platform.InputConstants;
 
 import codechicken.nei.NotEnoughItems;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.resources.Identifier;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Set;
 
 /**
  * Every NEI hotkey, rebindable under Options > Controls > NotEnoughItems. They only act while a screen is open
- * , so they never clash with in-game keys.
+ *, so they never clash with in-game keys.
  *
  * Escape (close the recipe window) and the arrow keys (change recipe page) are fixed.
  */
 public final class NEIKeys {
 
-    public static final KeyMapping.Category CATEGORY = ClientPlatform.HOLDER.get()
-            .category(Identifier.fromNamespaceAndPath(NotEnoughItems.MODID, "nei"));
+    /** The controls screen section (a translation key, see lang/en_us.json). */
+    public static final String CATEGORY = "key.categories." + NotEnoughItems.MODID;
 
-    private static final List<KeyMapping> ALL = new ArrayList<>();
+    private static final java.util.List<KeyMapping> ALL = new java.util.ArrayList<>();
     /** The keys that only act while a screen is open (the loader must not let them take the game's own keys). */
-    private static final Set<KeyMapping> GUI_ONLY = Collections.newSetFromMap(new IdentityHashMap<>());
+    private static final java.util.Set<KeyMapping> GUI_ONLY = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
     public static final KeyMapping RECIPE = key("recipe", GLFW.GLFW_KEY_R);
     public static final KeyMapping USAGE = key("usage", GLFW.GLFW_KEY_U);
@@ -112,7 +106,7 @@ public final class NEIKeys {
 
     /** True if this key is bound and is the one pressed; Shift / Ctrl held do not matter (NEI's keys work with them). */
     static boolean is(KeyMapping mapping, InputConstants.Key pressed) {
-        return !mapping.isUnbound() && ClientPlatform.HOLDER.get().boundKey(mapping).equals(pressed);
+        return !mapping.isUnbound() && mapping.saveString().equals(pressed.getName());
     }
 
     private static KeyMapping key(String name, int glfwKey) {
@@ -127,8 +121,8 @@ public final class NEIKeys {
     }
 
     /** Every hotkey, for the loader to register. */
-    public static List<KeyMapping> all() {
-        return List.copyOf(ALL);
+    public static java.util.List<KeyMapping> all() {
+        return java.util.List.copyOf(ALL);
     }
 
     /** Whether the key only acts while a screen is open. */

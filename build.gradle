@@ -1,4 +1,4 @@
-// Nothing is built here; see neoforge/build.gradle and fabric/build.gradle.
+// Nothing is built here; see forge/build.gradle and fabric/build.gradle.
 allprojects {
     group = mod_group_id
     version = mod_version

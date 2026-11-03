@@ -16,6 +16,6 @@ public abstract class MouseHandlerMixin {
     @Inject(method = "onScroll", at = @At("HEAD"), cancellable = true)
     private void nei$scroll(long window, double xOffset, double yOffset, CallbackInfo ci) {
         final Minecraft mc = Minecraft.getInstance();
-        if (mc.gui.screen() == null && window == mc.getWindow().handle() && ClientHooks.worldScroll(yOffset)) ci.cancel();
+        if (mc.screen == null && window == mc.getWindow().getWindow() && ClientHooks.worldScroll(yOffset)) ci.cancel();
     }
 }

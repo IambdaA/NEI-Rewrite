@@ -7,7 +7,6 @@ import java.util.UUID;
 
 import codechicken.nei.NotEnoughItems;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.Permissions;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -36,7 +35,7 @@ public final class CheatServer {
 
     /** Creative players and operators (game master level), as JEI's cheat mode checks it. */
     static boolean allowed(ServerPlayer player) {
-        return player.isCreative() || player.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER);
+        return player.isCreative() || player.hasPermissions(2);
     }
 
     /** NEI's {@code setInventorySlot}: only removing items is accepted here (giving has its own routes). */
@@ -46,7 +45,7 @@ public final class CheatServer {
         final ItemStack old = slot == CheatPackets.CARRIED ? menu.getCarried()
                 : slot >= 0 && slot < menu.slots.size() ? menu.getSlot(slot).getItem() : null;
         if (old == null) return;
-        final boolean deleting = stack.isEmpty() || ItemStack.isSameItemSameComponents(stack, old) && stack.getCount() < old.getCount();
+        final boolean deleting = stack.isEmpty() || ItemStack.isSameItemSameTags(stack, old) && stack.getCount() < old.getCount();
         if (!deleting) return;
 
         if (slot == CheatPackets.CARRIED) menu.setCarried(stack.copy());
@@ -66,12 +65,15 @@ public final class CheatServer {
         if (on && allowed(player)) MAGNET.add(player.getUUID());
         else MAGNET.remove(player.getUUID());
     }
+
     public static void onLogout(ServerPlayer player) {
         MAGNET.remove(player.getUUID());
     }
+
     public static void onStopped() {
         MAGNET.clear();
     }
+
     public static void onTick(net.minecraft.server.MinecraftServer server) {
         if (MAGNET.isEmpty()) return;
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {

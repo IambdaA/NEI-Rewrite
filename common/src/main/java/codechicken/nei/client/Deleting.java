@@ -1,5 +1,6 @@
 package codechicken.nei.client;
 
+import codechicken.nei.item.Stacks;
 import codechicken.nei.NotEnoughItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -83,7 +84,7 @@ final class Deleting {
     static void decrease(AbstractContainerScreen<?> screen, int index) {
         final ItemStack stack = index == CheatPackets.CARRIED ? screen.getMenu().getCarried() : screen.getMenu().getSlot(index).getItem();
         if (stack.isEmpty()) return;
-        setSlot(screen, index, stack.getCount() <= 1 ? ItemStack.EMPTY : stack.copyWithCount(stack.getCount() - 1));
+        setSlot(screen, index, stack.getCount() <= 1 ? ItemStack.EMPTY : Stacks.withCount(stack, stack.getCount() - 1));
     }
 
     /** NEI's {@code deleteItemsOfType}: every slot holding the same item. */
@@ -92,7 +93,7 @@ final class Deleting {
         final AbstractContainerMenu menu = screen.getMenu();
         for (int i = 0; i < menu.slots.size(); i++) {
             final ItemStack stack = menu.getSlot(i).getItem();
-            if (!stack.isEmpty() && ItemStack.isSameItemSameComponents(stack, type)) setSlot(screen, i, ItemStack.EMPTY);
+            if (!stack.isEmpty() && ItemStack.isSameItemSameTags(stack, type)) setSlot(screen, i, ItemStack.EMPTY);
         }
     }
 

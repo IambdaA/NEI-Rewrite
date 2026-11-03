@@ -23,7 +23,7 @@ final class SearchHighlight {
     /** Gives the box NEI's search colours. */
     static void apply(EditBox box) {
         final SearchHighlight h = new SearchHighlight();
-        box.addFormatter((shown, offset) -> h.format(box.getValue(), shown, offset));
+        box.setFormatter((shown, offset) -> h.format(box.getValue(), shown, offset));
     }
 
     private FormattedCharSequence format(String full, String shown, int offset) {

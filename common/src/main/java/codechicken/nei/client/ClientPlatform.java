@@ -1,15 +1,16 @@
 package codechicken.nei.client;
 
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.renderer.block.FluidModel;
-import net.minecraft.resources.Identifier;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.level.material.Fluid;
 
 /** The client-only things that differ between the mod loaders (see {@link codechicken.nei.Platform}). */
 public interface ClientPlatform {
 
-    /** The controls screen section the hotkeys go under. */
-    KeyMapping.Category category(Identifier id);
+    /** The sprite and ARGB tint a fluid is drawn with. */
+    record FluidLook(TextureAtlasSprite sprite, int color) {}
 
     /**
      * Creates a hotkey. A {@code guiOnly} key only acts while a screen is open, so it must not take the key away from
@@ -17,11 +18,19 @@ public interface ClientPlatform {
      */
     KeyMapping newKey(String name, boolean guiOnly, int glfwKey);
 
-    /** The key a mapping is bound to (vanilla has no accessor; NeoForge and Fabric API each add one). */
-    com.mojang.blaze3d.platform.InputConstants.Key boundKey(KeyMapping mapping);
+    /** How to draw a fluid, or null when the loader knows nothing about it. */
+    FluidLook fluidLook(Fluid fluid);
 
-    /** The ARGB tint a fluid's still sprite is drawn with. */
-    int fluidColor(Fluid fluid, FluidModel model);
+    /** The container screen's frame (position and size of the background) and the slot under the mouse. */
+    int guiLeft(AbstractContainerScreen<?> screen);
+
+    int guiTop(AbstractContainerScreen<?> screen);
+
+    int guiWidth(AbstractContainerScreen<?> screen);
+
+    int guiHeight(AbstractContainerScreen<?> screen);
+
+    Slot hoveredSlot(AbstractContainerScreen<?> screen);
 
     Holder HOLDER = new Holder();
 

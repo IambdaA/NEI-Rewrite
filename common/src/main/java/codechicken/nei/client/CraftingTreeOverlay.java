@@ -28,7 +28,7 @@ import codechicken.nei.search.SearchParser;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -342,7 +342,7 @@ public final class CraftingTreeOverlay {
 
     // ---- drawing ----
 
-    void render(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, boolean blocked) {
+    void render(GuiGraphics g, int mx, int my, int sw, int sh, boolean blocked) {
         layout(sw, sh);
         final Font font = Minecraft.getInstance().font;
         final TreeCamera camera = view.camera();
@@ -353,7 +353,7 @@ public final class CraftingTreeOverlay {
             hoveredNode = null;
             hoveredBadge = null;
             shot.applyCamera();
-            g.fill(0, 0, sw, sh, 0xFF101010);
+            Gfx.fill(g, 0, 0, sw, sh, 0xFF101010);
             if (shot.statsTile()) stats.draw(g, font, -1, -1, false, statsKey, lookup);
             else drawTree(g, font, -1, -1, true, false);
             return;
@@ -362,7 +362,7 @@ public final class CraftingTreeOverlay {
         hoveredNode = null;
         hoveredBadge = null;
 
-        g.fill(0, 0, sw, sh, 0xC8101010); // NEI's default screen background
+        Gfx.fill(g, 0, 0, sw, sh, 0xC8101010); // NEI's default screen background
         Tex.frame(g, MARGIN, MARGIN, sw - MARGIN * 2, sh - MARGIN * 2);
 
         refreshMatches();
@@ -372,7 +372,7 @@ public final class CraftingTreeOverlay {
 
         if (empty) {
             final String text = "No crafting chain to display";
-            g.text(font, Component.literal(text), sw / 2 - font.width(text) / 2,
+            Gfx.text(g, font, Component.literal(text), sw / 2 - font.width(text) / 2,
                     MARGIN + PADDING_TOP + (sh - MARGIN * 2 - PADDING_TOP) / 2, 0xFFAAAAAA, true);
         } else {
             if (camera.isDragging()) camera.drag(mx, my);
@@ -380,7 +380,7 @@ public final class CraftingTreeOverlay {
         }
 
         final String title = "Crafting Tree";
-        g.text(font, Component.literal(title), sw / 2 - font.width(title) / 2, MARGIN + PADDING_TOP / 2 - 9 / 2 + 1,
+        Gfx.text(g, font, Component.literal(title), sw / 2 - font.width(title) / 2, MARGIN + PADDING_TOP / 2 - 9 / 2 + 1,
                 0xFFFFFFFF, true);
 
         hoveredCell = blocked ? null : stats.cellAt(mx, my);
@@ -390,11 +390,11 @@ public final class CraftingTreeOverlay {
         search.setWidth(Math.min(140, (sw - MARGIN * 2 - PADDING * 2) / 3));
         search.setX(sw - MARGIN - search.getWidth() - PADDING);
         search.setY(MARGIN + 5);
-        search.extractRenderState(g, mx, my, 0f);
+        search.render(g, mx, my, 0f);
         requestTooltip(mx, my, blocked);
     }
 
-    private void drawTree(GuiGraphicsExtractor g, Font font, int mx, int my, boolean blocked, boolean canHover) {
+    private void drawTree(GuiGraphics g, Font font, int mx, int my, boolean blocked, boolean canHover) {
         final TreeCamera camera = view.camera();
         final TreeLayout layout = view.layout;
         final TreeGraph graph = view.graph;
@@ -416,9 +416,9 @@ public final class CraftingTreeOverlay {
         final int cropXMax = (int) ((zScrollX + 32) / zoom) + (int) (camera.widgetW / zoom);
 
         Tex.beginClip(g, camera.widgetX, camera.widgetY, camera.widgetW, camera.widgetH);
-        g.pose().pushMatrix();
-        g.pose().translate(camera.widgetX - zScrollX, camera.widgetY - camera.scrollY * zoom);
-        g.pose().scale(zoom, zoom);
+        g.pose().pushPose();
+        g.pose().translate(camera.widgetX - zScrollX, camera.widgetY - camera.scrollY * zoom, 0f);
+        g.pose().scale(zoom, zoom, 1f);
 
         for (TreeSlot node : layout.visible(camera)) {
             final TreeLayout.Pt p = layout.pointByNode.get(node);
@@ -429,7 +429,7 @@ public final class CraftingTreeOverlay {
             drawSlot(g, font, node, p, node == hoveredNode);
             drawCollapseIcon(g, layout, graph, node, p, node == arrowHover);
 
-            if (node == hoveredNode) g.fill(p.x + 1, p.y + 1, p.x + TreeLayout.SLOT_SIZE - 1,
+            if (node == hoveredNode) Gfx.fill(g, p.x + 1, p.y + 1, p.x + TreeLayout.SLOT_SIZE - 1,
                     p.y + TreeLayout.SLOT_SIZE - 1, HOVER_COLOR);
 
             if (node.prefItem != null && graph.childrenOf.containsKey(node)) {
@@ -438,7 +438,7 @@ public final class CraftingTreeOverlay {
             }
         }
 
-        g.pose().popMatrix();
+        g.pose().popPose();
         Tex.endClip(g);
 
         drawScrollbars(g, camera, layout);
@@ -460,7 +460,7 @@ public final class CraftingTreeOverlay {
         return SLOT_DEFAULT;
     }
 
-    private void drawSlot(GuiGraphicsExtractor g, Font font, TreeSlot node, TreeLayout.Pt p, boolean hovered) {
+    private void drawSlot(GuiGraphics g, Font font, TreeSlot node, TreeLayout.Pt p, boolean hovered) {
         Tex.blit(g, p.x, p.y, 68 + 24 * slotKind(node), 2, TreeLayout.SLOT_SIZE, TreeLayout.SLOT_SIZE);
 
         final ItemStack stack = stackOf(node.itemId);
@@ -485,7 +485,7 @@ public final class CraftingTreeOverlay {
         return amount < 10_000 ? String.valueOf(amount) : ReadableNumber.wide(amount);
     }
 
-    private void drawCollapseIcon(GuiGraphicsExtractor g, TreeLayout layout, TreeGraph graph, TreeSlot node,
+    private void drawCollapseIcon(GuiGraphics g, TreeLayout layout, TreeGraph graph, TreeSlot node,
             TreeLayout.Pt p, boolean hover) {
         if (!layout.hasCollapseArrow(node)) return;
 
@@ -495,7 +495,7 @@ public final class CraftingTreeOverlay {
                 TreeLayout.ARROW_SIZE);
     }
 
-    private void drawParentLine(GuiGraphicsExtractor g, TreeLayout layout, TreeGraph graph, TreeSlot node,
+    private void drawParentLine(GuiGraphics g, TreeLayout layout, TreeGraph graph, TreeSlot node,
             TreeLayout.Pt p) {
         final TreeSlot parent = graph.parentOf.get(node);
         if (parent == null) return;
@@ -517,35 +517,35 @@ public final class CraftingTreeOverlay {
         }
     }
 
-    private static void rect(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, LINE_COLOR);
+    private static void rect(GuiGraphics g, int x, int y, int w, int h) {
+        Gfx.fill(g, x, y, x + w, y + h, LINE_COLOR);
     }
 
     /** The small recipe icon at a box's top left corner: the recipe type's station, or NEI's hammer. */
-    private void drawBadge(GuiGraphicsExtractor g, TreeSlot node, TreeLayout.Pt p) {
+    private void drawBadge(GuiGraphics g, TreeSlot node, TreeLayout.Pt p) {
         final float[] badge = TreeLayout.badgeRect(p.x, p.y);
         final RecipeView recipe = recipeOf(node);
         final ItemStack station = recipe == null ? ItemStack.EMPTY : recipe.station();
 
-        g.pose().pushMatrix();
-        g.pose().translate(badge[0], badge[1]);
-        g.pose().scale(BADGE_SCALE, BADGE_SCALE);
+        g.pose().pushPose();
+        g.pose().translate(badge[0], badge[1], 0f);
+        g.pose().scale(BADGE_SCALE, BADGE_SCALE, 1f);
         if (station.isEmpty()) Tex.blit(g, 0, 0, 67, 48, 16, 16);
         else Draw.stack(g, station, 0, 0);
-        g.pose().popMatrix();
+        g.pose().popPose();
     }
 
-    private void drawDeleteButton(GuiGraphicsExtractor g, TreeLayout.Pt p) {
+    private void drawDeleteButton(GuiGraphics g, TreeLayout.Pt p) {
         final float[] badge = TreeLayout.badgeRect(p.x, p.y);
 
-        g.pose().pushMatrix();
-        g.pose().translate(badge[0], badge[1]);
-        g.pose().scale(BADGE_SCALE, BADGE_SCALE);
+        g.pose().pushPose();
+        g.pose().translate(badge[0], badge[1], 0f);
+        g.pose().scale(BADGE_SCALE, BADGE_SCALE, 1f);
         Tex.blit(g, 0, 0, 85, 48, 16, 16);
-        g.pose().popMatrix();
+        g.pose().popPose();
     }
 
-    private void drawScrollbars(GuiGraphicsExtractor g, TreeCamera camera, TreeLayout layout) {
+    private void drawScrollbars(GuiGraphics g, TreeCamera camera, TreeLayout layout) {
         if (layout.treeWidth <= 0 || layout.treeHeight <= 0) return;
 
         final float scrollXPct = TreeCamera.clamp(camera.scrollX / layout.treeWidth, 0.0f, 1.0f);
@@ -618,7 +618,7 @@ public final class CraftingTreeOverlay {
         };
     }
 
-    private void drawToolbar(GuiGraphicsExtractor g, int mx, int my, boolean blocked) {
+    private void drawToolbar(GuiGraphics g, int mx, int my, boolean blocked) {
         final int over = blocked ? -1 : buttonAt(mx, my);
 
         for (int i = 0; i < BTN_COUNT; i++) {
@@ -627,19 +627,19 @@ public final class CraftingTreeOverlay {
 
             // vanilla's button look: dark when "on", blue-grey when hovered
             final int body = buttonOn(i) ? 0xFF4A4A4A : i == over ? 0xFF7381B5 : 0xFF6F6F6F;
-            g.fill(x, y, x + BTN, y + BTN, 0xFF000000);
-            g.fill(x + 1, y + 1, x + BTN - 1, y + BTN - 1, body);
+            Gfx.fill(g, x, y, x + BTN, y + BTN, 0xFF000000);
+            Gfx.fill(g, x + 1, y + 1, x + BTN - 1, y + BTN - 1, body);
             if (!buttonOn(i)) {
-                g.fill(x + 1, y + 1, x + BTN - 1, y + 2, 0xFFA0A0A0);
-                g.fill(x + 1, y + BTN - 2, x + BTN - 1, y + BTN - 1, 0xFF3C3C3C);
+                Gfx.fill(g, x + 1, y + 1, x + BTN - 1, y + 2, 0xFFA0A0A0);
+                Gfx.fill(g, x + 1, y + BTN - 2, x + BTN - 1, y + BTN - 1, 0xFF3C3C3C);
             }
 
             // the 16 x 16 icon is drawn at half size, centred
-            g.pose().pushMatrix();
-            g.pose().translate(x + (BTN - 8) / 2f, y + (BTN - 8) / 2f);
-            g.pose().scale(0.5f, 0.5f);
+            g.pose().pushPose();
+            g.pose().translate(x + (BTN - 8) / 2f, y + (BTN - 8) / 2f, 0f);
+            g.pose().scale(0.5f, 0.5f, 1f);
             Tex.blit(g, 0, 0, iconU(i), 66, 16, 16);
-            g.pose().popMatrix();
+            g.pose().popPose();
         }
     }
 
@@ -835,7 +835,7 @@ public final class CraftingTreeOverlay {
         };
     }
 
-    private void drawMenu(GuiGraphicsExtractor g, Font font, int mx, int my) {
+    private void drawMenu(GuiGraphics g, Font font, int mx, int my) {
         if (!menuOpen) return;
         final TreeStats.Section[] sections = TreeStats.Section.values();
 
@@ -847,11 +847,11 @@ public final class CraftingTreeOverlay {
             if (on) {
                 Draw.button(g, menuX, ry, menuW, MENU_ROW, over);
             } else { // a section that is switched off looks dark, like a hidden subset
-                g.fill(menuX, ry, menuX + menuW, ry + MENU_ROW, 0xFF000000);
-                g.fill(menuX + 1, ry + 1, menuX + menuW - 1, ry + MENU_ROW - 1, 0xFF161D23);
+                Gfx.fill(g, menuX, ry, menuX + menuW, ry + MENU_ROW, 0xFF000000);
+                Gfx.fill(g, menuX + 1, ry + 1, menuX + menuW - 1, ry + MENU_ROW - 1, 0xFF161D23);
             }
             final String label = sectionLabel(sections[i]);
-            g.text(font, Component.literal(label), menuX + (menuW - font.width(label)) / 2, ry + (MENU_ROW - 8) / 2,
+            Gfx.text(g, font, Component.literal(label), menuX + (menuW - font.width(label)) / 2, ry + (MENU_ROW - 8) / 2,
                     over ? 0xFFFFFFA0 : on ? 0xFFE0E0E0 : 0xFFA0A0A0, true);
         }
     }

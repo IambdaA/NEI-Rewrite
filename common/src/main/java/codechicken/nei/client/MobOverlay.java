@@ -3,18 +3,24 @@ package codechicken.nei.client;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.joml.Matrix4f;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+
 import codechicken.nei.NEIConfig;
 import codechicken.nei.NotEnoughItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.gizmos.Gizmos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.SpawnPlacements;
+import net.minecraft.world.level.NaturalSpawner;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.SnowLayerBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -28,24 +34,22 @@ import net.minecraft.world.phys.Vec3;
  * night (the sky light is 8 or more). A spot counts when the spawn placement of a zombie is fine there, the block light is
  * within the dimension's limit, nothing stands in the way and there is no liquid.
  *
- * Drawn with the game's gizmos, which a client tick may emit (they stay for that tick). The cells are worked out every
- * ten ticks, the lines are handed over again every tick.
+ * Drawn as lines in the world by {@link #renderWorld}, which the loader calls after the translucent part of the level is
+ * drawn. The cells are worked out every ten ticks.
  */
 final class MobOverlay {
 
     /** NEI's vertical reach (33 blocks); the horizontal reach is the "Mob spawn overlay range" option (NEI: 16). */
     private static final int RADIUS = 16;
     private static final int REBUILD_TICKS = 10;
-    /** Longer than a tick (50 ms) so the lines stay on screen between ticks. */
-    private static final int PERSIST_MS = 80;
     private static final int RED = 0xFFFF0000;
     private static final int YELLOW = 0xFFFFFF00;
 
     /** One X: a cell's corner and the level height of its top, and which colour. */
     private record Cell(double x, double y, double z, boolean night) {}
 
-    /** The zombie, looked up by id: 26.2 has no {@code EntityType.ZOMBIE} constant. */
-    private static final Identifier ZOMBIE_ID = Identifier.fromNamespaceAndPath("minecraft", "zombie");
+    /** The zombie, looked up by id. */
+    private static final ResourceLocation ZOMBIE_ID = new ResourceLocation("minecraft", "zombie");
 
     private static boolean on;
     private static final List<Cell> CELLS = new ArrayList<>();
@@ -60,6 +64,7 @@ final class MobOverlay {
         player.sendSystemMessage(Component.literal("Mob Spawning Overlay: ")
                 .append(Component.literal(enabled ? "On" : "Off").withStyle(style -> style.withColor(enabled ? 0x00AA00 : 0xFF5555))));
     }
+
     public static void onTick() {
         final Minecraft mc = Minecraft.getInstance();
         final ClientLevel level = mc.level;
@@ -83,15 +88,6 @@ final class MobOverlay {
                 builtAt = time;
                 build(level, mc.player.blockPosition());
             }
-            // The tick event fires after vanilla closed its per-tick gizmo scope; outside a scope the gizmos go to a
-            // no-op collector, so open the client's per-tick scope again here.
-            try (var scope = mc.collectPerTickGizmos()) {
-                for (Cell c : CELLS) {
-                    final int color = c.night() ? YELLOW : RED;
-                    Gizmos.line(new Vec3(c.x(), c.y(), c.z()), new Vec3(c.x() + 1, c.y(), c.z() + 1), color).persistForMillis(PERSIST_MS);
-                    Gizmos.line(new Vec3(c.x() + 1, c.y(), c.z()), new Vec3(c.x(), c.y(), c.z() + 1), color).persistForMillis(PERSIST_MS);
-                }
-            }
         } catch (RuntimeException e) {
             NotEnoughItems.LOGGER.warn("Mob spawn overlay failed, switching it off", e);
             mc.player.sendSystemMessage(Component.literal("Mob spawn overlay failed: " + e));
@@ -100,11 +96,48 @@ final class MobOverlay {
         }
     }
 
+    /**
+     * Draws the X marks. {@code pose} is the level's pose (rotated by the camera, not moved); {@code camera} the camera's
+     * position in the world.
+     */
+    static void renderWorld(PoseStack pose, Vec3 camera) {
+        if (!on || CELLS.isEmpty()) return;
+        final var buffers = Minecraft.getInstance().renderBuffers().bufferSource();
+        final VertexConsumer lines = buffers.getBuffer(RenderType.lines());
+        final PoseStack.Pose last = pose.last();
+        final Matrix4f matrix = last.pose();
+        for (Cell c : CELLS) {
+            final int color = c.night() ? YELLOW : RED;
+            line(lines, last, matrix, c.x() - camera.x, c.y() - camera.y, c.z() - camera.z, c.x() + 1 - camera.x,
+                    c.y() - camera.y, c.z() + 1 - camera.z, color);
+            line(lines, last, matrix, c.x() + 1 - camera.x, c.y() - camera.y, c.z() - camera.z, c.x() - camera.x,
+                    c.y() - camera.y, c.z() + 1 - camera.z, color);
+        }
+        buffers.endBatch(RenderType.lines());
+    }
+
+    private static void line(VertexConsumer out, PoseStack.Pose pose, Matrix4f matrix, double x1, double y1, double z1,
+            double x2, double y2, double z2, int color) {
+        final float dx = (float) (x2 - x1);
+        final float dy = (float) (y2 - y1);
+        final float dz = (float) (z2 - z1);
+        final float len = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        final float nx = dx / len;
+        final float ny = dy / len;
+        final float nz = dz / len;
+        final int a = color >>> 24 & 255;
+        final int r = color >> 16 & 255;
+        final int g = color >> 8 & 255;
+        final int b = color & 255;
+        out.vertex(matrix, (float) x1, (float) y1, (float) z1).color(r, g, b, a).normal(pose.normal(), nx, ny, nz).endVertex();
+        out.vertex(matrix, (float) x2, (float) y2, (float) z2).color(r, g, b, a).normal(pose.normal(), nx, ny, nz).endVertex();
+    }
+
     /** NEI's {@code buildMobSpawnOverlay}: the cells around {@code center}, column by column up to the surface. */
     private static void build(ClientLevel level, BlockPos center) {
         CELLS.clear();
-        final int minY = level.getMinY();
-        final int maxY = level.getMaxY();
+        final int minY = level.getMinBuildHeight();
+        final int maxY = level.getMaxBuildHeight() - 1;
         final int y0 = Math.max(minY, Math.min(center.getY(), maxY - RADIUS) - RADIUS);
         final int blockLimit = level.dimensionType().monsterSpawnBlockLightLimit();
         final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
@@ -136,8 +169,8 @@ final class MobOverlay {
     /** NEI's {@code getSpawnMode}: 0 no spawn, 1 only at night, 2 at any time. */
     private static int spawnMode(ClientLevel level, BlockPos pos, int blockLimit) {
         if (level.getBrightness(LightLayer.BLOCK, pos) > blockLimit) return 0;
-        final EntityType<?> zombie = BuiltInRegistries.ENTITY_TYPE.getValue(ZOMBIE_ID);
-        if (!SpawnPlacements.getPlacementType(zombie).isSpawnPositionOk(level, pos, zombie)) return 0;
+        final EntityType<?> zombie = BuiltInRegistries.ENTITY_TYPE.get(ZOMBIE_ID);
+        if (!NaturalSpawner.isSpawnPositionOk(SpawnPlacements.getPlacementType(zombie), level, pos, zombie)) return 0;
 
         final AABB box = new AABB(pos.getX() + 0.2, pos.getY() + 0.01, pos.getZ() + 0.2, pos.getX() + 0.8, pos.getY() + 1.8,
                 pos.getZ() + 0.8);

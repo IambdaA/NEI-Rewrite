@@ -1,6 +1,6 @@
 package codechicken.nei.client;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 
@@ -11,7 +11,7 @@ interface ModalWindow {
 
     boolean wantsClose();
 
-    void render(GuiGraphicsExtractor g, int mx, int my, int sw, int sh);
+    void render(GuiGraphics g, int mx, int my, int sw, int sh);
 
     void click(double mx, double my, int button, boolean ctrl, boolean shift);
 

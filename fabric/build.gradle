@@ -1,14 +1,15 @@
 plugins {
     id 'java-library'
-    id 'net.fabricmc.fabric-loom' version '1.17.20'
+    id 'net.fabricmc.fabric-loom-remap' version '1.18.3'
 }
 
 base {
     archivesName = "${mod_id}-fabric-${minecraft_version}"
 }
 
+// Minecraft 1.20.1 runs on Java 17
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
     withSourcesJar()
 }
 
@@ -33,33 +34,47 @@ if (jei_version == 'none') {
 }
 
 loom {
-    // 26.x is not obfuscated: no mappings, no remapping (Mojang's own names)
+    // mojmap, like the Forge module (and the shared code)
     accessWidenerPath = file('src/main/resources/notenoughitems.accesswidener')
+    mixin {
+        defaultRefmapName = 'notenoughitems.refmap.json'
+    }
+    runs {
+        client {
+            client()
+            ideConfigGenerated true
+        }
+        server {
+            server()
+            ideConfigGenerated true
+        }
+    }
 }
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
-    implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
-    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
 
-    // The JEI recipe bridge reads the recipes of every mod that has a JEI plugin. Only the API is needed to compile;
-    // the full JEI is on the dev client's runtime classpath only (it is not a dependency of the published mod).
+    // The JEI recipe bridge reads the recipes of every mod that has a JEI plugin. Only the API is needed to compile (JEI's
+    // Fabric jars are intermediary-mapped: Loom remaps them); the full JEI runs in the dev client only.
     if (jei_version != 'none') {
-        compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
-        compileOnly "mezz.jei:jei-${minecraft_version}-fabric-api:${jei_version}"
-        runtimeOnly "mezz.jei:jei-${minecraft_version}-fabric:${jei_version}"
+        modCompileOnly "mezz.jei:jei-${minecraft_version}-common-api-intermediary:${jei_version}"
+        modCompileOnly "mezz.jei:jei-${minecraft_version}-fabric-api:${jei_version}"
+        modRuntimeOnly "mezz.jei:jei-${minecraft_version}-fabric:${jei_version}"
     }
 }
 
 processResources {
     var props = [
-            mod_id               : mod_id,
-            mod_name             : mod_name,
-            mod_license          : mod_license,
-            mod_version          : mod_version,
-            mod_authors          : mod_authors,
-            minecraft_version    : minecraft_version,
-            fabric_loader_version: fabric_loader_version,
+            mod_id                : mod_id,
+            mod_name              : mod_name,
+            mod_license           : mod_license,
+            mod_version           : mod_version,
+            mod_authors           : mod_authors,
+            minecraft_version     : minecraft_version,
+            fabric_loader_min     : fabric_loader_min,
     ]
     inputs.properties props
     filesMatching('fabric.mod.json') {
@@ -69,5 +84,5 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.release = 25
+    options.release = 17
 }

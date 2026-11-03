@@ -1,5 +1,6 @@
 package codechicken.nei.client;
 
+import codechicken.nei.item.Stacks;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -91,7 +92,7 @@ public final class ContainerPull {
      * @return false when nothing could be pulled (no container, nothing wanted, no free slot)
      */
     static boolean pull(List<BookmarkGrid.Item> items, Set<String> collapsed, boolean shift) {
-        final Screen current = Minecraft.getInstance().gui.screen();
+        final Screen current = Minecraft.getInstance().screen;
         if (!available(current) || !(current instanceof AbstractContainerScreen<?> screen)) return false;
         final IBookmarkContainerHandler handler = HANDLERS.get(current.getClass());
         final AbstractContainerMenu menu = screen.getMenu();
@@ -116,7 +117,7 @@ public final class ContainerPull {
             final ItemEntry entry = ItemList.find(e.getKey());
             if (entry == null) continue;
             final long count = Math.min(e.getValue(), (long) free * entry.stack.getMaxStackSize());
-            if (count > 0) wanted.add(entry.stack.copyWithCount((int) count));
+            if (count > 0) wanted.add(Stacks.withCount(entry.stack, (int) count));
         }
         if (wanted.isEmpty()) return false;
 

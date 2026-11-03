@@ -6,12 +6,12 @@ import java.util.Map;
 /**
  * The {@code /give} commands behind the enchantment and potion windows. Plain Java, no game classes.
  *
- * Both use the item component syntax of recent Minecraft versions ({@code enchantments={"minecraft:sharpness":5}},
- * {@code potion_contents={custom_effects:[...]}}); if a later version changes it, only this class needs to change.
+ * 1.20.1 syntax: enchantments in {@code {Enchantments:[{id:"minecraft:sharpness",lvl:5s}]}} (books: {@code StoredEnchantments}), potion
+ * effects in {@code {CustomPotionEffects:[{Id:1,Amplifier:0,Duration:600}]}} with the effect's numeric id.
  */
 public final class GiveCommands {
 
-    public record Effect(String id, int amplifier, int seconds) {}
+    public record Effect(int id, int amplifier, int seconds) {}
 
     private GiveCommands() {}
 
@@ -21,9 +21,10 @@ public final class GiveCommands {
         for (Map.Entry<String, Integer> e : levels.entrySet()) {
             if (e.getValue() <= 0) continue;
             if (sb.length() > 0) sb.append(',');
-            sb.append('"').append(e.getKey()).append("\":").append(e.getValue());
+            sb.append("{id:\"").append(e.getKey()).append("\",lvl:").append(e.getValue()).append("s}");
         }
-        return "give @s " + itemId + (sb.length() == 0 ? "" : "[enchantments={" + sb + "}]");
+        final String tag = itemId.equals("minecraft:enchanted_book") ? "StoredEnchantments" : "Enchantments";
+        return "give @s " + itemId + (sb.length() == 0 ? "" : "{" + tag + ":[" + sb + "]}");
     }
 
     /** One potion (or splash / lingering potion, tipped arrow: {@code itemId}) with the given effects. */
@@ -31,9 +32,9 @@ public final class GiveCommands {
         final StringBuilder sb = new StringBuilder();
         for (Effect e : effects) {
             if (sb.length() > 0) sb.append(',');
-            sb.append("{id:\"").append(e.id()).append("\",amplifier:").append(e.amplifier()).append(",duration:")
+            sb.append("{Id:").append(e.id()).append(",Amplifier:").append(e.amplifier()).append("b,Duration:")
                     .append(e.seconds() * 20).append('}');
         }
-        return "give @s " + itemId + (sb.length() == 0 ? "" : "[potion_contents={custom_effects:[" + sb + "]}]");
+        return "give @s " + itemId + (sb.length() == 0 ? "" : "{CustomPotionEffects:[" + sb + "]}");
     }
 }

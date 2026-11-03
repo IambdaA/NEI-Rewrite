@@ -7,7 +7,7 @@ import codechicken.nei.NEIConfig;
 import codechicken.nei.NotEnoughItems;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -122,7 +122,7 @@ final class Toolbar {
      */
     public static void onTick() {
         final var mc = Minecraft.getInstance();
-        final boolean usable = mc.gui.screen() == null && mc.player != null && NEIConfig.CHEAT_ENABLED.getAsBoolean()
+        final boolean usable = mc.screen == null && mc.player != null && NEIConfig.CHEAT_ENABLED.getAsBoolean()
                 && Perms.canUseCommands();
         // Keys pressed meanwhile are drained so they do not fire later.
         final Runnable[] actions = { () -> time(0), () -> time(1), () -> time(2), () -> time(3), Toolbar::rain,
@@ -152,19 +152,19 @@ final class Toolbar {
         return new int[] { MARGIN + (index % n) * (W + MARGIN), MARGIN + (index / n) * (H + MARGIN) };
     }
 
-    static void render(GuiGraphicsExtractor g, int mx, int my, AbstractContainerScreen<?> screen) {
+    static void render(GuiGraphics g, int mx, int my, AbstractContainerScreen<?> screen) {
         if (!visible()) return;
         final List<B> buttons = buttons(screen);
         for (int i = 0; i < buttons.size(); i++) {
             final B b = buttons.get(i);
-            final int[] p = pos(i, screen.width, screen.imageWidth);
+            final int[] p = pos(i, screen.width, Frame.width(screen));
             final boolean over = Draw.in(mx, my, p[0], p[1], W, H);
             Draw.button(g, p[0], p[1], W, H, over || b.active());
             if (b.active()) { // NEI marks a switched-on button with a white outline
-                g.fill(p[0], p[1], p[0] + W, p[1] + 1, 0xFFFFFFFF);
-                g.fill(p[0], p[1] + H - 1, p[0] + W, p[1] + H, 0xFFFFFFFF);
-                g.fill(p[0], p[1], p[0] + 1, p[1] + H, 0xFFFFFFFF);
-                g.fill(p[0] + W - 1, p[1], p[0] + W, p[1] + H, 0xFFFFFFFF);
+                Gfx.fill(g, p[0], p[1], p[0] + W, p[1] + 1, 0xFFFFFFFF);
+                Gfx.fill(g, p[0], p[1] + H - 1, p[0] + W, p[1] + H, 0xFFFFFFFF);
+                Gfx.fill(g, p[0], p[1], p[0] + 1, p[1] + H, 0xFFFFFFFF);
+                Gfx.fill(g, p[0] + W - 1, p[1], p[0] + W, p[1] + H, 0xFFFFFFFF);
             }
             Tex.blit(g, Tex.ICONS, 256, 256, p[0] + 3, p[1] + 2, b.u(), b.v(), 12, 12);
             if (over) {
@@ -179,7 +179,7 @@ final class Toolbar {
     static boolean contains(double mx, double my, AbstractContainerScreen<?> screen) {
         if (!visible()) return false;
         for (int i = 0; i < COUNT; i++) {
-            final int[] p = pos(i, screen.width, screen.imageWidth);
+            final int[] p = pos(i, screen.width, Frame.width(screen));
             if (Draw.in(mx, my, p[0], p[1], W, H)) return true;
         }
         return false;
@@ -191,7 +191,7 @@ final class Toolbar {
         if (button != 0 && button != 1) return true;
         final List<B> buttons = buttons(screen);
         for (int i = 0; i < buttons.size(); i++) {
-            final int[] p = pos(i, screen.width, screen.imageWidth);
+            final int[] p = pos(i, screen.width, Frame.width(screen));
             if (Draw.in(mx, my, p[0], p[1], W, H)) {
                 if (i == 0) Deleting.button(screen, button == 1); // NEI: the delete button also takes a right click
                 else if (button == 0) buttons.get(i).action().run();

@@ -45,7 +45,7 @@ final class TerminalSearchSync {
     }
 
     public static void onTick() {
-        final Screen screen = Minecraft.getInstance().gui.screen();
+        final Screen screen = Minecraft.getInstance().screen;
         if (screen == null || !NEIConfig.SYNC_TERMINAL_SEARCH.get() || !screen.getClass().getName().startsWith(TERMINALS)) {
             tracked = null;
             terminal = null;

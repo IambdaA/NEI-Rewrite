@@ -1,11 +1,8 @@
 # NEI Rewrite
 
-> **IMPORTANT: recipes of modded machines need [JEI](https://modrinth.com/mod/jei) installed.**
-> NEI Rewrite shows vanilla recipes by itself. For machines from other mods (AE2, Create, Mekanism ...) it reads the
-> recipes from JEI's plugins, so install JEI next to it. JEI's own screens are switched off; you only see NEI.
 
 An **unofficial** rewrite of the [GTNH fork of NotEnoughItems](https://github.com/GTNewHorizons/NotEnoughItems) for
-Minecraft 26.2 on **NeoForge and Fabric**, by Iambda. It follows NEI's design and rules, but the code is new. It aims to look and work
+Minecraft 1.20.1 on **Forge and Fabric**, by Iambda. It follows NEI's design and rules, but the code is new. It aims to look and work
 like NEI in GregTech: New Horizons.
 
 ## Features
@@ -32,9 +29,8 @@ Not affiliated with the GTNH team. See `PORTING_NOTES.md` for the porting log an
 
 ## Requirements
 
-- Minecraft 26.2 with NeoForge 26.2.0.90 or newer, or Fabric Loader 0.19+ with Fabric API
-- [JEI](https://modrinth.com/mod/jei) 30 or newer: **needed to see the recipes of modded machines** and for the `+` in modded
-  crafting screens (optional, vanilla recipes work without it)
+- Minecraft 1.20.1 with Forge 47.1 or newer (47.x), or Fabric Loader 0.15+ with Fabric API 0.92
+- **JEI 15 is expected** (NEI loads without it but shows only vanilla recipes; the JEI bridge reads modded machines' recipes and turns JEI's own panels off, which would overlap NEI's).
 - Works on the client alone. Install it on the **server too** if you want recipe lookup on a multiplayer server: the
   server sends the recipes (without it you only see recipes the server shares with the recipe book).
 
@@ -42,16 +38,13 @@ Not affiliated with the GTNH team. See `PORTING_NOTES.md` for the porting log an
 
 NEI Rewrite has NEI's mod API (`codechicken.nei.api.API`).
 
-**NeoForge:** subscribe to `NEIRegisterEvent` on your mod event bus (client side only) and call the API from the listener:
+**Forge:** subscribe to `NEIRegisterEvent` on your mod event bus (client side only) and call the API from the listener:
 
 ```java
 modBus.addListener((NEIRegisterEvent e) -> {
-    API.hideItem(new ItemStack(MyItems.SECRET.get()));          // out of the item panel, recipes still show it
-    API.setAliases(new ItemStack(MyItems.WRENCH.get()), "spanner");
-    API.addSubset("MyMod.Machines", machineStacks);             // Subsets menu, dotted path, any case
-    API.registerRecipeSource("mymod", () -> MyRecipes.views()); // list of RecipeView, called on the client thread
-    API.addCatalyst("Shaped Crafting", new ItemStack(MyBlocks.WORKBENCH.get())); // shown in that tab's station column
-    API.registerRecipeTransferHandler(MyMenu.class, new MyTransferHandler());    // makes the recipe window's "+" work in your screen
+    API.hideItem(new ItemStack(MyItems.SECRET.get()));
+    API.addSubset("MyMod.Machines", machineStacks);
+    API.registerRecipeSource("mymod", () -> MyRecipes.views());
 });
 ```
 
@@ -62,23 +55,26 @@ modBus.addListener((NEIRegisterEvent e) -> {
 "entrypoints": { "notenoughitems": ["com.example.mymod.MyNEIPlugin"] }
 ```
 
-Also: `hideItem(String searchRule)`, `setOverrideName`, `addItemListEntry` / `addItemVariant`, `addSubset(name, ItemFilter)`.
-`registerBookmarkContainerHandler(screenClass, handler)` lets the bookmark panel pull items out of your container screen.
-Not carried over from NEI: GUI handlers and overlays, key binds and options, sort options, stack stringify handlers, fluid renderers. A mod that already has a JEI plugin needs nothing: with
-JEI installed its recipes show up in NEI, and its JEI recipe transfer handlers make the "+" work in its screens.
-There is no separate API jar: compile against the mod jar (`compileOnly`).
+The calls are the same on both loaders (`hideItem`, `setAliases`, `addSubset`, `registerRecipeSource`, `addCatalyst`,
+`registerRecipeTransferHandler`, `registerBookmarkContainerHandler` ...); see the 26.x README for the full list. There is
+no separate API jar: compile against the mod jar (`compileOnly`).
 
 ## Building
 
+One project, three parts: `common/` (all the mod's code, plain Minecraft code with no loader API), and `forge/` and
+`fabric/` (the glue for each loader; each also compiles `common/`).
+
 ```
-./gradlew :neoforge:build      # jar in neoforge/build/libs/
+./gradlew :forge:build         # jar in forge/build/libs/
 ./gradlew :fabric:build        # jar in fabric/build/libs/
-./gradlew :neoforge:runClient  # dev client
+./gradlew :forge:runClient     # dev client
 ./gradlew :fabric:runClient
 ```
 
-One project, three parts: `common/` (all the mod's code, plain Minecraft code with no loader API), and `neoforge/` and
-`fabric/` (the glue for each loader; each also compiles `common/`). Needs JDK 25. The Fabric jar needs Fabric API next to it at runtime.
+Gradle itself runs on JDK 25 (Loom 1.18 needs it) with Gradle 9.7; the mod is compiled for **Java 17** (Minecraft 1.20.1), which Gradle
+fetches as a toolchain (or install `jdk17-openjdk`). The first Forge build decompiles Minecraft and takes a few minutes.
+The Fabric jar needs Fabric API next to it at runtime. `gradle.properties` holds the versions; `jei_version=15.+` takes the
+newest JEI 15 for the dev client, `jei_version=none` builds without the JEI bridge.
 
 ## Credits and original work
 
@@ -96,14 +92,14 @@ NEI Rewrite is made by **Iambda** and is not affiliated with or endorsed by the 
 ## How NEI Rewrite differs from the original
 
 - **A new implementation, not a copy of the old mod.** The original is a Forge mod for Minecraft 1.7.10. NEI Rewrite is new Java
-  code written for modern Minecraft on NeoForge and Fabric. It follows NEI's behaviour, look and search rules.
+  code written for modern Minecraft on Forge and Fabric. It follows NEI's behaviour, look and search rules.
 - **Recipes come from the game and from JEI.** The original reads recipes through its own recipe handler system (and GregTech: New
   Horizons' machine handlers). NEI Rewrite reads vanilla recipes from the game's recipe system and the recipes of other mods from
   JEI's plugins, so modded machines need JEI installed. There are no GregTech / GTNH-specific recipe handlers.
 - **Tags instead of the ore dictionary.** The `$` search matches item tags.
 - **Own settings and keys.** Options are kept in a config file and edited in the wrench button's settings window; hotkeys are normal
   Minecraft key binds. NEI's 1.7.10 config files are not read.
-- **A smaller mod API.** Same idea as NEI's `API` class, but mods register through a NeoForge event (`NEIRegisterEvent`) or a Fabric entrypoint (`NEIPlugin`). NEI's 1.7.10 GUI handler and overlay APIs
+- **A smaller mod API.** Same idea as NEI's `API` class, but mods register through a Forge event (`NEIRegisterEvent`) or a Fabric entrypoint (`NEIPlugin`). NEI's 1.7.10 GUI handler and overlay APIs
   are not carried over.
 - **Not everything is ported.** See `PORTING_NOTES.md` for what is missing.
 

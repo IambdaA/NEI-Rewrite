@@ -2,18 +2,18 @@ pluginManagement {
     repositories {
         gradlePluginPortal()
         mavenCentral()
-        maven { url = 'https://maven.fabricmc.net/' }          // Fabric Loom
-        maven { url = 'https://maven.neoforged.net/releases' } // ModDevGradle
+        maven { url = 'https://maven.fabricmc.net/' }   // Fabric Loom
+        maven { url = 'https://maven.neoforged.net/releases' } // ModDevGradle (also its Legacy plugin for Forge 1.20.1)
     }
 }
 
 plugins {
-    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
 }
 
 rootProject.name = 'notenoughitems'
 
 // The mod's own code is in common/ (plain Minecraft code, no loader API). Each loader module compiles it together with
 // its own glue code, so common/ has no build of its own.
-include 'neoforge'
+include 'forge'
 include 'fabric'

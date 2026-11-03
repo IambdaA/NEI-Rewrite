@@ -1,5 +1,6 @@
 package codechicken.nei.client;
 
+import codechicken.nei.item.Stacks;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -9,7 +10,7 @@ import codechicken.nei.item.ItemEntry;
 import codechicken.nei.item.ItemGroups;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -215,7 +216,7 @@ public final class ItemPanel {
         return index < items.size() ? items.get(index) : null;
     }
 
-    public void render(GuiGraphicsExtractor g, int mx, int my, int sw, int sh) {
+    public void render(GuiGraphics g, int mx, int my, int sw, int sh) {
         if (!isVisible()) return;
         clampPage();
 
@@ -230,16 +231,16 @@ public final class ItemPanel {
             final boolean hoverNext = Draw.in(mx, my, x + gridW() - BTN, navY, BTN, BTN);
             Draw.button(g, x, navY, BTN, BTN, hoverPrev);
             Draw.button(g, x + gridW() - BTN, navY, BTN, BTN, hoverNext);
-            g.text(font, Component.literal("<"), x + 4, navY + 3, 0xFFFFFFFF, false);
-            g.text(font, Component.literal(">"), x + gridW() - BTN + 5, navY + 3, 0xFFFFFFFF, false);
+            Gfx.text(g, font, Component.literal("<"), x + 4, navY + 3, 0xFFFFFFFF, false);
+            Gfx.text(g, font, Component.literal(">"), x + gridW() - BTN + 5, navY + 3, 0xFFFFFFFF, false);
 
             final String label = (page + 1) + "/" + pageCount();
-            g.text(font, Component.literal(label), x + (gridW() - font.width(label)) / 2, navY + 3, 0xFFFFFFFF, true);
+            Gfx.text(g, font, Component.literal(label), x + (gridW() - font.width(label)) / 2, navY + 3, 0xFFFFFFFF, true);
         }
 
         if (items.isEmpty()) {
             for (int i = 0; i < emptyHint.length; i++) {
-                g.text(font, Component.literal(emptyHint[i]), x + 2, gridY + 2 + i * 10, 0xFFA0A0A0, true);
+                Gfx.text(g, font, Component.literal(emptyHint[i]), x + 2, gridY + 2 + i * 10, 0xFFA0A0A0, true);
             }
             return;
         }
@@ -260,10 +261,10 @@ public final class ItemPanel {
             final int cx = x + (i % columns) * SLOT;
             final int cy = gridY + (i / columns) * SLOT;
 
-            if (index == hoveredIndex) g.fill(cx, cy, cx + SLOT, cy + SLOT, 0xEE555555);
-            if (selected != null && selected.test(items.get(index))) g.fill(cx, cy, cx + SLOT, cy + SLOT, 0x9955AA55);
+            if (index == hoveredIndex) Gfx.fill(g, cx, cy, cx + SLOT, cy + SLOT, 0xEE555555);
+            if (selected != null && selected.test(items.get(index))) Gfx.fill(g, cx, cy, cx + SLOT, cy + SLOT, 0x9955AA55);
             if (slotGroup[i] >= 0) {
-                g.fill(cx, cy, cx + SLOT, cy + SLOT, force || Collapsible.isExpanded(slotGroup[i]) ? expandedBg : collapsedBg);
+                Gfx.fill(g, cx, cy, cx + SLOT, cy + SLOT, force || Collapsible.isExpanded(slotGroup[i]) ? expandedBg : collapsedBg);
             }
         }
 
@@ -275,13 +276,13 @@ public final class ItemPanel {
             final int border = (bg & 0xFFFFFF) | (Math.min(((bg >>> 24) + 102), 255) << 24); // NEI's darkerColor
             final int col = i % columns;
 
-            if (col == 0 || slotGroup[i - 1] != slotGroup[i]) g.fill(cx, cy, cx + 1, cy + SLOT, border);
+            if (col == 0 || slotGroup[i - 1] != slotGroup[i]) Gfx.fill(g, cx, cy, cx + 1, cy + SLOT, border);
             if (col == columns - 1 || i + 1 >= slotGroup.length || slotGroup[i + 1] != slotGroup[i]) {
-                g.fill(cx + SLOT - 1, cy, cx + SLOT, cy + SLOT, border);
+                Gfx.fill(g, cx + SLOT - 1, cy, cx + SLOT, cy + SLOT, border);
             }
-            if (i - columns < 0 || slotGroup[i - columns] != slotGroup[i]) g.fill(cx, cy, cx + SLOT, cy + 1, border);
+            if (i - columns < 0 || slotGroup[i - columns] != slotGroup[i]) Gfx.fill(g, cx, cy, cx + SLOT, cy + 1, border);
             if (i + columns >= slotGroup.length || slotGroup[i + columns] != slotGroup[i]) {
-                g.fill(cx, cy + SLOT - 1, cx + SLOT, cy + SLOT, border);
+                Gfx.fill(g, cx, cy + SLOT - 1, cx + SLOT, cy + SLOT, border);
             }
         }
 
@@ -304,14 +305,14 @@ public final class ItemPanel {
 
             if (amounts != null) {
                 final int n = amounts.applyAsInt(entry);
-                if (n > 1) g.itemDecorations(font, entry.stack.copyWithCount(n), cx + 1, cy + 1);
+                if (n > 1) Gfx.decorations(g, font, Stacks.withCount(entry.stack, n), cx + 1, cy + 1);
             }
         }
 
         if (groupButtonShown()) {
             final boolean over = Draw.in(mx, my, groupButtonX(), navY, BTN, BTN);
             Draw.button(g, groupButtonX(), navY, BTN, BTN, over);
-            g.text(font, Component.literal("G"), groupButtonX() + 4, navY + 3, 0xFFFFFFFF, false);
+            Gfx.text(g, font, Component.literal("G"), groupButtonX() + 4, navY + 3, 0xFFFFFFFF, false);
             if (over) ItemTooltip.requestPlain(List.of(Component.literal("Collapse/Expand All Collapsible Items")));
         }
 

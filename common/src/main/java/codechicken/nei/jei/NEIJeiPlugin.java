@@ -25,14 +25,13 @@ import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferManager;
 import mezz.jei.api.runtime.IIngredientManager;
-import mezz.jei.api.runtime.IJeiFeatures;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -62,24 +61,23 @@ public final class NEIJeiPlugin implements IModPlugin {
     private static Bridge bridge;
 
     @Override
-    public Identifier getPluginUid() {
-        return Identifier.fromNamespaceAndPath(NotEnoughItems.MODID, "jei_bridge");
-    }
-
-    @Override
-    public void configureJei(IJeiFeatures features) {
-        features.disableJeiGui(); // NEI draws the item list, bookmarks and recipe window
+    public ResourceLocation getPluginUid() {
+        return new ResourceLocation(NotEnoughItems.MODID, "jei_bridge");
     }
 
     /**
      * JEI's own subtype identity of a stack (what its {@code getUid} says besides the item): the fluid of an NTM fluid icon,
-     * the enchantment of a book. JEI 29+ answers a list of {@code [item, subtype data]}; no data means a plain stack.
+     * the enchantment of a book. JEI answers a list of {@code [item, subtype data]}; no data means a plain stack.
      */
     private static java.util.function.Function<ItemStack, String> subtypeReader(IJeiRuntime runtime) {
         final var helper = runtime.getIngredientManager().getIngredientHelper(mezz.jei.api.constants.VanillaTypes.ITEM_STACK);
         return stack -> {
             final Object uid = helper.getUid(stack, mezz.jei.api.ingredients.subtypes.UidContext.Recipe);
             if (uid instanceof List<?> list) return list.size() > 1 && list.get(1) != null ? String.valueOf(list.get(1)) : "";
+            if (uid instanceof String text) { // an older JEI answers its unique id: "<registry id>:<subtype info>"
+                final String registry = FluidDisplay.idOf(stack.getItem());
+                return text.length() > registry.length() + 1 && text.startsWith(registry + ":") ? text.substring(registry.length() + 1) : "";
+            }
             return "";
         };
     }
@@ -87,6 +85,7 @@ public final class NEIJeiPlugin implements IModPlugin {
     @Override
     public void onRuntimeAvailable(IJeiRuntime runtime) {
         cache = null;
+        JeiGui.hide(runtime.getScreenHelper()); // NEI draws the item list, bookmarks and recipe window (JEI 15 has no API for turning its GUI off)
         bridge = new Bridge(runtime);
         FluidDisplay.setScanner(() -> runtime.getIngredientManager().getAllIngredients(mezz.jei.api.constants.VanillaTypes.ITEM_STACK));
         FluidDisplay.setSubtypes(subtypeReader(runtime));
@@ -139,7 +138,7 @@ public final class NEIJeiPlugin implements IModPlugin {
             IFocusGroup noFocus,
             List<RecipeView> out) {
         final String title = category.getTitle().getString();
-        final List<ItemStack> stations = manager.createCraftingStationLookup(category.getRecipeType()).getItemStack()
+        final List<ItemStack> stations = manager.createRecipeCatalystLookup(category.getRecipeType()).getItemStack()
                 .filter(s -> !s.isEmpty()).map(ItemStack::copy).toList();
         final ItemStack station = stations.isEmpty() ? ItemStack.EMPTY : stations.get(0);
 
@@ -205,7 +204,7 @@ public final class NEIJeiPlugin implements IModPlugin {
     @SuppressWarnings("deprecation")
     private static int slotAmount(IRecipeSlotView slot, List<ItemStack> options) {
         final ItemStack first = options.get(0);
-        if (first.getCount() > 1 || first.getComponentsPatch().isEmpty() || FluidDisplay.subtypeOf(first).isEmpty()) return 0;
+        if (first.getCount() > 1 || !first.hasTag() || FluidDisplay.subtypeOf(first).isEmpty()) return 0;
         if (!(slot instanceof IRecipeSlotDrawable drawable)) return 0;
         try {
             return FluidDisplay.amountIn(drawable.getTooltip());
@@ -261,7 +260,7 @@ public final class NEIJeiPlugin implements IModPlugin {
 
         private final IJeiRuntime runtime;
         private final java.util.Map<RecipeView, RecipeView.Drawn> matches = new java.util.IdentityHashMap<>();
-        private IRecipeCategory<net.minecraft.world.item.crafting.RecipeHolder<net.minecraft.world.item.crafting.CraftingRecipe>> category;
+        private IRecipeCategory<net.minecraft.world.item.crafting.CraftingRecipe> category;
 
         Bridge(IJeiRuntime runtime) {
             this.runtime = runtime;
@@ -308,7 +307,7 @@ public final class NEIJeiPlugin implements IModPlugin {
 
             final IRecipeManager manager = runtime.getRecipeManager();
             if (category == null) {
-                category = (IRecipeCategory<net.minecraft.world.item.crafting.RecipeHolder<net.minecraft.world.item.crafting.CraftingRecipe>>) manager
+                category = (IRecipeCategory<net.minecraft.world.item.crafting.CraftingRecipe>) manager
                         .createRecipeCategoryLookup().limitTypes(List.of(RecipeTypes.CRAFTING)).get().findFirst().orElse(null);
             }
             if (category == null) return null;
@@ -375,7 +374,7 @@ public final class NEIJeiPlugin implements IModPlugin {
         }
 
         private IRecipeLayoutDrawable<T> layout() {
-            if (layout == null) layout = manager.createRecipeLayoutDrawableOrShowError(category, recipe, focus);
+            if (layout == null) layout = manager.createRecipeLayoutDrawable(category, recipe, focus).orElse(null);
             return layout;
         }
 
@@ -390,8 +389,9 @@ public final class NEIJeiPlugin implements IModPlugin {
         }
 
         @Override
-        public void draw(GuiGraphicsExtractor g, int x, int y, int mx, int my) {
+        public void draw(GuiGraphics g, int x, int y, int mx, int my) {
             final var l = layout();
+            if (l == null) return;
             l.setPosition(x + pad, y + pad); // the rect JEI positions is inside its border
             final long now = System.currentTimeMillis();
             if (now - lastTick >= 50) { // JEI ticks 20 times a second
@@ -414,7 +414,7 @@ public final class NEIJeiPlugin implements IModPlugin {
                 if (ingredient instanceof ItemStack stack) {
                     final int own = FluidDisplay.itemFluidAmount(stack);
                     if (own > 0) return own;
-                    if (!stack.getComponentsPatch().isEmpty() && !FluidDisplay.subtypeOf(stack).isEmpty()
+                    if (stack.hasTag() && !FluidDisplay.subtypeOf(stack).isEmpty()
                             && s instanceof IRecipeSlotDrawable drawable) {
                         return FluidDisplay.amountIn(drawable.getTooltip());
                     }
@@ -425,11 +425,11 @@ public final class NEIJeiPlugin implements IModPlugin {
         }
 
         /** The amount of every fluid slot, small in its corner (JEI shows it only in the tooltip). */
-        private void drawAmounts(GuiGraphicsExtractor g, IRecipeLayoutDrawable<T> l) {
+        private void drawAmounts(GuiGraphics g, IRecipeLayoutDrawable<T> l) {
             final var origin = l.getRect();
             final var font = Minecraft.getInstance().font;
-            g.pose().pushMatrix();
-            g.pose().translate(origin.getX(), origin.getY());
+            g.pose().pushPose();
+            g.pose().translate(origin.getX(), origin.getY(), 0f);
             for (IRecipeSlotView slot : l.getRecipeSlotsView().getSlotViews()) {
                 if (!(slot instanceof IRecipeSlotDrawable drawable)) continue;
                 final int amount = amountOf(slot);
@@ -439,13 +439,13 @@ public final class NEIJeiPlugin implements IModPlugin {
                 final var area = drawable.getAreaIncludingBackground();
                 final float right = area.getX() + area.getWidth() - 1;
                 final float bottom = area.getY() + area.getHeight() - 1;
-                g.pose().pushMatrix();
-                g.pose().translate(right - font.width(text) * 0.5f, bottom - 4.5f);
-                g.pose().scale(0.5f, 0.5f);
-                g.text(font, Component.literal(text), 0, 0, 0xFFFFFFFF, true);
-                g.pose().popMatrix();
+                g.pose().pushPose();
+                g.pose().translate(right - font.width(text) * 0.5f, bottom - 4.5f, 0f);
+                g.pose().scale(0.5f, 0.5f, 1f);
+                codechicken.nei.client.Gfx.text(g, font, Component.literal(text), 0, 0, 0xFFFFFFFF, true);
+                g.pose().popPose();
             }
-            g.pose().popMatrix();
+            g.pose().popPose();
         }
 
         @Override
@@ -487,22 +487,22 @@ public final class NEIJeiPlugin implements IModPlugin {
         }
 
         @Override
-        public void highlightResult(GuiGraphicsExtractor g, ItemStack result, int color) {
+        public void highlightResult(GuiGraphics g, ItemStack result, int color) {
             if (layout == null) return;
             // JEI's slot rects are relative to the layout: translate to its origin first, as JEI's own showError does
             final var origin = layout.getRect();
             // idOf, not getItem(): NTM draws every fluid with one item (hbm:fluid_icon), told apart by component
             final String wanted = FluidDisplay.idOf(result);
-            g.pose().pushMatrix();
-            g.pose().translate(origin.getX(), origin.getY());
+            g.pose().pushPose();
+            g.pose().translate(origin.getX(), origin.getY(), 0f);
             for (IRecipeSlotView slot : layout.getRecipeSlotsView().getSlotViews(RecipeIngredientRole.OUTPUT)) {
                 if (slot.getAllIngredients().anyMatch(t -> FluidDisplay.idOf(displayStack(t)).equals(wanted))) slot.drawHighlight(g, color);
             }
-            g.pose().popMatrix();
+            g.pose().popPose();
         }
 
         @Override
-        public void overlays(GuiGraphicsExtractor g, int mx, int my) {
+        public void overlays(GuiGraphics g, int mx, int my) {
             if (layout != null) layout.drawOverlays(g, mx, my);
         }
 
@@ -530,7 +530,7 @@ public final class NEIJeiPlugin implements IModPlugin {
             try {
                 final var handler = handler(menu);
                 final Player player = Minecraft.getInstance().player;
-                if (handler.isEmpty() || player == null) return checked = Transfer.NONE;
+                if (handler.isEmpty() || player == null || layout() == null) return checked = Transfer.NONE;
                 final IRecipeTransferError error = handler.get().transferRecipe(menu, recipe, layout().getRecipeSlotsView(), player,
                         false, false);
                 return checked = error == null || error.getType().allowsTransfer ? Transfer.OK : Transfer.BLOCKED;
@@ -545,6 +545,7 @@ public final class NEIJeiPlugin implements IModPlugin {
             try {
                 final var handler = handler(menu);
                 if (handler.isEmpty()) return "This recipe cannot be placed here";
+                if (layout() == null) return "Could not place the recipe";
                 final var slots = layout().getRecipeSlotsView();
                 IRecipeTransferError error = handler.get().transferRecipe(menu, recipe, slots, player, max, false);
                 if (error != null && !error.getType().allowsTransfer) return message(error);

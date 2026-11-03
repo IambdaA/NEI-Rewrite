@@ -89,6 +89,7 @@ public final class NEIClientEvents {
     /** NEI's {@code gui.hide}: while set, NEI draws and handles nothing except the key that brings it back. */
     // shortcut: not saved between sessions (NEI keeps inventory.hidden in its config), upgrade if that is missed
     private static boolean hidden;
+    private static final java.util.Set<Class<?>> LOGGED_SCREENS = new java.util.HashSet<>();
     private static final TextHistory SEARCH_HISTORY = new TextHistory();
     private static boolean searchWasFocused;
 
@@ -129,9 +130,13 @@ public final class NEIClientEvents {
     /** NEI's {@code ItemHistoryPanel#addItem}: newest first, no repeats, at most 50. */
     private static void addHistory(Item item) {
         loadHistory(); // so a first lookup does not overwrite the saved list
-        final ItemEntry entry = ItemList.find(codechicken.nei.item.FluidDisplay.idOf(item));
+        // the stack the lookup is about (an NTM fluid icon is one item for many fluids: the item alone would be "None")
+        final ItemStack focus = RecipeOverlay.pendingFocus();
+        final String id = focus.getItem() == item ? codechicken.nei.item.FluidDisplay.idOf(focus)
+                : codechicken.nei.item.FluidDisplay.idOf(item);
+        final ItemEntry entry = ItemList.find(id);
         if (entry == null) return;
-        HISTORY_LIST.removeIf(e -> e.stack.getItem() == item);
+        HISTORY_LIST.removeIf(e -> e.registryId.equals(entry.registryId));
         HISTORY_LIST.add(0, entry);
         if (HISTORY_LIST.size() > 50) HISTORY_LIST.remove(HISTORY_LIST.size() - 1);
         if (NEIConfig.HISTORY_SAVE.getAsBoolean()) {
@@ -163,6 +168,7 @@ public final class NEIClientEvents {
         final CraftingTreeOverlay treeWindow = treeFor(screen);
         overlay.setPicker(treeWindow != null ? treeWindow::addRecipe : null);
     }
+
     public static void onInit(ScreenEv event) {
         if (!active(event.getScreen())) return;
         // The layout itself happens every frame in onRender: opening the inventory in creative mode swaps screens inside
@@ -183,8 +189,8 @@ public final class NEIClientEvents {
      * were not final at init time (the creative inventory) still ends up right.
      */
     private static void layout(AbstractContainerScreen<?> screen) {
-        final int guiLeft = screen.leftPos;
-        final int right = guiLeft + screen.imageWidth + 6;
+        final int guiLeft = Frame.left(screen);
+        final int right = guiLeft + Frame.width(screen) + 6;
         final int cols = Math.max(0, (screen.width - 4 - right) / ItemPanel.SLOT);
 
         // history: dash line + up to two rows, under the item list (NEI: 8 + 18 * rows)
@@ -210,7 +216,7 @@ public final class NEIClientEvents {
 
         // bookmarks: page row on top, grid fills the left edge, page ("namespace") row at the bottom; the wrench and
         // book buttons take the bottom left corner
-        final int toolbar = Toolbar.bottom(screen.width, screen.imageWidth);
+        final int toolbar = Toolbar.bottom(screen.width, Frame.width(screen));
         final int key = Objects.hash(guiLeft, screen.width, screen.height, toolbar);
         if (key != layoutKey) {
             layoutKey = key;
@@ -218,7 +224,7 @@ public final class NEIClientEvents {
         }
 
         // NEI's search field: centered at the bottom, as wide as the window (at most 176) minus 4
-        final int fullW = Math.min(screen.imageWidth, 176) - 4;
+        final int fullW = Math.min(Frame.width(screen), 176) - 4;
         final int fullX = (screen.width - fullW) / 2;
         final int by = screen.height - BAR - 2;
         // subsets.widgetPosition off: the subsets button takes the left end of the search field
@@ -245,7 +251,7 @@ public final class NEIClientEvents {
 
     /** NEI shows the subset bar when there is room above the window. */
     private static boolean subsetsShown(AbstractContainerScreen<?> screen) {
-        return NEIConfig.SUBSETS_ENABLED.getAsBoolean() && (screen.topPos > 20 || subsetsAtSearch(screen))
+        return NEIConfig.SUBSETS_ENABLED.getAsBoolean() && (Frame.top(screen) > 20 || subsetsAtSearch(screen))
                 && !Subsets.root().children.isEmpty();
     }
 
@@ -269,7 +275,7 @@ public final class NEIClientEvents {
     }
 
     /** NEI's wrench and book buttons (icons from its sprite sheet). */
-    private static void drawBar(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, int sh) {
+    private static void drawBar(net.minecraft.client.gui.GuiGraphics g, int mx, int my, int sh) {
         final int y = sh - BAR - 2;
         final boolean wrench = overWrench(mx, my, sh);
         final boolean book = overBook(mx, my, sh);
@@ -280,7 +286,7 @@ public final class NEIClientEvents {
 
         final boolean presets = overPresets(mx, my, sh);
         Draw.button(g, 2 + 2 * (BAR + 2), y, BAR, BAR, presets);
-        g.text(Minecraft.getInstance().font, Component.literal("P"), 2 + 2 * (BAR + 2) + 7, y + 6, 0xFFFFFFFF, true);
+        Gfx.text(g, Minecraft.getInstance().font, Component.literal("P"), 2 + 2 * (BAR + 2) + 7, y + 6, 0xFFFFFFFF, true);
 
         if (presets) {
             ItemTooltip.requestPlain(List.of(Component.literal("Presets List")));
@@ -292,10 +298,9 @@ public final class NEIClientEvents {
         }
     }
 
-
-    /** Opens a screen (26.2 moved {@code setScreen} from Minecraft to its Gui). */
+    /** Opens a screen. */
     private static void setScreen(Screen next) {
-        Minecraft.getInstance().gui.setScreen(next);
+        Minecraft.getInstance().setScreen(next);
     }
 
     /** The tree window covers the whole screen: skip drawing the container (and its slot tooltips) underneath. */
@@ -304,14 +309,22 @@ public final class NEIClientEvents {
         final Screen screen = event.getScreen();
         if (active(screen) && treeFor(screen) != null) event.setCanceled(true);
     }
+
     public static void onRender(ScreenEv event) {
         final Screen screen = event.getScreen();
         if (!active(screen)) return;
 
         final var graphics = event.getGuiGraphics();
+        Gfx.layer(graphics); // everything below is drawn over the container and its items
         final int mx = (int) event.getMouseX();
         final int my = (int) event.getMouseY();
         layout((AbstractContainerScreen<?>) screen);
+        if (LOGGED_SCREENS.add(screen.getClass())) {
+            final var c = (AbstractContainerScreen<?>) screen;
+            NotEnoughItems.LOGGER.info("NEI panel on {}: gui {}x{} at {},{} of {}x{}, panel {}..{}, {} items listed, hidden={}", screen.getClass().getName(),
+                    Frame.width(c), Frame.height(c), Frame.left(c), Frame.top(c), screen.width, screen.height, panelLeft, panelRight,
+                    ItemList.getFiltered().size(), hidden);
+        }
         // NEI remembers the search text whenever the box gains or loses focus
         if (searchBox != null && searchBox.isFocused() != searchWasFocused) {
             searchWasFocused = searchBox.isFocused();
@@ -330,7 +343,8 @@ public final class NEIClientEvents {
             // the tree window replaces the panels; a recipe window opened from it goes on top
             treeWindow.render(graphics, mx, my, screen.width, screen.height, open != null && open.contains(mx, my));
             if (open != null) {
-                graphics.fill(0, 0, screen.width, screen.height, 0x90000000);
+                Gfx.fill(graphics, 0, 0, screen.width, screen.height, 0x90000000);
+                Gfx.layer(graphics);
                 open.render(graphics, mx, my, screen.width, screen.height);
             }
             ItemTooltip.flush(graphics, mx, my, screen.width, screen.height);
@@ -345,14 +359,14 @@ public final class NEIClientEvents {
             return;
         }
 
-        if (open != null) graphics.fill(0, 0, screen.width, screen.height, 0x90000000); // dim the inventory
+        if (open != null) Gfx.fill(graphics, 0, 0, screen.width, screen.height, 0x90000000); // dim the inventory
 
         ITEMS.render(graphics, mx, my, screen.width, screen.height);
         if (quantityShown) QUANTITY.render(graphics, mx, my);
         if (!Craftables.items().isEmpty() && CRAFTABLES.isVisible()) {
             final int color = NEIConfig.color(NEIConfig.CRAFTABLES_COLOR);
             for (int dx = panelLeft; dx < panelRight; dx += 3) {
-                graphics.fill(dx, craftablesTop, Math.min(dx + 2, panelRight), craftablesTop + 1, color);
+                Gfx.fill(graphics, dx, craftablesTop, Math.min(dx + 2, panelRight), craftablesTop + 1, color);
             }
             CRAFTABLES.render(graphics, mx, my, screen.width, screen.height);
         }
@@ -360,7 +374,7 @@ public final class NEIClientEvents {
             // NEI draws a dashed line (nei:textures/dash.png, colour inventory.history.color) above the history grid
             final int historyColor = NEIConfig.color(NEIConfig.HISTORY_COLOR);
             for (int dx = panelLeft; dx < panelRight; dx += 3) {
-                graphics.fill(dx, historyTop, Math.min(dx + 2, panelRight), historyTop + 1, historyColor);
+                Gfx.fill(graphics, dx, historyTop, Math.min(dx + 2, panelRight), historyTop + 1, historyColor);
             }
             HISTORY.render(graphics, mx, my, screen.width, screen.height);
         }
@@ -369,18 +383,19 @@ public final class NEIClientEvents {
         drawBar(graphics, mx, my, screen.height);
         if (subsetsShown((AbstractContainerScreen<?>) screen)) {
             final var container = (AbstractContainerScreen<?>) screen;
-            final int fullW = Math.min(container.imageWidth, 176) - 4;
+            final int fullW = Math.min(Frame.width(container), 176) - 4;
             SubsetMenu.render(graphics, mx, my, screen.width, screen.height, !subsetsAtSearch(container),
                     (screen.width - fullW) / 2, screen.height - BAR - 2, BAR);
         }
         else SubsetMenu.close();
-        searchBox.extractRenderState(graphics, mx, my, event.getPartialTick());
+        searchBox.render(graphics, mx, my, event.getPartialTick());
 
         if (open != null) {
+            Gfx.layer(graphics); // the recipe window's items must not hide behind the panels' items
             open.render(graphics, mx, my, screen.width, screen.height);
         } else if (HotkeyHelp.isAltDown() && screen instanceof AbstractContainerScreen<?> container) {
             // hotkey help for items in the container's own slots (panel items draw theirs themselves)
-            final var slot = container.hoveredSlot;
+            final var slot = Frame.hovered(container);
             if (slot != null && ITEMS.entryAt(mx, my) == null && !slot.getItem().isEmpty()) {
                 ItemTooltip.request(slot.getItem(), HotkeyHelp.Where.SLOT);
             }
@@ -427,6 +442,7 @@ public final class NEIClientEvents {
             openRecipes(screen, entry.stack.getItem(), button == 1);
         }
     }
+
     public static void onMousePressed(ScreenEv event) {
         final Screen screen = event.getScreen();
         if (!active(screen)) return;
@@ -434,8 +450,7 @@ public final class NEIClientEvents {
         final double mx = event.getMouseX();
         final double my = event.getMouseY();
         final int button = event.getButton();
-        final var mouse = event.getMouseButtonEvent();
-
+        
         final CraftingTreeOverlay treeWindow = treeFor(screen);
         if (treeWindow != null) {
             event.setCanceled(true); // nothing reaches the inventory behind the tree
@@ -464,7 +479,7 @@ public final class NEIClientEvents {
                 if (button == 1) {
                     searchBox.setValue(""); // right click clears, as in NEI
                 } else {
-                    searchBox.mouseClicked(mouse, false);
+                    searchBox.mouseClicked(event.getMouseX(), event.getMouseY(), button);
                 }
                 searchBox.setFocused(true);
                 event.setCanceled(true);
@@ -490,7 +505,7 @@ public final class NEIClientEvents {
             return;
         }
 
-        final boolean shift = mouse.hasShiftDown();
+        final boolean shift = Screen.hasShiftDown();
 
         if (subsetsShown((AbstractContainerScreen<?>) screen) && SubsetMenu.click(mx, my, button)) {
             event.setCanceled(true);
@@ -504,7 +519,7 @@ public final class NEIClientEvents {
 
         // NEI's delete mode: a click on a slot deletes instead of picking up
         if (Deleting.modeOn(screen)) {
-            final var slot = ((AbstractContainerScreen<?>) screen).hoveredSlot;
+            final var slot = Frame.hovered(((AbstractContainerScreen<?>) screen));
             if (slot != null) {
                 Deleting.modeClick((AbstractContainerScreen<?>) screen, slot, button);
                 event.setCanceled(true);
@@ -582,7 +597,7 @@ public final class NEIClientEvents {
     public static void onMousePressedPost(ScreenEv event) {
         if (!active(event.getScreen())) return;
         final var container = (AbstractContainerScreen<?>) event.getScreen();
-        final var slot = container.hoveredSlot;
+        final var slot = Frame.hovered(container);
         FastTransfer.after(container.getMenu(), slot == null ? -999 : container.getMenu().slots.indexOf(slot));
     }
 
@@ -590,6 +605,7 @@ public final class NEIClientEvents {
         QUANTITY.blur();
         return false;
     }
+
     public static void onMouseReleased(ScreenEv event) {
         if (!active(event.getScreen())) return;
         final CraftingTreeOverlay treeWindow = treeFor(event.getScreen());
@@ -610,6 +626,7 @@ public final class NEIClientEvents {
             clickEntry(event.getScreen(), BOOKMARKS.takeDeferredClick(), 0, true);
         }
     }
+
     public static void onMouseScrolled(ScreenEv event) {
         final Screen screen = event.getScreen();
         if (!active(screen)) return;
@@ -673,6 +690,7 @@ public final class NEIClientEvents {
             event.setCanceled(true);
         }
     }
+
     public static void onKeyPressed(ScreenEv event) {
         final Screen screen = event.getScreen();
         if (!activeScreen(screen)) return;
@@ -681,7 +699,7 @@ public final class NEIClientEvents {
         HotkeyHelp.track(key.key(), true);
         skipChar = false; // the character of the key that focused the search arrives before the next key press
 
-        final InputConstants.Key pressed = InputConstants.getKey(key);
+        final InputConstants.Key pressed = key.asKey();
 
         if (hidden) {
             if (NEIKeys.is(NEIKeys.HIDE, pressed) && !(screen.getFocused() instanceof EditBox)) {
@@ -698,7 +716,7 @@ public final class NEIClientEvents {
             if (key.key() == GLFW_KEY_ESCAPE) modalWindow.escape();
             else if (NEIKeys.is(NEIKeys.PREV_SEARCH, pressed) && modalWindow.historyKey(true)) return;
             else if (NEIKeys.is(NEIKeys.NEXT_SEARCH, pressed) && modalWindow.historyKey(false)) return;
-            else if (modalWindow.typingBox() != null) modalWindow.typingBox().keyPressed(key);
+            else if (modalWindow.typingBox() != null) modalWindow.typingBox().keyPressed(key.key(), key.scan(), key.modifiers());
             return;
         }
 
@@ -709,7 +727,7 @@ public final class NEIClientEvents {
             if (key.key() == GLFW_KEY_ESCAPE) typing.blurSearch();
             else if (NEIKeys.is(NEIKeys.PREV_SEARCH, pressed)) typing.walkHistory(true);
             else if (NEIKeys.is(NEIKeys.NEXT_SEARCH, pressed)) typing.walkHistory(false);
-            else typing.searchBox().keyPressed(key);
+            else typing.searchBox().keyPressed(key.key(), key.scan(), key.modifiers());
             return;
         }
 
@@ -725,7 +743,7 @@ public final class NEIClientEvents {
             }
             if (treeWindow.searchFocused()) {
                 if (key.key() == 257 || key.key() == 335) treeWindow.searchNext(!HotkeyHelp.isShiftDown()); // Enter, keypad Enter
-                else treeWindow.searchBox().keyPressed(key);
+                else treeWindow.searchBox().keyPressed(key.key(), key.scan(), key.modifiers());
                 return;
             }
         } else {
@@ -752,7 +770,7 @@ public final class NEIClientEvents {
                     event.setCanceled(true);
                     return;
                 }
-                searchBox.keyPressed(key);
+                searchBox.keyPressed(key.key(), key.scan(), key.modifiers());
                 event.setCanceled(true); // otherwise the inventory key would close the screen while typing
                 return;
             }
@@ -1078,10 +1096,11 @@ public final class NEIClientEvents {
             }
         }
     }
+
     public static void onKeyReleased(ScreenEv event) {
         if (!activeScreen(event.getScreen())) return;
         HotkeyHelp.track(event.getKeyEvent().key(), false);
-        ItemZoom.released(InputConstants.getKey(event.getKeyEvent()));
+        ItemZoom.released(event.getKeyEvent().asKey());
     }
 
     /** The text a Ctrl + copy key puts on the clipboard for this stack, or null if the key is not a copy key. */
@@ -1122,11 +1141,12 @@ public final class NEIClientEvents {
         if (panelEntry != null) return panelEntry.stack;
 
         if (open == null && screen instanceof AbstractContainerScreen<?> container) {
-            final var slot = container.hoveredSlot;
+            final var slot = Frame.hovered(container);
             if (slot != null) return slot.getItem();
         }
         return ItemStack.EMPTY;
     }
+
     public static void onCharTyped(ScreenEv event) {
         if (!active(event.getScreen())) return;
         if (skipChar) {
@@ -1136,31 +1156,31 @@ public final class NEIClientEvents {
         }
         final ModalWindow presetsTyping = presetsFor(event.getScreen());
         if (presetsTyping != null) {
-            if (presetsTyping.typingBox() != null) presetsTyping.typingBox().charTyped(event.getCharacterEvent());
+            if (presetsTyping.typingBox() != null) presetsTyping.typingBox().charTyped(event.getCodePoint(), event.getModifiers());
             event.setCanceled(true);
             return;
         }
         final RecipeOverlay typing = overlayFor(event.getScreen());
         if (typing != null && typing.searchFocused()) {
-            typing.searchBox().charTyped(event.getCharacterEvent());
+            typing.searchBox().charTyped(event.getCodePoint(), event.getModifiers());
             event.setCanceled(true);
             return;
         }
         final CraftingTreeOverlay treeTyping = treeFor(event.getScreen());
         if (treeTyping != null) {
-            if (treeTyping.searchFocused()) treeTyping.searchBox().charTyped(event.getCharacterEvent());
+            if (treeTyping.searchFocused()) treeTyping.searchBox().charTyped(event.getCodePoint(), event.getModifiers());
             event.setCanceled(true); // typing goes nowhere else while the tree is open
             return;
         }
         if (QUANTITY.focused()) {
-            final int codepoint = event.getCharacterEvent().codepoint();
+            final int codepoint = event.getCodePoint();
             if (codepoint < 0x10000) QUANTITY.typed((char) codepoint);
             event.setCanceled(true);
             return;
         }
         if (searchBox == null || !searchBox.isFocused()) return;
 
-        searchBox.charTyped(event.getCharacterEvent());
+        searchBox.charTyped(event.getCodePoint(), event.getModifiers());
         event.setCanceled(true);
     }
 }

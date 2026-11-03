@@ -1,5 +1,6 @@
 package codechicken.nei.client;
 
+import codechicken.nei.item.Stacks;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,7 +11,7 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
@@ -35,7 +36,7 @@ final class FastTransfer {
     /** @return true if the wheel was used (also when nothing could be moved), so the event is not passed on */
     static boolean wheel(AbstractContainerScreen<?> screen, double dy) {
         if (!NEIConfig.WHEEL_TRANSFER.getAsBoolean() || screen instanceof CreativeModeInventoryScreen) return false;
-        final Slot slot = screen.hoveredSlot;
+        final Slot slot = Frame.hovered(screen);
         final Minecraft mc = Minecraft.getInstance();
         if (slot == null || !slot.hasItem() || mc.player == null || mc.gameMode == null) return false;
 
@@ -65,7 +66,7 @@ final class FastTransfer {
     static void after(AbstractContainerMenu menu, int slotIndex) {
         if (heldBefore == null) return;
         final ItemStack now = menu.getCarried();
-        if (heldBefore.isEmpty() != now.isEmpty() || (!now.isEmpty() && !ItemStack.isSameItemSameComponents(heldBefore, now))) {
+        if (heldBefore.isEmpty() != now.isEmpty() || (!now.isEmpty() && !ItemStack.isSameItemSameTags(heldBefore, now))) {
             pickedUp = slotIndex;
         }
         heldBefore = null;
@@ -86,7 +87,7 @@ final class FastTransfer {
         final ItemStack held = menu.getCarried().copy();
         if (held.isEmpty()) return false;
 
-        final Slot slot = screen.hoveredSlot;
+        final Slot slot = Frame.hovered(screen);
         if (slot != null) {
             if (slot.hasItem()) return false;
             final int index = menu.slots.indexOf(slot);
@@ -99,8 +100,8 @@ final class FastTransfer {
             return true;
         }
 
-        final boolean outside = mx < screen.leftPos || my < screen.topPos
-                || mx >= screen.leftPos + screen.imageWidth || my >= screen.topPos + screen.imageHeight;
+        final boolean outside = mx < Frame.left(screen) || my < Frame.top(screen)
+                || mx >= Frame.left(screen) + Frame.width(screen) || my >= Frame.top(screen) + Frame.height(screen);
         if (outside && button == 0) {
             throwAll(menu, pickedUp);
             return true;
@@ -111,7 +112,7 @@ final class FastTransfer {
     /** NEI's {@code lastKeyTyped}: Shift + the drop key over a slot throws every stack of its kind in its zone. */
     static boolean shiftDrop(AbstractContainerScreen<?> screen) {
         if (screen instanceof CreativeModeInventoryScreen) return false;
-        final Slot slot = screen.hoveredSlot;
+        final Slot slot = Frame.hovered(screen);
         final Minecraft mc = Minecraft.getInstance();
         if (slot == null || !slot.hasItem() || mc.player == null || mc.gameMode == null) return false;
         final AbstractContainerMenu menu = screen.getMenu();
@@ -180,19 +181,19 @@ final class FastTransfer {
     private static List<List<Integer>> zones(AbstractContainerMenu menu, ItemStack stack) {
         final List<SlotZones.Pos> positions = new ArrayList<>();
         for (Slot s : menu.slots) positions.add(new SlotZones.Pos(s.x, s.y));
-        final ItemStack one = stack.copyWithCount(1);
+        final ItemStack one = Stacks.withCount(stack, 1);
         return SlotZones.zones(positions, i -> menu.slots.get(i).mayPlace(one));
     }
 
     // ---- clicks ----
 
     static void click(AbstractContainerMenu menu, int slot, int button) {
-        click(menu, slot, button, ContainerInput.PICKUP);
+        click(menu, slot, button, ClickType.PICKUP);
     }
 
-    static void click(AbstractContainerMenu menu, int slot, int button, ContainerInput input) {
+    static void click(AbstractContainerMenu menu, int slot, int button, ClickType input) {
         final Minecraft mc = Minecraft.getInstance();
-        mc.gameMode.handleContainerInput(menu.containerId, slot, button, input, mc.player);
+        mc.gameMode.handleInventoryMouseClick(menu.containerId, slot, button, input, mc.player);
     }
 
     /**
@@ -201,7 +202,7 @@ final class FastTransfer {
      */
     static void transferItems(AbstractContainerMenu menu, int from, int count, Player player) {
         if (count >= menu.slots.get(from).getItem().getCount()) {
-            click(menu, from, 0, ContainerInput.QUICK_MOVE);
+            click(menu, from, 0, ClickType.QUICK_MOVE);
             return;
         }
         for (int i = 0; i < count && menu.slots.get(from).hasItem(); i++) transferItem(menu, from, player);
@@ -290,7 +291,7 @@ final class FastTransfer {
     }
 
     private static boolean same(ItemStack a, ItemStack b) {
-        return !a.isEmpty() && !b.isEmpty() && ItemStack.isSameItemSameComponents(a, b);
+        return !a.isEmpty() && !b.isEmpty() && ItemStack.isSameItemSameTags(a, b);
     }
 
     /** The slot one item of the source slot ends up in after a Shift + click, or -1. NEI's findShiftClickDestinationSlot. */
@@ -301,9 +302,9 @@ final class FastTransfer {
 
         final List<ItemStack> saved = snapshot(menu);
         try {
-            source.set(stack.copyWithCount(1));
+            source.set(Stacks.withCount(stack, 1));
             final List<ItemStack> before = snapshot(menu);
-            menu.clicked(from, 0, ContainerInput.QUICK_MOVE, player);
+            menu.clicked(from, 0, ClickType.QUICK_MOVE, player);
             final List<ItemStack> after = snapshot(menu);
 
             for (int i = 0; i < before.size(); i++) {

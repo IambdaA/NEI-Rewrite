@@ -15,9 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
 import codechicken.nei.item.ItemEntry;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -110,7 +109,7 @@ public final class Subsets {
     }
 
     private static Tag tagged(String name, String path) {
-        final TagKey<Item> key = TagKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath("minecraft", path));
+        final TagKey<Item> key = TagKey.create(Registries.ITEM, new ResourceLocation("minecraft", path));
         return new Tag(name, e -> e.stack.is(key));
     }
 
@@ -132,7 +131,7 @@ public final class Subsets {
         armor.children.addAll(List.of(tagged("Helmets", "head_armor"), tagged("Chestplates", "chest_armor"),
                 tagged("Leggings", "leg_armor"), tagged("Boots", "foot_armor")));
         items.children.addAll(List.of(tools, weapons, armor));
-        items.children.add(new Tag("Food", e -> e.stack.has(DataComponents.FOOD)));
+        items.children.add(new Tag("Food", e -> e.stack.getItem().isEdible()));
         items.children.add(new Tag("Potions", e -> e.registryId.endsWith("potion")));
         newRoot.children.add(items);
 

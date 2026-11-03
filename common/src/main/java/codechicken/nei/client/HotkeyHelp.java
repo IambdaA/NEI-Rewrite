@@ -6,7 +6,7 @@ import java.util.List;
 import codechicken.nei.Bookmarks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -80,7 +80,7 @@ final class HotkeyHelp {
     static int listGroupSize;
     static boolean listGroupExpanded;
 
-    static boolean draw(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, ItemStack stack, Where where) {
+    static boolean draw(GuiGraphics g, int mx, int my, int sw, int sh, ItemStack stack, Where where) {
         if (!altDown || stack.isEmpty()) return false;
 
         final boolean bookmarked = Bookmarks.contains(codechicken.nei.item.FluidDisplay.idOf(stack));
@@ -144,7 +144,7 @@ final class HotkeyHelp {
         }
         lines.add(new Line(NEIKeys.name(NEIKeys.RECIPE), "Recipe to make this item"));
         lines.add(new Line(NEIKeys.name(NEIKeys.USAGE), "Recipes that use this item"));
-        if (TerminalSearchSync.isTerminal(net.minecraft.client.Minecraft.getInstance().gui.screen())) {
+        if (TerminalSearchSync.isTerminal(net.minecraft.client.Minecraft.getInstance().screen)) {
             lines.add(new Line(NEIKeys.name(NEIKeys.TERMINAL_NAME), "Search this in the terminal"));
         }
         // As in NEI: the three copy lines follow the recipe / uses lines everywhere (oredict is "tags" here)
@@ -167,7 +167,7 @@ final class HotkeyHelp {
      * Help for the thin group strip beside the bookmarks. Wording and order follow NEI's {@code BookmarkPanel#handleHotkeys};
      * actions that are not ported yet (group quantity, crafting chain, sorting) are left out.
      */
-    static void drawStrip(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, boolean inGroup, boolean crafting) {
+    static void drawStrip(GuiGraphics g, int mx, int my, int sw, int sh, boolean inGroup, boolean crafting) {
         final List<Line> lines = new ArrayList<>();
         lines.add(new Line("LMB + Drag", "Create/Include Group"));
         if (inGroup) {
@@ -187,7 +187,7 @@ final class HotkeyHelp {
     }
 
     /** Help for the favorite (heart) button of a recipe (NEI's {@code GuiFavoriteButton#handleHotkeys}). */
-    static void drawSubset(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, String name) {
+    static void drawSubset(GuiGraphics g, int mx, int my, int sw, int sh, String name) {
         final List<Line> lines = new ArrayList<>();
         lines.add(new Line("Double LMB", "Show only this Subset"));
         if (SubsetMenu.searchByClick()) lines.add(new Line("SHIFT + LMB", "Search by Subset"));
@@ -196,7 +196,7 @@ final class HotkeyHelp {
         box(g, mx, my, sw, sh, name, lines, false);
     }
 
-    static void drawHeart(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, boolean severalResults) {
+    static void drawHeart(GuiGraphics g, int mx, int my, int sw, int sh, boolean severalResults) {
         final List<Line> lines = new ArrayList<>();
         lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.BOOKMARK), "Save Recipe Tree"));
         lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.OPEN_TREE), "Open Crafting Tree"));
@@ -210,7 +210,7 @@ final class HotkeyHelp {
 
     /** NEI lists the pull keys only while the open screen is a container it can pull from. */
     private static void pullLines(List<Line> lines) {
-        if (!ContainerPull.available(Minecraft.getInstance().gui.screen())) return;
+        if (!ContainerPull.available(Minecraft.getInstance().screen)) return;
         lines.add(new Line(NEIKeys.name(NEIKeys.PULL_ITEMS), "Pull all Items"));
         lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.PULL_ITEMS), "Pull missing Items"));
     }
@@ -222,7 +222,7 @@ final class HotkeyHelp {
         lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.CRAFT_ITEMS), "Craft Items"));
     }
 
-    private static void box(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, String name, List<Line> lines,
+    private static void box(GuiGraphics g, int mx, int my, int sw, int sh, String name, List<Line> lines,
             boolean below) {
         final Font font = Minecraft.getInstance().font;
         int width = font.width(name);
@@ -236,17 +236,17 @@ final class HotkeyHelp {
         if (x + width + 8 > sw) x = Math.max(4, mx - width - 16);
         if (y + height + 8 > sh) y = Math.max(4, sh - height - 8);
 
-        g.fill(x - 3, y - 3, x + width + 3, y + height + 3, 0xF0100010);
-        g.fill(x - 3, y - 3, x + width + 3, y - 2, 0xFF5000FF);
-        g.fill(x - 3, y + height + 2, x + width + 3, y + height + 3, 0xFF28007F);
-        g.fill(x - 3, y - 2, x - 2, y + height + 2, 0xFF3C00BF);
-        g.fill(x + width + 2, y - 2, x + width + 3, y + height + 2, 0xFF3C00BF);
+        Gfx.fill(g, x - 3, y - 3, x + width + 3, y + height + 3, 0xF0100010);
+        Gfx.fill(g, x - 3, y - 3, x + width + 3, y - 2, 0xFF5000FF);
+        Gfx.fill(g, x - 3, y + height + 2, x + width + 3, y + height + 3, 0xFF28007F);
+        Gfx.fill(g, x - 3, y - 2, x - 2, y + height + 2, 0xFF3C00BF);
+        Gfx.fill(g, x + width + 2, y - 2, x + width + 3, y + height + 2, 0xFF3C00BF);
 
-        g.text(font, Component.literal(name), x, y, 0xFFFFFFFF, true);
+        Gfx.text(g, font, Component.literal(name), x, y, 0xFFFFFFFF, true);
         int ty = y + 12;
         for (Line l : lines) {
-            g.text(font, Component.literal(l.key()), x, ty, 0xFFFFFF55, false);
-            g.text(font, Component.literal(l.text()), x + font.width(l.key()) + 8, ty, 0xFFAAAAAA, false);
+            Gfx.text(g, font, Component.literal(l.key()), x, ty, 0xFFFFFF55, false);
+            Gfx.text(g, font, Component.literal(l.text()), x + font.width(l.key()) + 8, ty, 0xFFAAAAAA, false);
             ty += 10;
         }
     }

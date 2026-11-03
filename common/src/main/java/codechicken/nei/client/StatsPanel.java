@@ -11,7 +11,7 @@ import codechicken.nei.bookmark.TreeStats;
 import codechicken.nei.bookmark.TreeView;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -259,7 +259,7 @@ final class StatsPanel {
     // ---- drawing ----
 
     /** @param highlighted the {@link Cell#key()} the tree is highlighting, or null */
-    void draw(GuiGraphicsExtractor g, Font font, int mx, int my, boolean canHover, String highlighted, Lookup lookup) {
+    void draw(GuiGraphics g, Font font, int mx, int my, boolean canHover, String highlighted, Lookup lookup) {
         if (h <= 0) return;
 
         // NEI's background strip: a 2 pixel edge on top, then the flat fill
@@ -273,7 +273,7 @@ final class StatsPanel {
         final int ox = originX();
         final int oy = originY();
 
-        for (Label l : labels) g.text(font, Component.literal(l.text()), ox + l.x(), oy + l.y(), 0xFFFFFFFF, true);
+        for (Label l : labels) Gfx.text(g, font, Component.literal(l.text()), ox + l.x(), oy + l.y(), 0xFFFFFFFF, true);
 
         for (Cell c : cells) {
             final int cx = ox + c.x();
@@ -284,7 +284,7 @@ final class StatsPanel {
             else drawHandler(g, font, c.handler(), cx, cy, lit, lookup);
 
             if (canHover && Draw.in(mx, my, cx, cy, SLOT, SLOT) && Draw.in(mx, my, x, y, w, h)) {
-                g.fill(cx + 1, cy + 1, cx + SLOT - 1, cy + SLOT - 1, HOVER);
+                Gfx.fill(g, cx + 1, cy + 1, cx + SLOT - 1, cy + SLOT - 1, HOVER);
             }
         }
         Tex.endClip(g);
@@ -292,12 +292,12 @@ final class StatsPanel {
         if (maxScroll() > 0) { // a plain thumb along the bottom edge
             final int thumb = Math.max(8, viewWidth() * viewWidth() / contentW);
             final int tx = x + PAD_INLINE + (viewWidth() - thumb) * scroll / maxScroll();
-            g.fill(x + PAD_INLINE, y + h - 3, x + w - PAD_INLINE, y + h - 1, 0x66000000);
-            g.fill(tx, y + h - 3, tx + thumb, y + h - 1, 0xFFAAAAAA);
+            Gfx.fill(g, x + PAD_INLINE, y + h - 3, x + w - PAD_INLINE, y + h - 1, 0x66000000);
+            Gfx.fill(g, tx, y + h - 3, tx + thumb, y + h - 1, 0xFFAAAAAA);
         }
     }
 
-    private static void drawEntry(GuiGraphicsExtractor g, Font font, TreeStats.Entry e, int cx, int cy, boolean lit,
+    private static void drawEntry(GuiGraphics g, Font font, TreeStats.Entry e, int cx, int cy, boolean lit,
             Lookup lookup) {
         Tex.blit(g, cx, cy, lit ? 164 : 68 + 24 * e.kind().ordinal(), 26, SLOT, SLOT);
 
@@ -307,16 +307,16 @@ final class StatsPanel {
 
         if (e.recipeId() != null) { // the recipe type's badge, as on the tree's boxes
             final ItemStack station = lookup.station(e.itemId(), e.recipeId());
-            g.pose().pushMatrix();
-            g.pose().translate(cx - 3.6f, cy - 3.6f);
-            g.pose().scale(0.6f, 0.6f);
+            g.pose().pushPose();
+            g.pose().translate(cx - 3.6f, cy - 3.6f, 0f);
+            g.pose().scale(0.6f, 0.6f, 1f);
             if (station.isEmpty()) Tex.blit(g, 0, 0, 67, 48, 16, 16);
             else Draw.stack(g, station, 0, 0);
-            g.pose().popMatrix();
+            g.pose().popPose();
         }
     }
 
-    private static void drawHandler(GuiGraphicsExtractor g, Font font, TreeStats.Handler hd, int cx, int cy,
+    private static void drawHandler(GuiGraphics g, Font font, TreeStats.Handler hd, int cx, int cy,
             boolean lit, Lookup lookup) {
         Tex.blit(g, cx, cy, lit ? 164 : 68, 26, SLOT, SLOT);
 
@@ -329,7 +329,7 @@ final class StatsPanel {
     }
 
     /** Bottom right of the item area, as on the tree's boxes. */
-    private static void amount(GuiGraphicsExtractor g, Font font, long amount, int cx, int cy) {
+    private static void amount(GuiGraphics g, Font font, long amount, int cx, int cy) {
         final String text = amount < 10_000 ? String.valueOf(amount) : ReadableNumber.wide(amount);
         Draw.smallText(g, font, text, (float) Math.ceil(cx + 1 + 16 - font.width(text) * 0.5),
                 (float) Math.ceil(cy + 1 + 16 - 4.5), 0xFFFFFF);

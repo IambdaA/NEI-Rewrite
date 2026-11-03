@@ -1,9 +1,8 @@
 package codechicken.nei.client;
 
 import codechicken.nei.NotEnoughItems;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.resources.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * Texture and clipping calls in one place, so a renamed Minecraft call only needs fixing here.
@@ -11,35 +10,35 @@ import net.minecraft.resources.Identifier;
 final class Tex {
 
     /** NEI's crafting tree sprite sheet (256 x 256), taken from the GTNH NEI resources. */
-    static final Identifier TREE = Identifier.fromNamespaceAndPath(NotEnoughItems.MODID,
+    static final ResourceLocation TREE = new ResourceLocation(NotEnoughItems.MODID,
             "textures/gui/craftingtree.png");
 
     /** NEI's tab / toolbar sprites (256 x 256): bookmark icons, wrench, recipe tab backgrounds. */
-    static final Identifier SPRITES = sheet("nei_tabbed_sprites");
+    static final ResourceLocation SPRITES = sheet("nei_tabbed_sprites");
     /** The recipe window background (256 x 256, the window is its top left 184 x 174). */
-    static final Identifier RECIPE_BG = sheet("recipebg");
+    static final ResourceLocation RECIPE_BG = sheet("recipebg");
     /** NEI's icon sheet: a 512 x 512 file whose coordinates are in 256 x 256 units (draw it with texture size 256). */
-    static final Identifier ICONS = sheet("nei_sprites");
+    static final ResourceLocation ICONS = sheet("nei_sprites");
     /** The station column background (36 x 36). */
-    static final Identifier CATALYST = sheet("catalyst_tab");
+    static final ResourceLocation CATALYST = sheet("catalyst_tab");
 
     private Tex() {}
 
-    private static Identifier sheet(String name) {
-        return Identifier.fromNamespaceAndPath(NotEnoughItems.MODID, "textures/gui/" + name + ".png");
+    private static ResourceLocation sheet(String name) {
+        return new ResourceLocation(NotEnoughItems.MODID, "textures/gui/" + name + ".png");
     }
 
     /** Draws the {@code w x h} part of any sheet that starts at {@code (u, v)}. */
-    static void blit(GuiGraphicsExtractor g, Identifier tex, int texW, int texH, int x, int y, int u, int v, int w,
+    static void blit(GuiGraphics g, ResourceLocation tex, int texW, int texH, int x, int y, int u, int v, int w,
             int h) {
-        g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, (float) u, (float) v, w, h, texW, texH);
+        Gfx.blit(g, tex, x, y, (float) u, (float) v, w, h, texW, texH);
     }
 
     /**
      * Nine-slice: the {@code sw x sh} region at {@code (u, v)} with border widths {@code l, t, r, b}, drawn at
      * {@code w x h}. Edges and middle are tiled (NEI's {@code DrawableBuilder#setSlices}).
      */
-    static void nine(GuiGraphicsExtractor g, Identifier tex, int texW, int texH, int x, int y, int w, int h, int u,
+    static void nine(GuiGraphics g, ResourceLocation tex, int texW, int texH, int x, int y, int w, int h, int u,
             int v, int sw, int sh, int l, int t, int r, int b) {
         final int mw = sw - l - r;
         final int mh = sh - t - b;
@@ -63,17 +62,17 @@ final class Tex {
     }
 
     /** Draws the {@code w x h} part of the 256 x 256 sheet that starts at {@code (u, v)} with its corner at {@code (x, y)}. */
-    static void blit(GuiGraphicsExtractor g, int x, int y, int u, int v, int w, int h) {
-        // (from the minecraft-modding skill) and RenderPipelines.GUI_TEXTURED in net.minecraft.client.renderer
-        g.blit(RenderPipelines.GUI_TEXTURED, TREE, x, y, (float) u, (float) v, w, h, 256, 256);
+    static void blit(GuiGraphics g, int x, int y, int u, int v, int w, int h) {
+        
+        Gfx.blit(g, TREE, x, y, (float) u, (float) v, w, h, 256, 256);
     }
 
     /** Everything drawn until {@link #endClip} is cut off outside this rectangle (GUI coordinates). */
-    static void beginClip(GuiGraphicsExtractor g, int x, int y, int w, int h) {
+    static void beginClip(GuiGraphics g, int x, int y, int w, int h) {
         g.enableScissor(x, y, x + w, y + h);
     }
 
-    static void endClip(GuiGraphicsExtractor g) {
+    static void endClip(GuiGraphics g) {
         g.disableScissor();
     }
 
@@ -81,7 +80,7 @@ final class Tex {
      * The tree window's frame: NEI's nine-slice background (corners 9 / 9 / 22 / 9) from the sprite sheet. The middle
      * of the sprite is one flat colour, so it is filled instead of tiled; the four edges are tiled.
      */
-    static void frame(GuiGraphicsExtractor g, int x, int y, int w, int h) {
+    static void frame(GuiGraphics g, int x, int y, int w, int h) {
         final int left = 9;
         final int right = 9;
         final int top = 22;
@@ -90,7 +89,7 @@ final class Tex {
         final int tileW = size - left - right;
         final int tileH = size - top - bottom;
 
-        g.fill(x + left, y + top, x + w - right, y + h - bottom, 0xFF101018);
+        Gfx.fill(g, x + left, y + top, x + w - right, y + h - bottom, 0xFF101018);
 
         blit(g, x, y, 0, 0, left, top);
         blit(g, x + w - right, y, size - right, 0, right, top);

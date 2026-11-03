@@ -6,7 +6,7 @@ import java.util.List;
 import codechicken.nei.NotEnoughItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
@@ -97,7 +97,7 @@ final class ItemTooltip {
     }
 
     /** Call at the end of a frame, after everything else is drawn. */
-    static void flush(GuiGraphicsExtractor g, int mx, int my, int sw, int sh) {
+    static void flush(GuiGraphics g, int mx, int my, int sw, int sh) {
         if (pendingSubset != null) {
             if (HotkeyHelp.isAltDown()) {
                 HotkeyHelp.drawSubset(g, mx, my, sw, sh, pendingSubset);
@@ -150,7 +150,7 @@ final class ItemTooltip {
     private static List<Component> normalLines(ItemStack stack) {
         try {
             return SpawnerLook.recolored(stack, withoutOpWarning(stack,
-                    stack.getTooltipLines(Item.TooltipContext.EMPTY, Minecraft.getInstance().player, TooltipFlag.NORMAL)));
+                    stack.getTooltipLines(Minecraft.getInstance().player, TooltipFlag.NORMAL)));
         } catch (RuntimeException e) {
             return List.of(stack.getHoverName()); // a broken third-party tooltip must not break the panel
         }
@@ -195,7 +195,7 @@ final class ItemTooltip {
                 .append(Component.literal(" for hotkeys").withStyle(s -> s.withColor(0xAAAAAA)));
     }
 
-    private static void draw(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, ItemStack stack) {
+    private static void draw(GuiGraphics g, int mx, int my, int sw, int sh, ItemStack stack) {
         final List<Component> source = normalLines(stack);
         final Component name = source.isEmpty() ? stack.getHoverName() : source.get(0);
         final List<Component> extra = source.size() > 1 ? source.subList(1, source.size()) : List.of();
@@ -219,7 +219,7 @@ final class ItemTooltip {
     }
 
     /** Draws vanilla's purple tooltip box around the lines; {@code gapAfterName} / {@code gapBeforeMod} add spacing. */
-    private static void box(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, List<Component> lines,
+    private static void box(GuiGraphics g, int mx, int my, int sw, int sh, List<Component> lines,
             int gapAfterName, int gapBeforeMod) {
         final Font font = Minecraft.getInstance().font;
 
@@ -234,15 +234,15 @@ final class ItemTooltip {
         if (y < 4) y = 4;
 
         // vanilla's dark purple box
-        g.fill(x - 3, y - 3, x + width + 3, y + height + 3, 0xF0100010);
-        g.fill(x - 3, y - 3, x + width + 3, y - 2, 0xFF5000FF);
-        g.fill(x - 3, y + height + 2, x + width + 3, y + height + 3, 0xFF28007F);
-        g.fill(x - 3, y - 2, x - 2, y + height + 2, 0xFF3C00BF);
-        g.fill(x + width + 2, y - 2, x + width + 3, y + height + 2, 0xFF3C00BF);
+        Gfx.fill(g, x - 3, y - 3, x + width + 3, y + height + 3, 0xF0100010);
+        Gfx.fill(g, x - 3, y - 3, x + width + 3, y - 2, 0xFF5000FF);
+        Gfx.fill(g, x - 3, y + height + 2, x + width + 3, y + height + 3, 0xFF28007F);
+        Gfx.fill(g, x - 3, y - 2, x - 2, y + height + 2, 0xFF3C00BF);
+        Gfx.fill(g, x + width + 2, y - 2, x + width + 3, y + height + 2, 0xFF3C00BF);
 
         int ty = y;
         for (int i = 0; i < lines.size(); i++) {
-            g.text(font, lines.get(i), x, ty, 0xFFFFFFFF, true);
+            Gfx.text(g, font, lines.get(i), x, ty, 0xFFFFFFFF, true);
             ty += 10;
             if (i == 0) ty += gapAfterName;
             if (i == lines.size() - 2) ty += gapBeforeMod;

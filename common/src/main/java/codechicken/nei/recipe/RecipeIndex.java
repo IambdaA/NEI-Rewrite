@@ -12,16 +12,13 @@ import codechicken.nei.item.RecipeRemoval;
 import codechicken.nei.recipe.RecipeView.SlotView;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.util.context.ContextMap;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.display.RecipeDisplay;
-import net.minecraft.world.item.crafting.display.SlotDisplayContext;
+import net.minecraft.world.item.crafting.Recipe;
 
 /**
  * Lookup tables from an item to the recipes that make it and the recipes that use it. Built lazily on the client
- * thread (resolving tags needs the world), and rebuilt after the server sends new recipes.
+ * thread (resolving tags needs the world), and rebuilt when the client gets new recipes.
  */
 public final class RecipeIndex {
 
@@ -54,6 +51,7 @@ public final class RecipeIndex {
     }
 
     private static Index get() {
+        ClientRecipes.refresh(); // a reload or another world drops the index
         Index i = index;
         if (i == null) index = i = build();
         return i;
@@ -95,38 +93,28 @@ public final class RecipeIndex {
         if (level == null) return new Index(outputs, inputs, 0, crafting);
 
         final Set<String> removedIds = Presets.removedIds();
-        final ContextMap context = SlotDisplayContext.fromLevel(level);
 
-        for (RecipeHolder<?> holder : ClientRecipes.all()) {
-            final List<RecipeDisplay> displays;
+        for (Recipe<?> holder : ClientRecipes.all()) {
             try {
-                displays = holder.value().display();
-            } catch (RuntimeException e) {
-                continue;
-            }
+                final RecipeView view = RecipeConverter.convert(holder, level.registryAccess());
+                if (view == null) continue;
+                if (!removedIds.isEmpty() && !keepRecipe(view, removedIds)) continue;
+                total++;
+                if (view.crafting() != RecipeView.Crafting.NONE) crafting.add(view);
 
-            for (RecipeDisplay display : displays) {
-                try {
-                    final RecipeView view = RecipeConverter.convert(display, context);
-                    if (view == null) continue;
-                    if (!removedIds.isEmpty() && !keepRecipe(view, removedIds)) continue;
-                    total++;
-                    if (view.crafting() != RecipeView.Crafting.NONE) crafting.add(view);
+                for (SlotView slot : view.slots()) {
+                    final Map<Item, List<RecipeView>> target = slot.output() ? outputs : inputs;
+                    if (!slot.output() && !slot.indexed()) continue;
+                    if (wildcardFluids(slot)) continue; // "any fluid" slot (a machine that takes or makes every fluid): not a recipe of each one
 
-                    for (SlotView slot : view.slots()) {
-                        final Map<Item, List<RecipeView>> target = slot.output() ? outputs : inputs;
-                        if (!slot.output() && !slot.indexed()) continue;
-                        if (wildcardFluids(slot)) continue; // "any fluid" slot (a machine that takes or makes every fluid): not a recipe of each one
-
-                        for (ItemStack option : slot.options()) {
-                            final List<RecipeView> list = target.computeIfAbsent(option.getItem(), k -> new ArrayList<>());
-                            // the same recipe is added once per matching slot; consecutive duplicates are the same view
-                            if (list.isEmpty() || list.get(list.size() - 1) != view) list.add(view);
-                        }
+                    for (ItemStack option : slot.options()) {
+                        final List<RecipeView> list = target.computeIfAbsent(option.getItem(), k -> new ArrayList<>());
+                        // the same recipe is added once per matching slot; consecutive duplicates are the same view
+                        if (list.isEmpty() || list.get(list.size() - 1) != view) list.add(view);
                     }
-                } catch (RuntimeException e) {
-                    NotEnoughItems.LOGGER.debug("Skipping unreadable recipe display: {}", e.toString());
                 }
+            } catch (RuntimeException e) {
+                NotEnoughItems.LOGGER.debug("Skipping unreadable recipe {}: {}", holder.getId(), e.toString());
             }
         }
 

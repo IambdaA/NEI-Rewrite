@@ -1,16 +1,16 @@
 {
-  "required": false,
+  "required": true,
   "minVersion": "0.8",
   "package": "codechicken.nei.fabric.mixin",
-  "compatibilityLevel": "JAVA_25",
+  "compatibilityLevel": "JAVA_17",
   "client": [
     "ContainerScreenMixin",
-    "GuiMixin",
     "KeyMappingMixin",
     "KeyboardHandlerMixin",
+    "MinecraftMixin",
     "MouseHandlerMixin"
   ],
   "injectors": {
-    "defaultRequire": 0
+    "defaultRequire": 1
   }
 }

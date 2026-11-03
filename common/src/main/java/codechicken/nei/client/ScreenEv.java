@@ -1,28 +1,35 @@
 package codechicken.nei.client;
 
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import com.mojang.blaze3d.platform.InputConstants;
+
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 
 /**
  * One screen event (render, mouse, key, character) in a form that does not depend on the mod loader. Each loader module
  * builds one from its own event and calls {@link ClientHooks}; a handler that sets {@link #setCanceled} stops the
- * screen (or the other mods) from seeing the event, as with NeoForge's cancellable screen events. The input events are
- * Minecraft's own objects (26.x passes those to every loader's callbacks).
+ * screen (or the other mods) from seeing the event, as with NeoForge's cancellable screen events.
  */
 public final class ScreenEv {
 
+    /** A key press or release. */
+    public record Key(int key, int scan, int modifiers) {
+
+        public InputConstants.Key asKey() {
+            return InputConstants.getKey(key, scan);
+        }
+    }
+
     private final Screen screen;
-    private GuiGraphicsExtractor graphics;
+    private GuiGraphics graphics;
     private double mouseX;
     private double mouseY;
     private float partialTick;
-    private MouseButtonEvent mouse;
+    private int button;
     private double scrollY;
-    private KeyEvent key;
-    private CharacterEvent character;
+    private Key keyEvent;
+    private int codePoint;
+    private int modifiers;
     private boolean canceled;
 
     private ScreenEv(Screen screen) {
@@ -33,7 +40,7 @@ public final class ScreenEv {
         return new ScreenEv(screen);
     }
 
-    public static ScreenEv render(Screen screen, GuiGraphicsExtractor graphics, double mx, double my, float partialTick) {
+    public static ScreenEv render(Screen screen, GuiGraphics graphics, double mx, double my, float partialTick) {
         final ScreenEv e = new ScreenEv(screen);
         e.graphics = graphics;
         e.mouseX = mx;
@@ -42,11 +49,11 @@ public final class ScreenEv {
         return e;
     }
 
-    public static ScreenEv mouse(Screen screen, MouseButtonEvent mouse) {
+    public static ScreenEv mouse(Screen screen, double mx, double my, int button) {
         final ScreenEv e = new ScreenEv(screen);
-        e.mouse = mouse;
-        e.mouseX = mouse.x();
-        e.mouseY = mouse.y();
+        e.mouseX = mx;
+        e.mouseY = my;
+        e.button = button;
         return e;
     }
 
@@ -58,15 +65,17 @@ public final class ScreenEv {
         return e;
     }
 
-    public static ScreenEv key(Screen screen, KeyEvent key) {
+    public static ScreenEv key(Screen screen, int key, int scan, int modifiers) {
         final ScreenEv e = new ScreenEv(screen);
-        e.key = key;
+        e.keyEvent = new Key(key, scan, modifiers);
+        e.modifiers = modifiers;
         return e;
     }
 
-    public static ScreenEv chr(Screen screen, CharacterEvent character) {
+    public static ScreenEv chr(Screen screen, int codePoint, int modifiers) {
         final ScreenEv e = new ScreenEv(screen);
-        e.character = character;
+        e.codePoint = codePoint;
+        e.modifiers = modifiers;
         return e;
     }
 
@@ -74,7 +83,7 @@ public final class ScreenEv {
         return screen;
     }
 
-    public GuiGraphicsExtractor getGuiGraphics() {
+    public GuiGraphics getGuiGraphics() {
         return graphics;
     }
 
@@ -91,23 +100,24 @@ public final class ScreenEv {
     }
 
     public int getButton() {
-        return mouse.button();
-    }
-
-    public MouseButtonEvent getMouseButtonEvent() {
-        return mouse;
+        return button;
     }
 
     public double getScrollDeltaY() {
         return scrollY;
     }
 
-    public KeyEvent getKeyEvent() {
-        return key;
+    public Key getKeyEvent() {
+        return keyEvent;
     }
 
-    public CharacterEvent getCharacterEvent() {
-        return character;
+    /** The typed character (a UTF-16 code unit, as the screen's {@code charTyped} gets it). */
+    public char getCodePoint() {
+        return (char) codePoint;
+    }
+
+    public int getModifiers() {
+        return modifiers;
     }
 
     public void setCanceled(boolean canceled) {

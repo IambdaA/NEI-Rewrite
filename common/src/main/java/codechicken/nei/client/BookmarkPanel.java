@@ -11,7 +11,7 @@ import codechicken.nei.bookmark.BookmarkLayout;
 import codechicken.nei.item.ItemEntry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -190,7 +190,7 @@ public final class BookmarkPanel {
 
     private boolean pullVisible() {
         return nsVisible && !Bookmarks.grid().isEmpty() && pullX() + BTN <= x + panelW()
-                && ContainerPull.available(Minecraft.getInstance().gui.screen());
+                && ContainerPull.available(Minecraft.getInstance().screen);
     }
 
     private boolean overNamespaceNav(double mx, double my) {
@@ -430,7 +430,7 @@ public final class BookmarkPanel {
     }
 
     /** The dragged slots follow the mouse, the first one centred on it. */
-    private void drawSorting(GuiGraphicsExtractor g, int mx, int my, BookmarkLayout lay, int page) {
+    private void drawSorting(GuiGraphics g, int mx, int my, BookmarkLayout lay, int page) {
         final BookmarkGrid grid = Bookmarks.grid();
         final List<BookmarkGrid.Item> unit = sortGroup >= 0 ? grid.groupItems(sortGroup) : grid.sortUnit(sortItem);
         final List<BookmarkGrid.Item> laid = grid.layoutItems();
@@ -475,11 +475,11 @@ public final class BookmarkPanel {
 
     // ---- drawing ----
 
-    private static void rect(GuiGraphicsExtractor g, int rx, int ry, int w, int h, int color) {
-        g.fill(rx, ry, rx + w, ry + h, color);
+    private static void rect(GuiGraphics g, int rx, int ry, int w, int h, int color) {
+        Gfx.fill(g, rx, ry, rx + w, ry + h, color);
     }
 
-    public void render(GuiGraphicsExtractor g, int mx, int my) {
+    public void render(GuiGraphics g, int mx, int my) {
         if (!isVisible()) return;
         final Font font = Minecraft.getInstance().font;
         final BookmarkGrid grid = Bookmarks.grid();
@@ -491,30 +491,30 @@ public final class BookmarkPanel {
         // page row
         Draw.button(g, x, top, BTN, BTN, Draw.in(mx, my, x, top, BTN, BTN));
         Draw.button(g, x + panelW() - BTN, top, BTN, BTN, Draw.in(mx, my, x + panelW() - BTN, top, BTN, BTN));
-        g.text(font, Component.literal("<"), x + 4, top + 3, 0xFFFFFFFF, false);
-        g.text(font, Component.literal(">"), x + panelW() - BTN + 5, top + 3, 0xFFFFFFFF, false);
+        Gfx.text(g, font, Component.literal("<"), x + 4, top + 3, 0xFFFFFFFF, false);
+        Gfx.text(g, font, Component.literal(">"), x + panelW() - BTN + 5, top + 3, 0xFFFFFFFF, false);
         final String label = (page + 1) + "/" + pageCount();
-        g.text(font, Component.literal(label), x + (panelW() - font.width(label)) / 2, top + 3, 0xFFFFFFFF, true);
+        Gfx.text(g, font, Component.literal(label), x + (panelW() - font.width(label)) / 2, top + 3, 0xFFFFFFFF, true);
 
         // namespace row
         if (nsVisible) {
             Draw.button(g, nsPrevX(), nsY, BTN, BTN, Draw.in(mx, my, nsPrevX(), nsY, BTN, BTN));
             Draw.button(g, nsNextX(), nsY, BTN, BTN, Draw.in(mx, my, nsNextX(), nsY, BTN, BTN));
-            g.text(font, Component.literal("<"), nsPrevX() + 4, nsY + 3, 0xFFFFFFFF, false);
-            g.text(font, Component.literal(">"), nsNextX() + 5, nsY + 3, 0xFFFFFFFF, false);
+            Gfx.text(g, font, Component.literal("<"), nsPrevX() + 4, nsY + 3, 0xFFFFFFFF, false);
+            Gfx.text(g, font, Component.literal(">"), nsNextX() + 5, nsY + 3, 0xFFFFFFFF, false);
             final String ns = nsLabel();
-            g.text(font, Component.literal(ns), nsCenter() - font.width(ns) / 2, nsY + 3, 0xFFFFFFFF, true);
+            Gfx.text(g, font, Component.literal(ns), nsCenter() - font.width(ns) / 2, nsY + 3, 0xFFFFFFFF, true);
             if (pullVisible()) {
                 final boolean over = Draw.in(mx, my, pullX(), nsY, BTN, BTN);
                 Draw.button(g, pullX(), nsY, BTN, BTN, over);
-                g.text(font, Component.literal("P"), pullX() + 4, nsY + 3, 0xFFFFFFFF, false);
+                Gfx.text(g, font, Component.literal("P"), pullX() + 4, nsY + 3, 0xFFFFFFFF, false);
                 if (over) ItemTooltip.requestPlain(List.of(Component.literal("Pull all bookmarked items from storage to inventory")));
             }
         }
 
         if (grid.isEmpty()) {
             for (int i = 0; i < emptyHint.length; i++) {
-                g.text(font, Component.literal(emptyHint[i]), gridX() + 2, gridY + 2 + i * 10, 0xFFA0A0A0, true);
+                Gfx.text(g, font, Component.literal(emptyHint[i]), gridX() + 2, gridY + 2 + i * 10, 0xFFA0A0A0, true);
             }
             return;
         }
@@ -567,7 +567,7 @@ public final class BookmarkPanel {
     }
 
     /** NEI's {@code calculateGroupBorders} + {@code drawBorder}; shortcut: 1px lines, NEI's are 0.75px wide. */
-    private void drawBorders(GuiGraphicsExtractor g, BookmarkGrid grid, BookmarkLayout lay, List<BookmarkGrid.Item> laid,
+    private void drawBorders(GuiGraphics g, BookmarkGrid grid, BookmarkLayout lay, List<BookmarkGrid.Item> laid,
             int start, BookmarkGrid.Item hoveredSlot, Ctx ctx) {
         final Map<Integer, String> keys = grid.borderKeys(lay);
 
@@ -582,8 +582,8 @@ public final class BookmarkPanel {
             // NEI's BookmarksGridSlot#beforeDraw: with Ctrl or Shift held the slots of the hovered recipe / row / group are
             // coloured by what they are (ingredient, result, remainder); otherwise only the hovered slot is lit
             final int shownColor = shownColor(grid, item, abs, ctx);
-            if (shownColor != 0) g.fill(cx, cy, cx + SLOT, cy + SLOT, shownColor);
-            else if (item == hoveredSlot) g.fill(cx, cy, cx + SLOT, cy + SLOT, HIGHLIGHT);
+            if (shownColor != 0) Gfx.fill(g, cx, cy, cx + SLOT, cy + SLOT, shownColor);
+            else if (item == hoveredSlot) Gfx.fill(g, cx, cy, cx + SLOT, cy + SLOT, HIGHLIGHT);
 
             final String key = keys.get(abs);
             if (key == null) continue;
@@ -598,12 +598,12 @@ public final class BookmarkPanel {
     }
 
     /** Text at half size, as NEI draws amounts and markers over a slot ({@code NEIClientUtils#drawNEIOverlayText}). */
-    private static void smallText(GuiGraphicsExtractor g, Font font, String text, float x, float y, int color) {
-        g.pose().pushMatrix();
-        g.pose().translate(x, y);
-        g.pose().scale(0.5f, 0.5f);
-        g.text(font, Component.literal(text), 0, 0, 0xFF000000 | color, true);
-        g.pose().popMatrix();
+    private static void smallText(GuiGraphics g, Font font, String text, float x, float y, int color) {
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0f);
+        g.pose().scale(0.5f, 0.5f, 1f);
+        Gfx.text(g, font, Component.literal(text), 0, 0, 0xFF000000 | color, true);
+        g.pose().popPose();
     }
 
     private static String readable(long n) {
@@ -615,7 +615,7 @@ public final class BookmarkPanel {
      * {@code BookmarksGridSlot#drawStackSize} / {@code afterDraw}. In a crafting chain group the amount is the
      * calculated one.
      */
-    private void drawAmounts(GuiGraphicsExtractor g, Font font, BookmarkGrid grid, BookmarkLayout lay,
+    private void drawAmounts(GuiGraphics g, Font font, BookmarkGrid grid, BookmarkLayout lay,
             List<BookmarkGrid.Item> laid, int absSlot, BookmarkGrid.Item item, int cx, int cy, Ctx ctx) {
         final ChainMath.Calc calc = grid.calc.get(item);
         final Shown shown = shownOf(grid, item, calc, absSlot, ctx);
@@ -729,7 +729,7 @@ public final class BookmarkPanel {
     }
 
     /** NEI's {@code BookmarkGrid#draw} strip part, ported line by line. */
-    private void drawStrip(GuiGraphicsExtractor g, BookmarkLayout lay, int page, int mx, int my) {
+    private void drawStrip(GuiGraphics g, BookmarkLayout lay, int page, int mx, int my) {
         final int rowShift = page * rows;
         final int totalRows = lay.rowCount();
         if (totalRows == 0 || !lay.rowToGroup.containsKey(rowShift)) return;
@@ -776,7 +776,7 @@ public final class BookmarkPanel {
     }
 
     /** NEI's {@code BookmarkGrid#drawGroup}: the strip is green for a crafting chain group (GROUP_CHAIN_COLOR), grey otherwise. */
-    private void drawGroup(GuiGraphicsExtractor g, int rowStart, int rowEnd, int groupId) {
+    private void drawGroup(GuiGraphics g, int rowStart, int rowEnd, int groupId) {
         final int color = Bookmarks.grid().group(groupId).crafting ? BORDER_CHAIN : GROUP_COLOR;
         final int half = STRIP / 2;
         final int pad = SLOT / 4;
@@ -796,7 +796,7 @@ public final class BookmarkPanel {
         rect(g, left, y, 1, height, color);
     }
 
-    private void drawShadow(GuiGraphicsExtractor g, int rowStart, int rowEnd) {
+    private void drawShadow(GuiGraphics g, int rowStart, int rowEnd) {
         final int y = gridY + Math.max(0, rowStart) * SLOT;
         final int height = (Math.min(rowEnd, rows - 1) - Math.max(0, rowStart) + 1) * SLOT;
         rect(g, gridX() - STRIP / 2 - 1, y + 2, 1, height - 4, SHADOW_COLOR);

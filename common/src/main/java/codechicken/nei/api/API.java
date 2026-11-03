@@ -11,7 +11,6 @@ import codechicken.nei.item.ItemEntry;
 import codechicken.nei.recipe.RecipeSources;
 import codechicken.nei.recipe.RecipeView;
 import codechicken.nei.search.SearchParser;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -69,14 +68,14 @@ public final class API {
 
     /** Replaces the name shown for an item (item panel, search). A null name removes the override. */
     public static void setOverrideName(ItemStack item, String name) {
-        NAMES.removeIf(e -> ItemStack.isSameItemSameComponents(e.stack(), item));
+        NAMES.removeIf(e -> ItemStack.isSameItemSameTags(e.stack(), item));
         if (name != null) NAMES.add(new Entry<>(item.copy(), name));
         ItemList.refresh();
     }
 
     /** Extra names an item is found by in the search field. Each is a translation key or plain text. */
     public static void setAliases(ItemStack item, String... aliases) {
-        ALIASES.removeIf(e -> ItemStack.isSameItemSameComponents(e.stack(), item));
+        ALIASES.removeIf(e -> ItemStack.isSameItemSameTags(e.stack(), item));
         final List<String> list = new ArrayList<>();
         for (String a : aliases) if (a != null && !a.isBlank()) list.add(a.trim());
         if (!list.isEmpty()) ALIASES.add(new Entry<>(item.copy(), list));
@@ -133,7 +132,7 @@ public final class API {
         final List<ItemStack> list = new ArrayList<>();
         for (ItemStack s : items) list.add(s.copy());
         addSubset(name, e -> {
-            for (ItemStack s : list) if (ItemStack.isSameItemSameComponents(s, e.stack)) return true;
+            for (ItemStack s : list) if (ItemStack.isSameItemSameTags(s, e.stack)) return true;
             return false;
         });
     }
@@ -150,7 +149,7 @@ public final class API {
 
 
     public static boolean hides(ItemEntry e) {
-        for (ItemStack s : HIDDEN) if (ItemStack.isSameItemSameComponents(s, e.stack)) return true;
+        for (ItemStack s : HIDDEN) if (ItemStack.isSameItemSameTags(s, e.stack)) return true;
         for (ItemFilter f : HIDDEN_RULES) if (f.matches(e)) return true;
         return false;
     }
@@ -158,8 +157,8 @@ public final class API {
     /** Applies a name override to a panel stack (in place) and returns it. */
     public static ItemStack renamed(ItemStack stack) {
         for (Entry<String> e : NAMES) {
-            if (ItemStack.isSameItemSameComponents(e.stack(), stack)) {
-                stack.set(DataComponents.CUSTOM_NAME, Component.literal(e.value()).withStyle(s -> s.withItalic(false)));
+            if (ItemStack.isSameItemSameTags(e.stack(), stack)) {
+                stack.setHoverName(Component.literal(e.value()).withStyle(s -> s.withItalic(false)));
                 break;
             }
         }
@@ -169,7 +168,7 @@ public final class API {
     /** Lower-case aliases of a stack, translated where the text is a translation key. */
     public static List<String> aliasesOf(ItemStack stack) {
         for (Entry<List<String>> e : ALIASES) {
-            if (ItemStack.isSameItemSameComponents(e.stack(), stack)) {
+            if (ItemStack.isSameItemSameTags(e.stack(), stack)) {
                 return e.value().stream().map(a -> Component.translatable(a).getString().toLowerCase(Locale.ROOT)).toList();
             }
         }

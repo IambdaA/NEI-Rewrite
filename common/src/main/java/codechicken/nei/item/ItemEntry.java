@@ -1,5 +1,6 @@
 package codechicken.nei.item;
 
+import codechicken.nei.NotEnoughItems;
 import java.util.List;
 import java.util.Locale;
 
@@ -48,7 +49,7 @@ public final class ItemEntry {
 
         this.modId = FluidDisplay.ownerNamespace(stack); // a fluid display item belongs to the fluid's mod
         this.registryId = FluidDisplay.idOf(stack);
-        this.modDisplay = codechicken.nei.NotEnoughItems.platform().modName(this.modId);
+        this.modDisplay = NotEnoughItems.platform().modName(this.modId);
         this.modName = this.modDisplay.toLowerCase(Locale.ROOT);
     }
 
@@ -59,7 +60,7 @@ public final class ItemEntry {
             final StringBuilder sb = new StringBuilder();
             try {
                 for (var line : this.stack
-                        .getTooltipLines(Item.TooltipContext.EMPTY, Minecraft.getInstance().player, TooltipFlag.NORMAL)) {
+                        .getTooltipLines(Minecraft.getInstance().player, TooltipFlag.NORMAL)) {
                     sb.append(line.getString()).append('\n');
                 }
             } catch (RuntimeException ignored) {
@@ -74,7 +75,7 @@ public final class ItemEntry {
     public List<String> tags() {
         List<String> t = this.tags;
         if (t == null) {
-            this.tags = t = this.stack.typeHolder().tags().map(tag -> tag.location().toString()).toList();
+            this.tags = t = this.stack.getItemHolder().tags().map(tag -> tag.location().toString()).toList();
         }
         return t;
     }

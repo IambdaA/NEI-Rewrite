@@ -5,7 +5,7 @@
 </blockquote>
 <hr>
 <h2>NEI Rewrite</h2>
-<p>An <strong>unofficial rewrite of the GTNH fork of NotEnoughItems</strong> for Minecraft 26.2 on NeoForge and Fabric. It looks and works like NEI in GregTech: New Horizons.</p>
+<p>An <strong>unofficial rewrite of the GTNH fork of NotEnoughItems</strong> for Minecraft 1.20.1 on Forge and Fabric. It looks and works like NEI in GregTech: New Horizons.</p>
 <p><em>Based on <a href="https://github.com/GTNewHorizons/NotEnoughItems">NotEnoughItems (GregTech: New Horizons fork)</a> by Chicken-Bones, mitchej123 and the GTNH team. See <strong>Credits &amp; original work</strong> below.</em></p>
 <h3>Features</h3>
 <ul>
@@ -23,8 +23,8 @@
 <p>Hold <strong>Alt</strong> over an item to see its hotkeys. All keys are under <em>Options &gt; Controls &gt; NotEnoughItems</em>; the wrench button opens the settings window.</p>
 <h3>Requirements</h3>
 <ul>
-<li>Minecraft <strong>26.2</strong>, NeoForge <strong>26.2.0.90</strong> or newer, or Fabric Loader 0.19+ with Fabric API</li>
-<li><a href="https://www.curseforge.com/minecraft/mc-mods/jei">JEI</a> 30 or newer to see <strong>modded machine recipes</strong> (optional: vanilla recipes work without it)</li>
+<li>Minecraft <strong>1.20.1</strong> with <strong>Forge 47.1 or newer</strong>, or <strong>Fabric Loader 0.15+ with Fabric API</strong></li>
+<li><a href="https://www.curseforge.com/minecraft/mc-mods/jei">JEI</a> for 1.20.1 (JEI 15) to see <strong>modded machine recipes</strong> (optional: vanilla recipes work without it)</li>
 </ul>
 <h3>Multiplayer</h3>
 <p>Works on the client alone. Install it on the <strong>server too</strong> to get recipe lookup for everything the server knows, and for the delete mode, item magnet and extended creative inventory (they need the mod on the server and creative mode or operator rights). JEI's recipe transfer in modded screens also needs the mod's JEI part on the server.</p>
@@ -40,10 +40,10 @@
 <p>The original NEI is open source under <strong>LGPL-3.0-or-later</strong>. NEI Rewrite is released under the same license and is a modified, rewritten version of it. The GUI textures come unchanged from the GTNH repository. NEI Rewrite is made by <strong>Iambda</strong> and is <strong>not affiliated with or endorsed by</strong> the original authors or the GTNH team. Please do not report problems of this mod to them.</p>
 <h3>How NEI Rewrite differs from the original</h3>
 <ul>
-<li><strong>A new implementation, not a copy of the old mod.</strong> The original is a Forge mod for Minecraft 1.7.10. NEI Rewrite is new Java code written for modern Minecraft on NeoForge. It follows NEI's behaviour, look and search rules, and the GUI textures come unchanged from the GTNH repository.</li>
+<li><strong>A new implementation, not a copy of the old mod.</strong> The original is a Forge mod for Minecraft 1.7.10. NEI Rewrite is new Java code written for modern Minecraft on Forge and Fabric. It follows NEI's behaviour, look and search rules, and the GUI textures come unchanged from the GTNH repository.</li>
 <li><strong>Recipes come from the game and from JEI.</strong> The original reads recipes through its own recipe handler system (and GregTech: New Horizons' machine handlers). NEI Rewrite reads vanilla recipes from the game's recipe system and the recipes of other mods from JEI's plugins, so modded machines need JEI installed. There are no GregTech / GTNH-specific recipe handlers.</li>
 <li><strong>Tags instead of the ore dictionary.</strong> The <code>$</code> search matches item tags, which replaced the ore dictionary in modern Minecraft.</li>
 <li><strong>Own settings and keys.</strong> Options are kept in a config file and edited in the wrench button's settings window; hotkeys are normal Minecraft key binds. NEI's 1.7.10 config files are not read.</li>
-<li><strong>A smaller mod API.</strong> The API class is the same idea as NEI's, but mods register through a NeoForge event (<code>NEIRegisterEvent</code>) or a Fabric entrypoint (<code>NEIPlugin</code>). NEI's 1.7.10 GUI handler and overlay APIs are not carried over.</li>
+<li><strong>A smaller mod API.</strong> The API class is the same idea as NEI's, but mods register through a Forge event (<code>NEIRegisterEvent</code>) or a Fabric entrypoint (<code>NEIPlugin</code>). NEI's 1.7.10 GUI handler and overlay APIs are not carried over.</li>
 <li><strong>Not everything is ported.</strong> A few NEI features are still missing (for example giving items with cheats off). See the changelog.</li>
 </ul>

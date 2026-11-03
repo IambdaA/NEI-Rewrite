@@ -4,17 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import com.mojang.serialization.DynamicOps;
-
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.Tag;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 
 import codechicken.nei.NotEnoughItems;
 
@@ -54,26 +50,23 @@ public final class MobSpawners {
         return data;
     }
 
-    /** The item as the codec reads it: {@code {id, count, components:{"minecraft:block_entity_data": ...}}}. */
-    static CompoundTag item(String entityId) {
-        final CompoundTag components = new CompoundTag();
-        components.put("minecraft:block_entity_data", data(entityId));
-        final CompoundTag root = new CompoundTag();
-        root.putString("id", "minecraft:spawner");
-        root.putInt("count", 1);
-        root.put("components", components);
-        return root;
+    /** A spawner item that carries the mob in its block entity data ({@code BlockEntityTag}). */
+    static ItemStack item(String entityId) {
+        final CompoundTag data = data(entityId);
+        data.remove("id");
+        final ItemStack stack = new ItemStack(Items.SPAWNER);
+        stack.getOrCreateTag().put("BlockEntityTag", data);
+        return stack;
     }
 
     /** A spawner for every mob. Empty if the stacks cannot be built (the plain spawner stays in the list). */
-    public static List<ItemStack> stacks(HolderLookup.Provider registries) {
+    public static List<ItemStack> stacks() {
         final List<ItemStack> list = new ArrayList<>();
         try {
-            final DynamicOps<Tag> ops = registries.createSerializationContext(NbtOps.INSTANCE);
             for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
                 final String id = BuiltInRegistries.ENTITY_TYPE.getKey(type).toString();
                 if (type.getCategory() == MobCategory.MISC || !type.canSummon() || SKIPPED.contains(id)) continue;
-                ItemStack.CODEC.parse(ops, item(id)).result().ifPresent(list::add);
+                list.add(item(id));
             }
         } catch (RuntimeException e) {
             NotEnoughItems.LOGGER.warn("Could not build the mob spawner items: {}", e.toString());

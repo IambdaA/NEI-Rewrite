@@ -1,5 +1,6 @@
 package codechicken.nei;
 
+import codechicken.nei.item.Stacks;
 import codechicken.nei.item.ItemEntry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -31,7 +32,7 @@ public final class NEIActions {
         if (count < 1 || codechicken.nei.item.FluidDisplay.is(entry.stack)) return false; // fluid display items cannot be given
 
         if (screen instanceof CreativeModeInventoryScreen creative) {
-            final ItemStack stack = entry.stack.copyWithCount(Math.min(count, entry.stack.getMaxStackSize()));
+            final ItemStack stack = Stacks.withCount(entry.stack, Math.min(count, entry.stack.getMaxStackSize()));
             creative.getMenu().setCarried(stack);
             return true;
         }
@@ -49,31 +50,18 @@ public final class NEIActions {
     }
 
     /**
-     * The component part of a give command ({@code [key=value,...]}) for a stack that is a variant (a potion, an enchanted
-     * book, a mob spawner ...). Empty for a plain item or if the stack cannot be written. A name set by the list itself
-     * ({@code API.setName}) is left out.
+     * The NBT part of a give command ({@code {...}}) for a stack that is a variant (a potion, an enchanted book, a mob spawner
+     * ...). Empty for a plain item. A name set by the list itself ({@code API.setName}) is left out.
      */
     static String components(ItemStack stack) {
-        try {
-            if (stack.getComponentsPatch().isEmpty()) return "";
-            final var level = Minecraft.getInstance().level;
-            if (level == null) return "";
-            final var ops = level.registryAccess().createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE);
-            final net.minecraft.nbt.Tag written = ItemStack.CODEC.encodeStart(ops, stack.copyWithCount(1)).result().orElse(null);
-            if (!(written instanceof net.minecraft.nbt.CompoundTag root) || !(root.get("components") instanceof net.minecraft.nbt.CompoundTag parts)) {
-                return "";
-            }
-            final StringBuilder sb = new StringBuilder();
-            for (String key : parts.keySet()) {
-                if (key.equals("minecraft:custom_name")) continue;
-                if (sb.length() > 0) sb.append(',');
-                if (key.startsWith("!")) sb.append(key); // a removed component has no value
-                else sb.append(key).append('=').append(parts.get(key));
-            }
-            return sb.length() == 0 ? "" : "[" + sb + "]";
-        } catch (RuntimeException e) {
-            NotEnoughItems.LOGGER.warn("Could not write the item's components for /give: {}", e.toString());
-            return "";
+        final net.minecraft.nbt.CompoundTag tag = stack.getTag();
+        if (tag == null || tag.isEmpty()) return "";
+        final net.minecraft.nbt.CompoundTag copy = tag.copy();
+        if (copy.contains("display", 10)) {
+            final net.minecraft.nbt.CompoundTag display = copy.getCompound("display");
+            display.remove("Name");
+            if (display.isEmpty()) copy.remove("display");
         }
+        return copy.isEmpty() ? "" : copy.toString();
     }
 }
