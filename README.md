@@ -23,7 +23,8 @@ like NEI in GregTech: New Horizons.
 - A mod API for other mods (see below)
 
 Hold **Alt** over an item for its hotkeys. Keys are under Options > Controls > NotEnoughItems, options in the wrench
-button's settings window.
+button's settings screen, which follows NEI's options screen page by page (Inventory, World, Commands, Tools). Only Tools >
+Load handlers / catalysts from Config stay greyed out: they read NEI's 1.7.10 files.
 
 Not affiliated with the GTNH team. See `PORTING_NOTES.md` for the porting log and what is not ported.
 
@@ -75,6 +76,10 @@ Gradle itself runs on JDK 25 (Loom 1.18 needs it) with Gradle 9.7; the mod is co
 fetches as a toolchain (or install `jdk17-openjdk`). The first Forge build decompiles Minecraft and takes a few minutes.
 The Fabric jar needs Fabric API next to it at runtime. `gradle.properties` holds the versions; `jei_version=15.+` takes the
 newest JEI 15 for the dev client, `jei_version=none` builds without the JEI bridge.
+
+## Source and bug reports
+
+Source code: <https://github.com/IambdaA/NEI-Rewrite>. Please report problems at <https://github.com/IambdaA/NEI-Rewrite/issues>, together with your `latest.log`.
 
 ## Credits and original work
 

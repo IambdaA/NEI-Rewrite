@@ -28,7 +28,9 @@ import net.minecraft.world.item.ItemStack;
 final class RecipeBookmarks {
 
     /** NEI: {@code inventory.favorites.depth}, default 9. */
-    private static final int TREE_DEPTH = 9;
+    private static int treeDepth() {
+        return codechicken.nei.NEIConfig.FAVORITE_DEPTH.getAsInt();
+    }
 
     private RecipeBookmarks() {}
 
@@ -154,12 +156,12 @@ final class RecipeBookmarks {
     }
 
     /**
-     * The favorite recipe key to use for an item: its own favorite (NEI), else, if the option is on and exactly one favorited
+     * The favorite recipe key to use for an item: its own favorite, else, if the option is on and exactly one favorited
      * recipe has the item among its results, that one (the heart stores a recipe under its first result only, so a recipe
      * favorited for "ethylene" would otherwise be invisible to an ingredient that is its fourth result). With several
-     * candidates nothing is guessed.
+     * candidates nothing is guessed. Null while the favorites are hidden.
      */
-    static String favoriteKeyFor(String itemId) {
+    static String manualKeyFor(String itemId) {
         final String own = Favorites.recipeOf(itemId);
         if (own != null || !codechicken.nei.NEIConfig.FAVORITE_ANY_RESULT.getAsBoolean()) return own;
         final ItemEntry entry = ItemList.find(itemId);
@@ -172,6 +174,40 @@ final class RecipeBookmarks {
             found = k;
         }
         return found;
+    }
+
+    /** NEI's {@code getFavorite}: the manual favorite of an item, else the generated one. */
+    static String favoriteKeyFor(String itemId) {
+        final String manual = manualKeyFor(itemId);
+        return manual != null ? manual : generatedKeyFor(itemId);
+    }
+
+    // ---- generated favorites (NEI's generateSingleRecipeFavorites) ----
+
+    private static Map<String, String> generated = Map.of();
+    private static int generatedStamp = -1;
+
+    /**
+     * NEI's {@code getGeneratedFavorite}: with the option on, the one recipe of an item that exactly one recipe makes. NEI works
+     * this out in a background task over every handler; here it is read off the recipe index on first use after the index was
+     * (re)built and kept until it is dropped.
+     */
+    static String generatedKeyFor(String itemId) {
+        if (!codechicken.nei.NEIConfig.FAVORITES_ENABLED.getAsBoolean()
+                || !codechicken.nei.NEIConfig.FAVORITE_GENERATE.getAsBoolean()) {
+            return null;
+        }
+        final int stamp = RecipeIndex.revision() * 31 + ItemList.totalCount();
+        if (stamp != generatedStamp) {
+            generatedStamp = stamp;
+            final Map<String, String> found = new java.util.HashMap<>();
+            for (ItemEntry entry : ItemList.all()) {
+                final List<RecipeView> recipes = RecipeIndex.recipesFor(entry.stack.getItem());
+                if (recipes.size() == 1) found.put(entry.registryId, key(recipes.get(0)));
+            }
+            generated = found;
+        }
+        return generated.get(itemId);
     }
 
     /** Whether this recipe is the favorite of that item. */
@@ -202,6 +238,58 @@ final class RecipeBookmarks {
     /** Key of a manual favorite item (NEI's FAVORITE_ITEM recipe id): the item is preferred in trees, no recipe. */
     static final String FAV_ITEM = "favorite_item:";
 
+    /** The recipe an item's favorite points to (NEI's {@code FavoriteRecipes#getFavorite}), or null (none, or a favorite item). */
+    static RecipeView favoriteView(ItemStack stack) {
+        if (stack.isEmpty() || !codechicken.nei.NEIConfig.FAVORITES_ENABLED.getAsBoolean()) return null;
+        final String itemId = codechicken.nei.item.FluidDisplay.idOf(stack);
+        final String key = Favorites.recipeOf(itemId);
+        if (key == null || key.startsWith(FAV_ITEM)) return null;
+        return resolveCached(itemId, key);
+    }
+
+    private static String lastResolved;
+    private static RecipeView lastView;
+    private static int lastRevision = -1;
+
+    /** {@link #resolve} for tooltips: the same item is asked every frame, so the last answer is kept. */
+    static RecipeView resolveCached(String itemId, String key) {
+        final String k = itemId + "|" + key;
+        if (!k.equals(lastResolved) || lastRevision != RecipeIndex.revision()) {
+            lastResolved = k;
+            lastRevision = RecipeIndex.revision();
+            lastView = resolve(itemId, key);
+        }
+        return lastView;
+    }
+
+    private static final Map<String, ItemStack> ICONS = new java.util.HashMap<>();
+    private static int iconsRevision = -1;
+
+    /**
+     * The icon of a bookmarked recipe's type (NEI's handler icon): the machine that makes it, as the recipe window's tab
+     * shows it, or empty when the recipe is not found (then NEI falls back to the R marker).
+     */
+    static ItemStack handlerIcon(String itemId, String recipeKey) {
+        if (iconsRevision != RecipeIndex.revision()) {
+            ICONS.clear();
+            iconsRevision = RecipeIndex.revision();
+        }
+        return ICONS.computeIfAbsent(itemId + "|" + recipeKey, k -> {
+            final RecipeView view = resolve(itemId, recipeKey);
+            if (view == null) return ItemStack.EMPTY;
+            if (!view.station().isEmpty()) return view.station();
+            if (!view.stations().isEmpty()) return view.stations().get(0);
+            final List<ItemStack> catalysts = codechicken.nei.api.API.catalystsFor(view.title());
+            return catalysts.isEmpty() ? ItemStack.EMPTY : catalysts.get(0);
+        });
+    }
+
+    /** NEI's {@code FavoriteRecipes#containsManual}: the item is a manual favorite (Shift + F over an alternative). */
+    static boolean isFavoriteItem(String itemId) {
+        final String current = Favorites.recipeOf(itemId);
+        return current != null && current.startsWith(FAV_ITEM);
+    }
+
     /** NEI's {@code FavoriteRecipes#toggleFavoriteItem}. */
     static void toggleFavoriteItem(String itemId) {
         final String current = Favorites.recipeOf(itemId);
@@ -225,7 +313,7 @@ final class RecipeBookmarks {
 
     /**
      * NEI's {@code GuiFavoriteButton#getRecipesTree}: the recipe plus, level by level, the favorite recipe of each of
-     * its ingredients, down to {@value #TREE_DEPTH} levels.
+     * its ingredients, down to {@code inventory.favorites.depth} levels.
      */
     static List<RecipeSpec> tree(RecipeView main) {
         final Map<SlotView, String> chosen = new IdentityHashMap<>();
@@ -235,7 +323,7 @@ final class RecipeBookmarks {
         List<RecipeView> loop = new ArrayList<>();
         loop.add(main);
         result.add(main);
-        int depth = TREE_DEPTH;
+        int depth = treeDepth();
 
         while (!loop.isEmpty() && depth-- >= 0) {
             final List<RecipeView> next = new ArrayList<>();
@@ -250,10 +338,20 @@ final class RecipeBookmarks {
 
                     if (stack == null) {
                         stack = perms.get(0);
-                        String recipeKey = favoriteKeyFor(stack);
+                        // NEI: the manual favorite of the item or of one of its alternatives first, then the generated ones
+                        String recipeKey = manualKeyFor(stack);
                         if (recipeKey == null) {
                             for (String perm : perms) {
-                                if ((recipeKey = favoriteKeyFor(perm)) != null) {
+                                if ((recipeKey = manualKeyFor(perm)) != null) {
+                                    stack = perm;
+                                    break;
+                                }
+                            }
+                        }
+                        if (recipeKey == null) recipeKey = generatedKeyFor(stack);
+                        if (recipeKey == null) {
+                            for (String perm : perms) {
+                                if ((recipeKey = generatedKeyFor(perm)) != null) {
                                     stack = perm;
                                     break;
                                 }

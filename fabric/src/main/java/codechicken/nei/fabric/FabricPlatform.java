@@ -29,6 +29,28 @@ public final class FabricPlatform implements Platform {
         return FabricLoader.getInstance().isModLoaded(id);
     }
 
+    @Override
+    public java.util.List<net.minecraft.network.chat.Component> fluidTooltip(Fluid fluid, boolean advanced) {
+        final java.util.List<net.minecraft.network.chat.Component> lines = net.fabricmc.fabric.api.transfer.v1.client.fluid.FluidVariantRendering.getTooltip(
+                net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant.of(fluid), advanced ? net.minecraft.world.item.TooltipFlag.ADVANCED : net.minecraft.world.item.TooltipFlag.NORMAL);
+        return lines.size() <= 1 ? java.util.List.of() : lines.subList(1, lines.size());
+    }
+
+    @Override
+    public net.minecraft.network.chat.Component fluidName(Fluid fluid) {
+        return net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes.getName(net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant.of(fluid));
+    }
+
+    @Override
+    public int fluidTemperature(Fluid fluid) {
+        return net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes.getTemperature(net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant.of(fluid));
+    }
+
+    @Override
+    public boolean fluidGaseous(Fluid fluid) {
+        return net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes.isLighterThanAir(net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant.of(fluid));
+    }
+
     private static java.lang.reflect.Method fluidGetter;
     private static java.lang.reflect.Method amountGetter;
     private static Class<?> jeiFluidClass;

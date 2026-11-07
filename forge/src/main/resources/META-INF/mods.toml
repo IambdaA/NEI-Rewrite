@@ -1,11 +1,13 @@
 modLoader="javafml"
 loaderVersion="[47,)"
 license="${mod_license}"
+issueTrackerURL="https://github.com/IambdaA/NEI-Rewrite/issues"
 
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
+displayURL="https://github.com/IambdaA/NEI-Rewrite"
 logoFile="logo.png"
 authors="${mod_authors}"
 credits="A rewrite of the GTNH fork of NotEnoughItems (https://github.com/GTNewHorizons/NotEnoughItems, LGPL-3.0-or-later) by Chicken-Bones, mitchej123 and the GTNH team. Parts of the search and panel design come from JustEnoughItems by mezz (MIT)."

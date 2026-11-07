@@ -44,8 +44,10 @@ public final class NEIActions {
         final LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) return false;
 
-        // the command is sent without the leading slash
-        player.connection.sendCommand("give @s " + codechicken.nei.item.FluidDisplay.plainId(entry.registryId) + components(entry.stack) + " " + count);
+        // NEI's command.item: {0} player, {1} id, {2} amount, {3} damage, {4} components, {5} name
+        if (!NEIConfig.commandSet(NEIConfig.COMMAND_ITEM)) return false;
+        final String id = codechicken.nei.item.FluidDisplay.plainId(entry.registryId);
+        NEIConfig.runCommand(NEIConfig.COMMAND_ITEM, player.getName().getString(), id, count, 0, components(entry.stack), id);
         return true;
     }
 

@@ -44,20 +44,30 @@ public final class SearchParser {
     public static final int NEVER = 2;
 
     /** The settings a parse depends on; part of the cache key. {@code modes} are mod, tooltip, id, tag, subset. */
-    public record Settings(int pattern, int space, int[] modes) {
+    public record Settings(int pattern, int space, int[] modes, boolean oldFormat) {
 
         /** Plain matching with the default modes: for fixed rules (collapsible groups, hide rules). */
-        public static final Settings PLAIN = new Settings(0, 0, new int[] { PREFIX, PREFIX, PREFIX, PREFIX, PREFIX });
+        public static final Settings PLAIN = new Settings(0, 0, new int[] { PREFIX, PREFIX, PREFIX, PREFIX, PREFIX }, false);
 
         static Settings current() {
             return new Settings(NEIConfig.SEARCH_PATTERN_MODE.getAsInt(), NEIConfig.SEARCH_SPACE_MODE.getAsInt(),
                     new int[] { NEIConfig.SEARCH_MOD_MODE.getAsInt(), NEIConfig.SEARCH_TOOLTIP_MODE.getAsInt(),
                             NEIConfig.SEARCH_ID_MODE.getAsInt(), NEIConfig.SEARCH_TAG_MODE.getAsInt(),
-                            NEIConfig.SEARCH_SUBSET_MODE.getAsInt() });
+                            NEIConfig.SEARCH_SUBSET_MODE.getAsInt() },
+                    NEIConfig.SEARCH_OLD_FORMAT.getAsBoolean());
         }
 
         String key() {
-            return pattern + "," + space + "," + Arrays.toString(modes);
+            return pattern + "," + space + "," + Arrays.toString(modes) + "," + oldFormat;
+        }
+
+        /**
+         * The character that starts a search of this kind of text. NEI's old format redefines {@code %} and {@code @}
+         * ({@code prefixRedefinitions {"%": "@", "@": "%"}}): {@code %} searches mod names and {@code @} the subsets.
+         */
+        char typed(char prefix) {
+            if (!oldFormat) return prefix;
+            return prefix == '@' ? '%' : prefix == '%' ? '@' : prefix;
         }
     }
 
@@ -183,12 +193,12 @@ public final class SearchParser {
 
     private static String prefixesOf(Settings st) {
         final StringBuilder sb = new StringBuilder();
-        for (Provider p : PREFIXED) if (p.mode(st) == PREFIX) sb.append(p.prefix());
+        for (Provider p : PREFIXED) if (p.mode(st) == PREFIX) sb.append(st.typed(p.prefix()));
         return sb.toString();
     }
 
     private static Provider providerFor(char c, Settings st) {
-        for (Provider p : PREFIXED) if (p.prefix() == c && p.mode(st) == PREFIX) return p;
+        for (Provider p : PREFIXED) if (st.typed(p.prefix()) == c && p.mode(st) == PREFIX) return p;
         return null;
     }
 
@@ -663,6 +673,11 @@ public final class SearchParser {
     // ---- syntax colours of the search box ----
 
     /** Changes when an option that changes the colours changes. */
+    /** NEI's {@code getRedefinedPrefix}: the character the player types for the search of this prefix kind. */
+    public static char typedPrefix(char prefix) {
+        return Settings.current().typed(prefix);
+    }
+
     public static String settingsKey() {
         return Settings.current().key();
     }

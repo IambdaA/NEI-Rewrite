@@ -35,6 +35,28 @@ public final class ForgePlatform implements Platform {
         return ingredient instanceof FluidStack stack ? stack.getFluid() : null;
     }
 
+    /** Forge 1.20.1 has no fluid tooltip event: mods describe their fluids for JEI, so JEI's fluid tooltip is asked. */
+    @Override
+    public java.util.List<net.minecraft.network.chat.Component> fluidTooltip(Fluid fluid, boolean advanced) {
+        if (!isModLoaded("jei")) return java.util.List.of();
+        return codechicken.nei.jei.NEIJeiPlugin.fluidTooltip(fluid, advanced);
+    }
+
+    @Override
+    public net.minecraft.network.chat.Component fluidName(Fluid fluid) {
+        return fluid.getFluidType().getDescription();
+    }
+
+    @Override
+    public int fluidTemperature(Fluid fluid) {
+        return fluid.getFluidType().getTemperature();
+    }
+
+    @Override
+    public boolean fluidGaseous(Fluid fluid) {
+        return fluid.getFluidType().isLighterThanAir();
+    }
+
     @Override
     public long fluidAmount(Object ingredient) {
         return ingredient instanceof FluidStack stack ? stack.getAmount() : -1;

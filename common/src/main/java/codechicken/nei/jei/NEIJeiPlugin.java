@@ -82,14 +82,38 @@ public final class NEIJeiPlugin implements IModPlugin {
         };
     }
 
+    private static IJeiRuntime fluidRuntime;
+
+    /**
+     * The lines JEI's fluid renderer gives a fluid's tooltip, without the name (1.21.1 has no loader event for fluid tooltips;
+     * mods that describe their fluids do it for JEI). Empty without JEI's runtime.
+     */
+    public static List<Component> fluidTooltip(net.minecraft.world.level.material.Fluid fluid, boolean advanced) {
+        final IJeiRuntime runtime = fluidRuntime;
+        if (runtime == null) return List.of();
+        return fluidTooltip(runtime, runtime.getJeiHelpers().getPlatformFluidHelper(), fluid, advanced);
+    }
+
+    private static <T> List<Component> fluidTooltip(IJeiRuntime runtime, mezz.jei.api.helpers.IPlatformFluidHelper<T> helper,
+            net.minecraft.world.level.material.Fluid fluid, boolean advanced) {
+        final T ingredient = helper.create(fluid, helper.bucketVolume());
+        final List<Component> lines = runtime.getIngredientManager().getIngredientRenderer(helper.getFluidIngredientType())
+                .getTooltip(ingredient, advanced ? net.minecraft.world.item.TooltipFlag.ADVANCED : net.minecraft.world.item.TooltipFlag.NORMAL);
+        return lines.size() <= 1 ? List.of() : lines.subList(1, lines.size());
+    }
+
     @Override
     public void onRuntimeAvailable(IJeiRuntime runtime) {
+        fluidRuntime = runtime;
         cache = null;
         JeiGui.hide(runtime.getScreenHelper()); // NEI draws the item list, bookmarks and recipe window (JEI 15 has no API for turning its GUI off)
         bridge = new Bridge(runtime);
         FluidDisplay.setScanner(() -> runtime.getIngredientManager().getAllIngredients(mezz.jei.api.constants.VanillaTypes.ITEM_STACK));
         FluidDisplay.setSubtypes(subtypeReader(runtime));
         codechicken.nei.recipe.CraftingBridge.set(bridge);
+        // the areas that mods (FTB Quests' sidebar, ...) tell JEI to keep free: NEI's panels keep away from them too
+        codechicken.nei.client.GuiAreas.setProvider(screen -> runtime.getScreenHelper().getGuiExclusionAreas(screen)
+                .map(r -> new int[] { r.getX(), r.getY(), r.getWidth(), r.getHeight() }).toList());
         // built on first use (the recipe index builds on the client thread), not here on JEI's loading thread
         RecipeSources.set(SOURCE, () -> {
             List<RecipeView> views = cache;
@@ -103,6 +127,7 @@ public final class NEIJeiPlugin implements IModPlugin {
         cache = null;
         if (bridge != null) codechicken.nei.recipe.CraftingBridge.clear(bridge);
         bridge = null;
+        codechicken.nei.client.GuiAreas.clearProvider();
         RecipeSources.remove(SOURCE);
     }
 

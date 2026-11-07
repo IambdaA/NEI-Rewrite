@@ -34,6 +34,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
@@ -49,10 +50,7 @@ import net.minecraft.world.item.ItemStack;
 public final class RecipeOverlay {
 
     private static final int W = 176;
-    private static final int TAB = 24; // NEI's JEI style tab: 24 x 24, 7 per row, overlapping the window by 3
-    private static final int TABS = (W - 4) / TAB;
     private static final int HEAD = 44;
-    private static final int MAX_HEIGHT = 370; // NEI: inventory.guirecipe.maxHeight
     private static final int CELL_H = 62;
     private static final int GRID_X = 14;
     /** NEI's {@code GuiRecipeButton.BUTTON_WIDTH / BUTTON_HEIGHT}. */
@@ -63,6 +61,26 @@ public final class RecipeOverlay {
 
 
     private record Group(String title, ItemStack icon, List<RecipeView> views, List<ItemStack> stations) {}
+
+    /** NEI's tab size: JEI style 24 x 24 ({@code GuiRecipeTabJEI}), creative style 28 x 31 ({@code GuiRecipeTabCreative}). */
+    private static int tabW() {
+        return NEIConfig.RECIPE_CREATIVE_TABS.getAsBoolean() ? 28 : 24;
+    }
+
+    private static int tabH() {
+        return NEIConfig.RECIPE_CREATIVE_TABS.getAsBoolean() ? 31 : 24;
+    }
+
+    /** NEI's {@code categoriesPerPage}: as many tabs as fit over the window, overlapping it by 3. */
+    private static int tabsPerRow() {
+        return (W - 4) / tabW();
+    }
+
+    private static boolean tabsShown() {
+        return NEIConfig.RECIPE_JEI_TABS.getAsBoolean();
+    }
+
+    private static final ResourceLocation CREATIVE_TABS = new ResourceLocation("minecraft", "textures/gui/container/creative_inventory/tabs.png");
 
     private record Nav(Item item, boolean uses, ItemStack focus) {}
 
@@ -151,6 +169,8 @@ public final class RecipeOverlay {
     private int statusColor;
     private long statusUntil;
     private ItemStack hovered = ItemStack.EMPTY;
+    /** The slot of a grid recipe under the mouse (for the Accepts list), or null. */
+    private SlotView hoveredSlot;
     private RecipeView hoveredView;
     private RecipeView hoveredHeart;
     /** NEI's {@code selectedResult}: while the mouse is on a heart, the result it would favorite (the wheel changes it). */
@@ -160,6 +180,24 @@ public final class RecipeOverlay {
     private boolean hoveredPick;
     /** The crafting recipe whose "+" the mouse is on: its ingredients show as ghost items in the grid. */
     private RecipeView ghostView;
+
+    // NEI's infinite scroll: every recipe of the type in one list, moved by this many pixels
+    private int scrollPx;
+    private int areaTop;
+    private int areaBottom;
+    // the Scroll mode of the machines column: how far it is scrolled, and where it was drawn
+    private int catScroll;
+    private int catX, catY, catW, catH, catContent;
+    /** The scroll bar being dragged: 0 none, 1 the infinite list's, 2 the machines column's. */
+    private int dragBar;
+    // NEI's cycle freeze: each recipe has its own clock, which stops while the recipe is frozen
+    private final Map<RecipeView, long[]> clocks = new java.util.IdentityHashMap<>();
+    private long lastFrame;
+    private long frameDt;
+    private RecipeView frozenView;
+    private RecipeView nextFrozenView;
+    /** NEI's Handler Info Widget (Shift + D), shared by every recipe window as in NEI. */
+    private static boolean infoShown;
 
     /** Set while the window was opened from the crafting tree: the "+" then picks the recipe for the tree. */
     private Consumer<RecipeView> picker;
@@ -172,6 +210,7 @@ public final class RecipeOverlay {
         search.setResponder(text -> {
             query = text;
             page = 0;
+            scrollPx = 0;
         });
         layout(screen.width, screen.height);
         show(item, uses, false);
@@ -210,13 +249,28 @@ public final class RecipeOverlay {
     }
 
     public void show(Item item, boolean uses, boolean pushHistory) {
+        // a fluid its mod draws as an item of its own (NTM - Continuum's droplet, the fluid in a component): that mod's recipes
+        // name the droplet, not the fluid, so the lookup is the droplet's (for this fluid only) plus what names the fluid itself
+        List<RecipeView> fluidViews = List.of();
+        if (codechicken.nei.item.FluidDisplay.isFluidItem(item)) {
+            final ItemStack standIn = codechicken.nei.item.FluidDisplay.representative(
+                    codechicken.nei.item.FluidDisplay.fluidOf(new ItemStack(item)));
+            if (!standIn.isEmpty()) {
+                fluidViews = uses ? RecipeIndex.usesOf(item, !HotkeyHelp.isCtrlDown()) : RecipeIndex.recipesFor(item);
+                item = standIn.getItem();
+                pendingFocus = standIn;
+            }
+        }
         if (pushHistory && this.item != null) history.push(new Nav(this.item, this.uses, this.focus));
         this.item = item;
         this.uses = uses;
         this.focus = pendingFocus.getItem() == item ? pendingFocus : ItemStack.EMPTY;
         pendingFocus = ItemStack.EMPTY;
 
-        List<RecipeView> views = uses ? RecipeIndex.usesOf(item) : RecipeIndex.recipesFor(item);
+        // A machine's uses list the recipes it makes; Ctrl held leaves them out (NEI's skipCatalyst). Unlike NEI this does not
+        // depend on JEI Style Recipe Catalysts: None only hides the machine column (the user's choice)
+        final boolean catalystUses = !HotkeyHelp.isCtrlDown();
+        List<RecipeView> views = uses ? RecipeIndex.usesOf(item, catalystUses) : RecipeIndex.recipesFor(item);
         // only for a stack that differs from its item's plain form: a component on the stack marks a kind of the item
         if (!focus.isEmpty() && focus.hasTag()) {
             final ItemStack wanted = focus;
@@ -225,11 +279,18 @@ public final class RecipeOverlay {
             if (views.isEmpty() && before > 0) { // diagnostic for the next report
                 codechicken.nei.NotEnoughItems.LOGGER.info("NEI lookup filter: no recipe of {} has the stack {}; first recipe's stacks:",
                         codechicken.nei.item.FluidDisplay.idOf(item), wanted.getTag());
-                final var all = uses ? RecipeIndex.usesOf(item) : RecipeIndex.recipesFor(item);
+                final var all = uses ? RecipeIndex.usesOf(item, catalystUses) : RecipeIndex.recipesFor(item);
                 for (SlotView s : all.get(0).slots()) for (ItemStack o : s.options()) {
                     if (o.getItem() == item) codechicken.nei.NotEnoughItems.LOGGER.info("  {}", o.getTag());
                 }
             }
+        }
+        if (!fluidViews.isEmpty()) {
+            final List<RecipeView> merged = new ArrayList<>(views);
+            final java.util.Set<RecipeView> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            seen.addAll(views);
+            for (RecipeView v : fluidViews) if (seen.add(v)) merged.add(v);
+            views = merged;
         }
         // diagnostic: what a lookup found (to see why a lookup lists unrelated things)
         codechicken.nei.NotEnoughItems.LOGGER.info("NEI lookup {} of {}: {} recipes", uses ? "uses" : "recipes",
@@ -277,14 +338,32 @@ public final class RecipeOverlay {
         this.tab = 0;
         this.tabOffset = 0;
         this.page = 0;
+        this.scrollPx = 0;
+        this.catScroll = 0;
+        clocks.clear();
     }
 
     private void layout(int sw, int sh) {
-        // as in NEI's GuiRecipe#initGui: room for the tabs above, at most 370 high
-        height = Math.max(130, Math.min(sh - 22 - 22 - TAB, MAX_HEIGHT));
+        // as in NEI's GuiRecipe#initGui: room for the tabs above (kept while they are hidden), at most Max Height high
+        height = Math.max(130, Math.min(sh - 22 - 22 - tabH(), NEIConfig.RECIPE_MAX_HEIGHT.getAsInt()));
         left = (sw - W) / 2;
-        top = Math.max(22 - 3 + TAB, (sh - height) / 2);
+        top = Math.max(22 - 3 + tabH(), (sh - height) / 2);
         boxLeft = left;
+        areaTop = top + HEAD - 3;
+        areaBottom = top + height - 4;
+    }
+
+    private static boolean infinite() {
+        return NEIConfig.RECIPE_INFINITE_SCROLL.getAsBoolean();
+    }
+
+    /** How far the infinite list can be scrolled. */
+    private int maxScroll() {
+        return Math.max(0, views().size() * cellH() - (areaBottom - areaTop - 3));
+    }
+
+    private boolean inArea(double mx, double my) {
+        return mx >= left && mx < left + W && my >= areaTop && my < areaBottom;
     }
 
     /** Height of one recipe cell: NEI's 62, or what the tallest self-drawn (JEI) recipe of this type needs. */
@@ -304,14 +383,17 @@ public final class RecipeOverlay {
     private int cellHeight = CELL_H;
 
     private int perPage() {
+        if (infinite()) return Math.max(1, views().size());
         return Math.max(1, (height - HEAD - 6) / cellH());
     }
 
     private void selectTab(int index) {
         if (groups.isEmpty()) return;
         tab = (index + groups.size()) % groups.size();
-        tabOffset = tab / TABS * TABS;
+        tabOffset = tab / tabsPerRow() * tabsPerRow();
         page = 0;
+        scrollPx = 0;
+        catScroll = 0;
     }
 
     private Group group() {
@@ -410,14 +492,33 @@ public final class RecipeOverlay {
         page = Math.max(0, Math.min(page + delta, pageCount() - 1));
     }
 
-    /** True if the point is on the window or its tabs. */
+    /** True if the point is on the window or its tabs (or the Handler Info box). */
     public boolean contains(double mx, double my) {
-        return Draw.in(mx, my, boxLeft - 4, top - TAB, left + W + 8 - boxLeft + 4, height + TAB);
+        if (infoShown && NEIConfig.RECIPE_HANDLER_INFO.getAsBoolean() && Draw.in(mx, my, infoX, infoY, INFO_W, infoH)) return true;
+        return Draw.in(mx, my, boxLeft - 4, top - tabH(), left + W + 8 - boxLeft + 4, height + tabH());
+    }
+
+    /** The stack a cycling slot shows at this point of its recipe's clock (one step a second, as before). */
+    private static ItemStack current(SlotView slot, long clock) {
+        final List<ItemStack> options = slot.options();
+        return options.get((int) ((clock / 1000) % options.size()));
     }
 
     private static ItemStack current(SlotView slot) {
-        final List<ItemStack> options = slot.options();
-        return options.get((int) ((System.currentTimeMillis() / 1000) % options.size()));
+        return current(slot, System.currentTimeMillis());
+    }
+
+    /**
+     * NEI's {@code isCycleFrozen}: a recipe stops cycling while Shift is held, or, with Stop cycling on hover, while the mouse
+     * was on one of its items or buttons in the last frame. Each recipe keeps its own clock so a frozen one picks up where it
+     * stopped.
+     */
+    private long clockOf(RecipeView view) {
+        final long[] clock = clocks.computeIfAbsent(view, v -> new long[] { System.currentTimeMillis() });
+        final boolean frozen = HotkeyHelp.isShiftDown()
+                || NEIConfig.RECIPE_FREEZE_CYCLE.getAsBoolean() && view == frozenView;
+        if (!frozen) clock[0] += frameDt;
+        return clock[0];
     }
 
     public void render(GuiGraphics g, int mx, int my, int sw, int sh) {
@@ -428,6 +529,7 @@ public final class RecipeOverlay {
         heartHits.clear();
         plusHits.clear();
         hovered = ItemStack.EMPTY;
+        hoveredSlot = null;
         hoveredView = null;
         hoveredHeart = null;
         hoveredPick = false;
@@ -435,29 +537,49 @@ public final class RecipeOverlay {
         choiceView = null;
         ghostView = null;
         page = Math.max(0, Math.min(page, pageCount() - 1));
+        final long now = System.currentTimeMillis();
+        frameDt = lastFrame == 0 ? 0 : Math.max(0, Math.min(1000, now - lastFrame));
+        lastFrame = now;
+        frozenView = nextFrozenView;
+        nextFrozenView = null;
+        // a scroll bar held with the mouse follows it
+        if (dragBar == 1) scrollPx = (int) ((long) (my - areaTop) * maxScroll() / Math.max(1, areaBottom - areaTop));
+        if (dragBar == 2 && catH > 14) catScroll = (int) ((long) (my - catY - 7) * Math.max(0, catContent - (catH - 14)) / Math.max(1, catH - 14));
+        scrollPx = Math.max(0, Math.min(scrollPx, maxScroll()));
 
         Tex.nine(g, Tex.RECIPE_BG, 256, 256, left - 4, top - 4, W + 8, height + 8, 0, 0, 184, 174, 9, 9, 9, 9);
 
-        // tabs (NEI's JEI style): drawn after the window so the selected one joins it
-        final int ty = top - TAB + 3;
-        for (int i = tabOffset; i < Math.min(groups.size(), tabOffset + TABS); i++) {
-            final int tx = left + 4 + (i - tabOffset) * TAB;
-            Tex.blit(g, Tex.SPRITES, 256, 256, tx, ty, i == tab ? 0 : TAB, 16, TAB, TAB);
+        // tabs (NEI's JEI style or creative style): drawn after the window so the selected one joins it
+        final int tw = tabW();
+        final int th = tabH();
+        final int perRow = tabsPerRow();
+        final int ty = top - th + 3;
+        for (int i = tabOffset; tabsShown() && i < Math.min(groups.size(), tabOffset + perRow); i++) {
+            final int tx = left + 4 + (i - tabOffset) * tw;
             final ItemStack icon = groups.get(i).icon();
-            if (!icon.isEmpty()) Draw.stack(g, icon, tx + 4, ty + 4);
-            if (Draw.in(mx, my, tx, ty, TAB, TAB)) {
+            if (NEIConfig.RECIPE_CREATIVE_TABS.getAsBoolean()) {
+                // the creative inventory's tab sprites (26 x 32), centred in NEI's 28 x 31 tab; the icon sits 22 above its bottom
+                // NEI's GuiRecipeTabCreative: the creative inventory's tabs.png, (28, 32) 28 x 32 selected, (28, 0) 28 x 30 not
+                if (i == tab) Gfx.blit(g, CREATIVE_TABS, tx, ty, 28f, 32f, 28, 32, 256, 256);
+                else Gfx.blit(g, CREATIVE_TABS, tx, ty, 28f, 0f, 28, 30, 256, 256);
+                if (!icon.isEmpty()) Draw.stack(g, icon, tx + (tw - 16) / 2, ty + th - 22);
+            } else {
+                Tex.blit(g, Tex.SPRITES, 256, 256, tx, ty, i == tab ? 0 : 24, 16, 24, 24);
+                if (!icon.isEmpty()) Draw.stack(g, icon, tx + 4, ty + 4);
+            }
+            if (Draw.in(mx, my, tx, ty, tw, th)) {
                 // the owning mod's display name, as item tooltips show it (NTM, not the namespace "hbm")
                 final String mod = icon.isEmpty() ? "Minecraft" : ItemTooltip.modName(icon);
                 ItemTooltip.requestPlain(List.of(Component.literal(groups.get(i).title()),
                         Component.literal(mod).withStyle(ChatFormatting.BLUE)));
             }
         }
-        if (groups.size() > TABS) {
-            Draw.button(g, left - 3, ty + 2, 8, TAB - 4, Draw.in(mx, my, left - 3, ty + 2, 8, TAB - 4));
-            Draw.button(g, left + 4 + TABS * TAB - 1, ty + 2, 8, TAB - 4,
-                    Draw.in(mx, my, left + 4 + TABS * TAB - 1, ty + 2, 8, TAB - 4));
-            Gfx.text(g, font, Component.literal("<"), left - 1, ty + 8, 0xFFE0E0E0, false);
-            Gfx.text(g, font, Component.literal(">"), left + 4 + TABS * TAB + 1, ty + 8, 0xFFE0E0E0, false);
+        if (tabsShown() && groups.size() > perRow) {
+            final int ah = th - 4;
+            Draw.button(g, left - 3, ty + 2, 8, ah, Draw.in(mx, my, left - 3, ty + 2, 8, ah));
+            Draw.button(g, left + 4 + perRow * tw - 1, ty + 2, 8, ah, Draw.in(mx, my, left + 4 + perRow * tw - 1, ty + 2, 8, ah));
+            Gfx.text(g, font, Component.literal("<"), left - 1, ty + ah / 2 - 2, 0xFFE0E0E0, false);
+            Gfx.text(g, font, Component.literal(">"), left + 4 + perRow * tw + 1, ty + ah / 2 - 2, 0xFFE0E0E0, false);
         }
 
         // title row and page row (NEI: darkened bars with a < > button at each end)
@@ -501,14 +623,15 @@ public final class RecipeOverlay {
         if (overSearch) {
             final Component filterTitle = Component.literal("Recipe Filter").withStyle(ChatFormatting.WHITE);
             // As elsewhere in NEI: the hotkeys show while Alt is held
-            ItemTooltip.requestPlain(HotkeyHelp.isAltDown()
+            ItemTooltip.requestPlain(HotkeyHelp.helpDown()
                     ? List.of(filterTitle, syntax("Up / Down", "search history"), syntax("RMB", "clear the field"),
                             syntax("Esc", "leave the field"))
-                    : List.of(filterTitle, syntax("<", "ingredients"), syntax(">", "results"), syntax("^", "stations"),
-                            syntax("&", "after a marker: all must match"), ItemTooltip.hintLine()));
+                    : ItemTooltip.hinted(filterTitle, syntax("<", "ingredients"), syntax(">", "results"),
+                            syntax("^", "stations"), syntax("&", "after a marker: all must match")));
         }
 
         if (group != null) drawStations(g, group.stations(), mx, my);
+        else boxLeft = left;
 
         // recipes
         if (group == null) {
@@ -518,9 +641,22 @@ public final class RecipeOverlay {
             Gfx.text(g, font, Component.literal(msg), left + 8, top + HEAD + 6, 0xFF702020, false);
         } else {
             final List<RecipeView> shown = views();
-            final int start = page * perPage();
-            for (int r = 0; r < perPage() && start + r < shown.size(); r++) {
-                drawRecipe(g, font, shown.get(start + r), top + HEAD + r * cellH(), mx, my, r > 0);
+            if (infinite()) {
+                // NEI's infinite scroll: one list, cut to the recipe area; the mouse counts only inside it
+                final int my2 = inArea(mx, my) ? my : -10000;
+                Tex.beginClip(g, left, areaTop, W, areaBottom - areaTop);
+                for (int r = 0; r < shown.size(); r++) {
+                    final int cellTop = top + HEAD + r * cellH() - scrollPx;
+                    if (cellTop + cellH() < areaTop || cellTop - 3 > areaBottom) continue;
+                    drawRecipe(g, font, shown.get(r), cellTop, mx, my2, r > 0);
+                }
+                Tex.endClip(g);
+                drawScrollBar(g, left + W - 3, areaTop, areaBottom - areaTop, scrollPx, maxScroll(), shown.size() * cellH());
+            } else {
+                final int start = page * perPage();
+                for (int r = 0; r < perPage() && start + r < shown.size(); r++) {
+                    drawRecipe(g, font, shown.get(start + r), top + HEAD + r * cellH(), mx, my, r > 0);
+                }
             }
             if (shown.isEmpty()) {
                 Gfx.text(g, font, Component.literal("No recipes match"), left + 8, top + HEAD + 6, 0xFF702020, false);
@@ -532,8 +668,10 @@ public final class RecipeOverlay {
         }
 
         if (ghostView != null && codechicken.nei.NEIConfig.RECIPE_GHOST.get() && screen instanceof AbstractContainerScreen<?> container) {
-            RecipeTransfer.drawGhosts(g, container, ghostView, RecipeOverlay::current);
+            final long clock = clockOf(ghostView);
+            RecipeTransfer.drawGhosts(g, container, ghostView, s -> current(s, clock), false);
         }
+        if (infoShown && NEIConfig.RECIPE_HANDLER_INFO.getAsBoolean() && group != null) drawHandlerInfo(g, font, group);
 
         HotkeyHelp.recipeResult = !hovered.isEmpty() && hoveredView != null
                 && RecipeBookmarks.favoriteChoices(hoveredView).contains(codechicken.nei.item.FluidDisplay.idOf(hovered));
@@ -542,6 +680,15 @@ public final class RecipeOverlay {
             final List<Component> amount = codechicken.nei.item.FluidDisplay.is(hovered) && hovered.getCount() > 1
                     ? List.of(Component.literal(hovered.getCount() + " mB").withStyle(net.minecraft.ChatFormatting.GRAY)) : List.of();
             ItemTooltip.request(hovered, HotkeyHelp.Where.RECIPE, amount);
+            // NEI's HoveredRecipe RECIPE_GUI: an item outside the recipes (a machine) shows its favorite recipe
+            if (hoveredView == null && NEIConfig.FAVORITE_TOOLTIP_GUI.getAsBoolean()) {
+                final RecipeView favorite = RecipeBookmarks.favoriteView(hovered);
+                if (favorite != null) ItemTooltip.requestRecipe(favorite);
+            }
+            if (hoveredView != null && NEIConfig.RECIPE_CYCLED_TOOLTIP.getAsBoolean()) {
+                final SlotView cycling = hoveredSlot != null ? hoveredSlot : cyclingSlotOf(hoveredView, hovered);
+                if (cycling != null && cycling.options().size() > 1) ItemTooltip.requestAccepts(acceptsList(cycling), hovered);
+            }
         }
         else if (hoveredHeart != null) {
             final boolean wheel = codechicken.nei.NEIConfig.FAVORITE_WHEEL.getAsBoolean();
@@ -561,35 +708,124 @@ public final class RecipeOverlay {
         else if (hoveredPick) ItemTooltip.requestPlain(List.of(Component.literal("Use for recipe tree")));
     }
 
-    /** NEI's station column ({@code GuiRecipeCatalyst}): left of the window, 16 px per item, wraps into more columns. */
+    private static final int BAR_W = 6; // the Scroll mode's bar beside the machines
+
+    /**
+     * NEI's station column ({@code GuiRecipeCatalyst}), left of the window, 16 px per item. JEI Style Recipe Catalysts: None
+     * hides it, Grid wraps into more columns, Scroll keeps one column and adds a scroll bar on its left when it is too tall.
+     */
     private void drawStations(GuiGraphics g, List<ItemStack> stations, int mx, int my) {
-        if (stations.isEmpty()) {
+        final int mode = NEIConfig.RECIPE_CATALYSTS.getAsInt();
+        catH = 0;
+        if (stations.isEmpty() || mode == 0) {
             boxLeft = left;
             return;
         }
-        final int perCol = Math.max(1, (height - 5 - 2 - 12) / 16);
-        final int cols = (stations.size() + perCol - 1) / perCol;
+        final int available = height - 5; // NEI: setAvailableHeight(ySize - 5)
+        final int perCol = Math.max(1, (available - 2 - 12) / 16);
+        final int cols = mode == 1 ? (stations.size() + perCol - 1) / perCol : 1;
         final int rows = (stations.size() + cols - 1) / cols;
-        final int w = cols * 16 + 7 + 3;
-        final int h = rows * 16 + 14;
+        final boolean scroll = mode == 2 && rows * 16 + 14 > available;
+        final int bar = scroll ? BAR_W : 0;
+        final int w = cols * 16 + 7 + 3 + bar;
+        final int h = scroll ? available : rows * 16 + 14;
         final int x = left - w + 4;
         boxLeft = x;
+        final int innerH = h - 14;
+        catContent = rows * 16;
+        catScroll = scroll ? Math.max(0, Math.min(catScroll, catContent - innerH)) : 0;
+        catX = x;
+        catY = top;
+        catW = w;
+        catH = scroll ? h : 0; // only a scrolling column takes the wheel
 
         Tex.nine(g, Tex.CATALYST, 36, 36, x - 4, top - 4, w + 8, h + 8, 0, 0, 36, 36, 10, 10, 10, 10);
-        Draw.slot(g, x + 6, top + 6, cols * 16 + 2, rows * 16 + 2);
+        Draw.slot(g, x + 6 + bar, top + 6, cols * 16 + 2, innerH + 2);
+        if (scroll) drawScrollBar(g, x + 6, top + 7, innerH, catScroll, catContent - innerH, catContent);
 
+        if (scroll) Tex.beginClip(g, x + 7 + bar, top + 7, cols * 16, innerH);
+        final boolean mouseIn = Draw.in(mx, my, x + 7 + bar, top + 7, cols * 16, innerH);
         for (int i = 0; i < stations.size(); i++) {
-            final int ix = x + 7 + cols * 16 - 16 - (i / rows) * 16;
-            final int iy = top + 7 + (i % rows) * 16;
+            final int ix = x + 7 + bar + cols * 16 - 16 - (i / rows) * 16;
+            final int iy = top + 7 + (i % rows) * 16 - catScroll;
+            if (iy + 16 <= top + 7 || iy >= top + 7 + innerH) continue;
             final ItemStack stack = stations.get(i);
             Draw.stack(g, stack, ix, iy);
-            final Hit hit = new Hit(ix, iy, 16, 16, stack);
+            final Hit hit = new Hit(ix, Math.max(iy, top + 7), 16, Math.min(iy + 16, top + 7 + innerH) - Math.max(iy, top + 7), stack);
             slotHits.add(hit);
-            if (hit.at(mx, my)) {
+            if (mouseIn && hit.at(mx, my)) {
                 Gfx.fill(g, ix, iy, ix + 16, iy + 16, 0x80FFFFFF);
                 hovered = stack;
             }
         }
+        if (scroll) Tex.endClip(g);
+    }
+
+    /** A thin scroll bar: the track, and a thumb as long as the visible part is of the whole. */
+    private static void drawScrollBar(GuiGraphics g, int x, int y, int h, int scrolled, int max, int content) {
+        if (max <= 0 || content <= 0) return;
+        Gfx.fill(g, x, y, x + 3, y + h, 0x40000000);
+        final int thumb = Math.max(8, h * h / Math.max(h, content));
+        final int ty = y + (int) ((long) (h - thumb) * scrolled / max);
+        Gfx.fill(g, x, ty, x + 3, ty + thumb, 0xFFA0A0A0);
+        Gfx.fill(g, x, ty, x + 2, ty + thumb - 1, 0xFFE0E0E0);
+    }
+
+    // ---- NEI's Handler Info Widget (DebugHandlerWidget): Shift + D, read only here ----
+    private static final int INFO_W = 150;
+    private int infoX, infoY, infoH;
+
+    private void drawHandlerInfo(GuiGraphics g, Font font, Group group) {
+        final List<String[]> rows = new ArrayList<>();
+        rows.add(new String[] { "Name", group.title() });
+        final RecipeView first = group.views().isEmpty() ? null : group.views().get(0);
+        final ItemStack icon = group.icon();
+        rows.add(new String[] { "Mod Name", icon.isEmpty() ? "Minecraft" : ItemTooltip.modName(icon) });
+        rows.add(new String[] { "Mod ID", icon.isEmpty() ? "minecraft" : codechicken.nei.item.FluidDisplay.ownerNamespace(icon) });
+        rows.add(new String[] { "Order", String.valueOf(tab) });
+        rows.add(new String[] { "Recipes", String.valueOf(group.views().size()) });
+        rows.add(new String[] { "Height", String.valueOf(cellH()) });
+        rows.add(new String[] { "Width", String.valueOf(first != null && first.drawn() != null ? Math.max(166, first.drawn().width()) : 166) });
+        rows.add(new String[] { "Multi Widgets", String.valueOf(perPage() > 1) });
+        rows.add(new String[] { "Show Favorites", String.valueOf(NEIConfig.FAVORITES_ENABLED.getAsBoolean()) });
+        rows.add(new String[] { "Show Overlays", String.valueOf(screen instanceof AbstractContainerScreen<?>) });
+        rows.add(new String[] { "Machines", String.valueOf(group.stations().size()) });
+
+        infoX = left + W + 8;
+        infoY = top;
+        infoH = 6 + 12 + 4 + rows.size() * 11 + 4;
+        Tex.nine(g, Tex.RECIPE_BG, 256, 256, infoX - 4, infoY - 4, INFO_W + 8, infoH + 8, 0, 0, 184, 174, 9, 9, 9, 9);
+        Gfx.fill(g, infoX + 4, infoY + 6, infoX + INFO_W - 4, infoY + 18, 0x30000000);
+        final String title = "Debug Recipe Handler";
+        Gfx.text(g, font, Component.literal(title), infoX + (INFO_W - font.width(title)) / 2, infoY + 8, 0xFFFFFFFF, true);
+        int y = infoY + 22;
+        for (String[] row : rows) {
+            Gfx.text(g, font, Component.literal(row[0]), infoX + 6, y, 0xFF888888, false);
+            String value = row[1];
+            while (value.length() > 1 && font.width(value) > INFO_W - 70) value = value.substring(0, value.length() - 1);
+            if (!value.equals(row[1])) value = value.substring(0, Math.max(0, value.length() - 1)) + "\u2026";
+            Gfx.text(g, font, Component.literal(value), infoX + 66, y, 0xFFFFFFFF, true);
+            y += 11;
+        }
+    }
+
+    /** The slot of a recipe that cycles through this stack (for a recipe that draws itself, where the slot is not known). */
+    private static SlotView cyclingSlotOf(RecipeView view, ItemStack stack) {
+        for (SlotView s : view.slots()) {
+            if (s.options().size() > 1 && s.options().stream().anyMatch(o -> ItemStack.isSameItemSameTags(o, stack))) return s;
+        }
+        return null;
+    }
+
+    /** NEI's {@code AcceptsFollowingTooltipLineHandler}: the slot's alternatives once each, manual favorite items first. */
+    private static List<ItemStack> acceptsList(SlotView slot) {
+        final List<ItemStack> list = new ArrayList<>();
+        final java.util.Set<String> seen = new java.util.HashSet<>();
+        for (ItemStack o : slot.options()) {
+            if (seen.add(codechicken.nei.item.FluidDisplay.idOf(o) + o.getTag())) list.add(o);
+        }
+        list.sort(java.util.Comparator.comparing((ItemStack o) -> !RecipeBookmarks.isFavoriteItem(codechicken.nei.item.FluidDisplay.idOf(o))));
+        return list;
     }
 
     /**
@@ -620,7 +856,12 @@ public final class RecipeOverlay {
      * fit is drawn at half strength (NEI: alpha 0.5 when the button is disabled).
      */
     private static void plusIcon(GuiGraphics g, int bx, int by, boolean fits) {
-        final int u = HotkeyHelp.isShiftDown() ? (fits ? 28 : 37) : 46;
+        plusIcon(g, bx, by, fits, HotkeyHelp.isShiftDown());
+    }
+
+    /** {@code fill}: the click would move items (NEI: canFillCraftingGrid and (no Shift needed or Shift held)). */
+    private static void plusIcon(GuiGraphics g, int bx, int by, boolean fits, boolean fill) {
+        final int u = fill ? (fits ? 28 : 37) : 46;
         final int ix = bx + (BTN - 9 - 1) / 2;
         final int iy = by + (BTN - 10) / 2;
         Tex.blit(g, Tex.ICONS, 256, 256, ix, iy, u, 76, 9, 10);
@@ -640,6 +881,7 @@ public final class RecipeOverlay {
         final ItemStack over = d.itemAt(mx, my);
         if (!over.isEmpty()) {
             hovered = over;
+            nextFrozenView = view;
             // clicks are looked up in slotHits: one tiny area at the mouse stands for the slot the layout found
             slotHits.add(new Hit(mx, my, 1, 1, over));
         } else if (d.contains(mx, my)) {
@@ -650,12 +892,15 @@ public final class RecipeOverlay {
 
         final int hx = left + W - 4 - BTN;
         final int hy = cellTop + 2;
-        final boolean overHeart = Draw.in(mx, my, hx, hy, BTN, BTN);
-        final boolean favorite = favoriteShown(view, overHeart);
-        Draw.button(g, hx, hy, BTN, BTN, overHeart);
-        heartIcon(g, hx, hy, favorite);
-        heartHits.add(new Heart(hx, hy, view));
-        if (overHeart) hoveredHeart = view;
+        if (codechicken.nei.NEIConfig.FAVORITES_ENABLED.getAsBoolean()) { // NEI: no favorite button while the favorites are hidden
+            final boolean overHeart = Draw.in(mx, my, hx, hy, BTN, BTN);
+            final boolean favorite = favoriteShown(view, overHeart);
+            Draw.button(g, hx, hy, BTN, BTN, overHeart);
+            heartIcon(g, hx, hy, favorite);
+            heartHits.add(new Heart(hx, hy, view));
+            if (overHeart) hoveredHeart = view;
+        }
+        if (Draw.in(mx, my, hx, hy, BTN, BTN * 2 + 2)) nextFrozenView = view;
         if (picker != null) {
             final int py = hy + BTN + 2;
             final boolean overPick = Draw.in(mx, my, hx, py, BTN, BTN);
@@ -703,11 +948,12 @@ public final class RecipeOverlay {
             present = RecipeTransfer.presence(presenceScreen, view);
         }
 
+        final long clock = clockOf(view);
         for (int si = 0; si < view.slots().size(); si++) {
             final SlotView slot = view.slots().get(si);
             final int sx = left + GRID_X + slot.gx() * 18;
             final int sy = cellTop + 4 + slot.gy() * 18;
-            final ItemStack stack = current(slot);
+            final ItemStack stack = current(slot, clock);
 
             if (slot.output()) {
                 Draw.slot(g, sx - 4, sy - 4, 26); // the result gets the big frame, as in NEI
@@ -738,6 +984,8 @@ public final class RecipeOverlay {
             if (hit.at(mx, my)) {
                 Gfx.fill(g, sx + 1, sy + 1, sx + 17, sy + 17, 0x80FFFFFF);
                 hovered = stack;
+                hoveredSlot = slot;
+                nextFrozenView = view;
             }
         }
 
@@ -758,13 +1006,16 @@ public final class RecipeOverlay {
         if (resultItem != null) {
             final int hx = left + W - 8 - BTN - 4;
             final int hy = cellTop + 4 + 18 + 2;
+            if (Draw.in(mx, my, hx, hy, BTN, BTN * 2 + 2)) nextFrozenView = view;
             // NEI's favorite button: sets this recipe as the one used for its result in recipe trees
-            final boolean overHeart = Draw.in(mx, my, hx, hy, BTN, BTN);
-            final boolean favorite = favoriteShown(view, overHeart);
-            Draw.button(g, hx, hy, BTN, BTN, overHeart);
-            heartIcon(g, hx, hy, favorite);
-            heartHits.add(new Heart(hx, hy, view));
-            if (overHeart) hoveredHeart = view;
+            if (codechicken.nei.NEIConfig.FAVORITES_ENABLED.getAsBoolean()) {
+                final boolean overHeart = Draw.in(mx, my, hx, hy, BTN, BTN);
+                final boolean favorite = favoriteShown(view, overHeart);
+                Draw.button(g, hx, hy, BTN, BTN, overHeart);
+                heartIcon(g, hx, hy, favorite);
+                heartHits.add(new Heart(hx, hy, view));
+                if (overHeart) hoveredHeart = view;
+            }
             if (picker != null) {
                 // from the crafting tree: every recipe can be picked (NEI only where it has a "+" button)
                 final int py = hy + BTN + 2;
@@ -784,11 +1035,75 @@ public final class RecipeOverlay {
                         : codechicken.nei.recipe.CraftingBridge.state(container.getMenu(), view) == RecipeView.Drawn.Transfer.OK;
                 final int py = hy + BTN + 2;
                 Draw.button(g, hx, py, BTN, BTN, Draw.in(mx, my, hx, py, BTN, BTN));
-                plusIcon(g, hx, py, fits);
+                // NEI: on a crafting grid the click only shows the recipe in the grid unless Shift is held or not required
+                plusIcon(g, hx, py, fits, !grid ? HotkeyHelp.isShiftDown()
+                        : !NEIConfig.RECIPE_SHIFT_OVERLAY.getAsBoolean() || HotkeyHelp.isShiftDown());
                 plusHits.add(new Plus(hx, py, view));
                 if (fits && grid && Draw.in(mx, my, hx, py, BTN, BTN)) ghostView = view;
             }
         }
+    }
+
+    // ---- NEI's RecipeTooltipLineHandler: a recipe drawn inside a tooltip (bookmarks, favorites) ----
+
+    /** Width and height of {@link #drawCard}: NEI's widget (at least 166 wide) with 5 px padding and the 12 px title bar. */
+    static int cardWidth(RecipeView view) {
+        return (view.drawn() != null ? Math.max(166, view.drawn().width()) : 166) + 10;
+    }
+
+    static int cardHeight(RecipeView view) {
+        return (view.drawn() != null ? view.drawn().height() + 8 : CELL_H) + 10 + 12;
+    }
+
+    /** Draws a recipe as NEI's recipe tooltip does: the recipe window's background, the type's name in a dark bar, the recipe. */
+    static void drawCard(GuiGraphics g, RecipeView view, int x, int y) {
+        final Font font = Minecraft.getInstance().font;
+        final int w = cardWidth(view);
+        final int h = cardHeight(view);
+        Tex.nine(g, Tex.RECIPE_BG, 256, 256, x - 4, y - 4, w + 8, h + 8, 0, 0, 184, 174, 9, 9, 9, 9);
+        Gfx.fill(g, x + 5, y + 5, x + w - 5, y + 17, 0x30000000);
+        final String title = view.title();
+        Gfx.text(g, font, Component.literal(title), x + 5 + (w - 10 - font.width(title)) / 2, y + 7, 0xFFFFFFFF, true);
+
+        final int cellTop = y + 17;
+        if (view.drawn() != null) {
+            final RecipeView.Drawn d = view.drawn();
+            d.draw(g, x + (w - d.width()) / 2, cellTop, -10000, -10000);
+            return;
+        }
+        final int gx = x + GRID_X;
+        if (view.crafting() != RecipeView.Crafting.NONE) {
+            for (int c = 0; c < 9; c++) Draw.slot(g, gx + c % 3 * 18, cellTop + 4 + c / 3 * 18, 18);
+        }
+        for (SlotView slot : view.slots()) {
+            final int sx = gx + slot.gx() * 18;
+            final int sy = cellTop + 4 + slot.gy() * 18;
+            final ItemStack stack = current(slot);
+            if (slot.output()) Draw.slot(g, sx - 4, sy - 4, 26);
+            else Draw.slot(g, sx, sy, 18);
+            Draw.stack(g, stack, sx + 1, sy + 1);
+            if (slot.output() && stack.getCount() > 1) Gfx.decorations(g, font, stack, sx + 1, sy + 1);
+        }
+        if (view.info().isEmpty()) {
+            Draw.arrow(g, gx + 3 * 18 + 8, cellTop + 4 + 27);
+        } else {
+            final float cook = Draw.cookFraction();
+            Draw.progressArrow(g, gx + 3 * 18 + 8, cellTop + 4 + 27, cook);
+            boolean fuel = false;
+            for (SlotView s : view.slots()) fuel |= !s.output() && !s.indexed();
+            if (fuel) Draw.flame(g, gx + 18 + 1, cellTop + 4 + 20, cook);
+            Gfx.text(g, font, Component.literal(view.info()), gx + 66, cellTop + 50, 0xFF404040, false);
+        }
+    }
+
+    /** True while the item under the mouse is outside every recipe (the machines column): NEI's {@code getSlotAtPosition}. */
+    boolean hoveredOutsideRecipe() {
+        return !hovered.isEmpty() && hoveredView == null;
+    }
+
+    /** The mouse button was let go: a dragged scroll bar stops. */
+    public void mouseReleased() {
+        dragBar = 0;
     }
 
     /** Handles a click anywhere on the window or tabs. Always consumes it. */
@@ -813,21 +1128,40 @@ public final class RecipeOverlay {
             return;
         }
 
-        // tabs and their arrows
-        final int ty = top - TAB + 3;
-        if (groups.size() > TABS && Draw.in(mx, my, left - 3, ty + 2, 8, TAB - 4)) {
-            selectTab((tabOffset / TABS - 1) * TABS);
+        // tabs and their arrows (NEI: nothing while JEI Style Tabs is off)
+        final int tw = tabW();
+        final int th = tabH();
+        final int perRow = tabsPerRow();
+        final int ty = top - th + 3;
+        if (tabsShown()) {
+            if (groups.size() > perRow && Draw.in(mx, my, left - 3, ty + 2, 8, th - 4)) {
+                selectTab((tabOffset / perRow - 1) * perRow);
+                return;
+            }
+            if (groups.size() > perRow && Draw.in(mx, my, left + 4 + perRow * tw - 1, ty + 2, 8, th - 4)) {
+                selectTab((tabOffset / perRow + 1) * perRow);
+                return;
+            }
+            if (my >= ty && my < ty + th && mx >= left + 4 && mx < left + 4 + perRow * tw) {
+                final int index = tabOffset + (int) ((mx - left - 4) / tw);
+                if (index < groups.size()) selectTab(index);
+                return;
+            }
+        }
+
+        // the scroll bars: a click on the track moves the thumb there
+        if (infinite() && maxScroll() > 0 && Draw.in(mx, my, left + W - 4, areaTop, 5, areaBottom - areaTop)) {
+            scrollPx = (int) ((my - areaTop) * maxScroll() / Math.max(1, areaBottom - areaTop));
+            dragBar = 1; // keeps following the mouse until the button is let go
             return;
         }
-        if (groups.size() > TABS && Draw.in(mx, my, left + 4 + TABS * TAB - 1, ty + 2, 8, TAB - 4)) {
-            selectTab((tabOffset / TABS + 1) * TABS);
+        if (catH > 0 && Draw.in(mx, my, catX + 5, catY + 7, BAR_W, catH - 14)) {
+            catScroll = (int) ((my - catY - 7) * (catContent - (catH - 14)) / Math.max(1, catH - 14));
+            dragBar = 2;
             return;
         }
-        if (my >= ty && my < ty + TAB && mx >= left + 4 && mx < left + 4 + TABS * TAB) {
-            final int index = tabOffset + (int) ((mx - left - 4) / TAB);
-            if (index < groups.size()) selectTab(index);
-            return;
-        }
+        // NEI's infinite list: items and buttons outside the recipe area are cut off and take no clicks
+        final boolean cut = infinite() && mx >= left && mx < left + W && !inArea(mx, my);
 
         // title row (recipe type) and page row buttons
         final int rightX = left + W - 5 - NAV_W + 1;
@@ -851,7 +1185,7 @@ public final class RecipeOverlay {
         }
 
         // plus: move the ingredients from the inventory into the crafting grid
-        for (Plus p : plusHits) {
+        for (Plus p : cut ? List.<Plus>of() : plusHits) {
             if (picker != null && Draw.in(mx, my, p.x(), p.y(), BTN, BTN)) {
                 if (button == 0) {
                     picker.accept(p.view());
@@ -883,14 +1217,30 @@ public final class RecipeOverlay {
                     }
                     return;
                 }
-                // As in NEI: Shift + click places as many sets as possible (maxTransfer)
+                // As in NEI (GuiOverlayButton#overlayRecipe): with Require Shift a plain click only shows the recipe faded in the
+                // grid until the screen closes; Shift + click (or any click without the option) fills the grid with as many
+                // sets as possible, Ctrl with one set
+                final boolean fill = !NEIConfig.RECIPE_SHIFT_OVERLAY.getAsBoolean() || HotkeyHelp.isShiftDown();
+                if (button != 0) return;
+                if (!fill) {
+                    if (RecipeTransfer.canTransfer(container, p.view())) {
+                        final long clock = clockOf(p.view());
+                        RecipeTransfer.showOverlay(container, p.view(), s -> current(s, clock));
+                        closeRequested = true;
+                    }
+                    return;
+                }
                 final RecipeTransfer.Result r = RecipeTransfer.transfer(container, p.view(),
-                        button == 0 && HotkeyHelp.isShiftDown() ? Integer.MAX_VALUE : 1);
+                        HotkeyHelp.isCtrlDown() ? 1 : Integer.MAX_VALUE);
                 missingView = p.view();
                 missing = r.missing();
                 if (r.error() != null) setStatus(r.error(), 0xFF702020);
-                else if (!r.missing().isEmpty()) setStatus("Missing " + r.missing().size() + " ingredient(s)", 0xFF702020);
-                else {
+                else if (!r.missing().isEmpty()) {
+                    setStatus("Missing " + r.missing().size() + " ingredient(s)", 0xFF702020);
+                    // As in NEI (the + always goes back to the inventory): once anything is in the grid the window closes;
+                    // it only stays open, with the missing ingredients marked, when nothing could be placed
+                    if (r.placed() > 0) closeRequested = true;
+                } else {
                     setStatus("Ingredients placed", 0xFF206020);
                     closeRequested = true; // NEI closes the recipe window once the recipe is in the grid
                 }
@@ -899,7 +1249,7 @@ public final class RecipeOverlay {
         }
 
         // heart: favorite recipe
-        for (Heart h : heartHits) {
+        for (Heart h : cut ? List.<Heart>of() : heartHits) {
             if (button == 0 && Draw.in(mx, my, h.x(), h.y(), BTN, BTN)) {
                 RecipeBookmarks.toggleFavorite(h.view(), h.view() == choiceView ? choice : null);
                 return;
@@ -909,7 +1259,7 @@ public final class RecipeOverlay {
         // items: left = recipes, right = uses
         if (button == 0 || button == 1) {
             for (Hit hit : slotHits) {
-                if (hit.at(mx, my)) {
+                if (hit.at(mx, my) && !(cut && hit.x() >= left)) {
                     show(hit.stack().getItem(), button == 1, true);
                     return;
                 }
@@ -929,11 +1279,28 @@ public final class RecipeOverlay {
             }
         }
         final int dir = scrollY > 0 ? -1 : 1;
-        if (my < top + 3) {
-            selectTab(Math.max(0, Math.min(tab + dir, groups.size() - 1))); // over the tab bar: next / previous type
-        } else {
-            changePage(dir);
+        // NEI's GuiRecipe#mouseScrolled, in its order: the tab bar, the machines column, the recipe list, Shift or the title
+        // row (recipe type), then the recipes (with Scroll Pages) or the page row (pages)
+        final int th = tabH();
+        if (tabsShown() && my >= top - th + 3 && my < top + 3 && mx >= left + 4 && mx < left + 4 + tabsPerRow() * tabW()) {
+            selectTab(Math.max(0, Math.min(tab + dir, groups.size() - 1)));
+            return;
         }
+        if (catH > 0 && Draw.in(mx, my, catX, catY, catW, catH)) {
+            catScroll = Math.max(0, Math.min(catScroll + dir * 16, catContent - (catH - 14)));
+            return;
+        }
+        if (infinite() && inArea(mx, my) && maxScroll() > 0) {
+            scrollPx = Math.max(0, Math.min(scrollPx + dir * 18, maxScroll()));
+            return;
+        }
+        if (HotkeyHelp.isShiftDown() || Draw.in(mx, my, left, top + 3, W, NAV_H)) {
+            selectTab(tab + dir);
+            return;
+        }
+        final boolean overPageRow = Draw.in(mx, my, left, top + 17, W, NAV_H) && !Draw.in(mx, my, left + 5 + NAV_W, top + 17, 12, 12)
+                && !(searchOn && Draw.in(mx, my, left + 30, top + 16, SEARCH_W, 14));
+        if (NEIConfig.RECIPE_SCROLL_PAGES.getAsBoolean() && inArea(mx, my) || overPageRow) changePage(dir);
     }
 
     private void setStatus(String text, int color) {
@@ -953,6 +1320,11 @@ public final class RecipeOverlay {
 
     /** NEI's recipe keys: previous / next recipe page and machine (recipe type). Returns true if the key was used. */
     public boolean pageKey(InputConstants.Key key) {
+        if (NEIConfig.RECIPE_HANDLER_INFO.getAsBoolean() && key.getValue() == org.lwjgl.glfw.GLFW.GLFW_KEY_D
+                && HotkeyHelp.isShiftDown()) {
+            infoShown = !infoShown; // NEI's DebugHandlerWidget: Shift + D
+            return true;
+        }
         if (NEIKeys.is(NEIKeys.PREV_RECIPE, key)) changePage(-1);
         else if (NEIKeys.is(NEIKeys.NEXT_RECIPE, key)) changePage(1);
         else if (NEIKeys.is(NEIKeys.PREV_MACHINE, key)) selectTab(tab - 1);
@@ -963,7 +1335,7 @@ public final class RecipeOverlay {
 
     /** NEI's {@code bookmark.favorite_item}: Shift + key over an ingredient that has alternatives favorites that item. */
     public boolean favoriteItemKey() {
-        if (hoveredView == null || hovered.isEmpty()) return false;
+        if (!codechicken.nei.NEIConfig.FAVORITES_ENABLED.getAsBoolean() || hoveredView == null || hovered.isEmpty()) return false;
         for (SlotView s : hoveredView.slots()) {
             if (s.options().size() > 1 && s.options().stream().anyMatch(o -> o.getItem() == hovered.getItem())) {
                 RecipeBookmarks.toggleFavoriteItem(codechicken.nei.item.FluidDisplay.idOf(hovered));

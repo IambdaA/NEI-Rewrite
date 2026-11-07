@@ -47,13 +47,24 @@ final class ForgeClient {
         bus.addListener((TickEvent.ClientTickEvent e) -> {
             if (e.phase == TickEvent.Phase.END) ClientHooks.tick();
         });
-        bus.addListener((RegisterClientCommandsEvent e) -> e.getDispatcher().register(ChatLinks.<CommandSourceStack>command()));
+        bus.addListener((RegisterClientCommandsEvent e) -> {
+            e.getDispatcher().register(ChatLinks.<CommandSourceStack>command());
+            e.getDispatcher().register(codechicken.nei.client.ReleaseNotice.<CommandSourceStack>command());
+        });
 
         bus.addListener((ScreenEvent.Init.Post e) -> ClientHooks.screenInit(e.getScreen()));
         bus.addListener((ScreenEvent.Render.Pre e) -> {
             if (ClientHooks.renderPre(e.getScreen(), e.getGuiGraphics(), e.getMouseX(), e.getMouseY(), e.getPartialTick())) {
                 e.setCanceled(true);
             }
+        });
+        // NEI's panels go right after the container's background, before its slots, tooltips and potion effect boxes (JEI does
+        // the same for its panels)
+        bus.addListener(EventPriority.HIGHEST, (net.minecraftforge.client.event.ContainerScreenEvent.Render.Background e) ->
+                ClientHooks.renderBackground(e.getContainerScreen(), e.getGuiGraphics()));
+        // one tooltip, as in NEI: while the Alt hotkey box is up it replaces vanilla's tooltip for the slot (as JEI does for its own)
+        bus.addListener(EventPriority.HIGHEST, (net.minecraftforge.client.event.RenderTooltipEvent.Pre e) -> {
+            if (ClientHooks.suppressVanillaTooltip()) e.setCanceled(true);
         });
         bus.addListener((ScreenEvent.Render.Post e) ->
                 ClientHooks.renderPost(e.getScreen(), e.getGuiGraphics(), e.getMouseX(), e.getMouseY(), e.getPartialTick()));

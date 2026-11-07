@@ -83,7 +83,10 @@ public final class FabricClient implements ClientModInitializer {
             }
         });
         ClientCommandRegistrationCallback.EVENT.register(
-                (dispatcher, registryAccess) -> dispatcher.register(ChatLinks.<FabricClientCommandSource>command()));
+                (dispatcher, registryAccess) -> {
+                    dispatcher.register(ChatLinks.<FabricClientCommandSource>command());
+                    dispatcher.register(codechicken.nei.client.ReleaseNotice.<FabricClientCommandSource>command());
+                });
 
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> screenInit(screen));
     }

@@ -15,8 +15,8 @@ import java.util.Map;
  * heart button next to a recipe. A recipe tree ({@code Shift + bookmark key} on the heart) uses the favorite recipe of
  * every ingredient to decide which recipes make that ingredient.
  *
- * NEI also generates favorites for items that have exactly one recipe, but that option is off by default
- * ({@code inventory.favorites.generateSingleRecipeFavorites}), so it is not ported.
+ * The favorites NEI generates for items that have exactly one recipe ({@code inventory.favorites.generateSingleRecipeFavorites})
+ * are not stored: they are worked out from the recipes when needed (see {@code RecipeBookmarks#generatedKeyFor}).
  *
  * File ({@code config/notenoughitems-favorites.txt}): one {@code itemId recipeKey} per line. The recipe key is the
  * one the bookmarks use ({@code RecipeBookmarks#key}).
@@ -68,14 +68,16 @@ public final class Favorites {
         }
     }
 
-    /** The favorite recipe key of an item, or null. */
+    /** The favorite recipe key of an item, or null (always null while the favorites are hidden, as in NEI). */
     public static synchronized String recipeOf(String itemId) {
+        if (!NEIConfig.FAVORITES_ENABLED.getAsBoolean()) return null;
         ensureLoaded();
         return BY_ITEM.get(itemId);
     }
 
-    /** The item a recipe is the favorite of, or null. */
+    /** The item a recipe is the favorite of, or null (always null while the favorites are hidden). */
     public static synchronized String itemOf(String recipeKey) {
+        if (!NEIConfig.FAVORITES_ENABLED.getAsBoolean()) return null;
         ensureLoaded();
         for (Map.Entry<String, String> e : BY_ITEM.entrySet()) if (e.getValue().equals(recipeKey)) return e.getKey();
         return null;
