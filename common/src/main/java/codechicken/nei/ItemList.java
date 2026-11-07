@@ -202,11 +202,14 @@ public final class ItemList {
     public static void updateFilter(String text) {
         lastText = text;
         final int generation = GENERATION.incrementAndGet();
-        final ItemFilter filter = PARSER.parse(text);
+        // NEI's hideItemsUntilSearching: an empty search shows nothing
+        final boolean hide = (text == null || text.isEmpty()) && NEIConfig.SEARCH_HIDE_UNTIL.getAsBoolean();
+        final ItemFilter filter = hide ? e -> false : PARSER.parse(text);
         final List<ItemEntry> source = all;
 
         CompletableFuture.runAsync(() -> {
-            final List<ItemEntry> result = source.parallelStream().filter(e -> !Subsets.isHidden(e) && !Presets.hides(e) && !API.hides(e) && safeMatch(filter, e)).toList();
+            final List<ItemEntry> result = source.parallelStream().filter(e -> !Subsets.isHidden(e) && !Presets.hides(e) && !API.hides(e)
+                    && !codechicken.nei.item.FluidDisplay.hasStandIn(e.stack) && safeMatch(filter, e)).toList();
             if (generation == GENERATION.get()) filtered = result;
         }, WORKER).exceptionally(t -> {
             NotEnoughItems.LOGGER.error("Item search failed", t);

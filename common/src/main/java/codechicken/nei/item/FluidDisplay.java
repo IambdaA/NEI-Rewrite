@@ -58,6 +58,8 @@ public final class FluidDisplay {
     public static void setScanner(java.util.function.Supplier<? extends Iterable<ItemStack>> all) {
         scanner = all;
         scanned = false;
+        REPRESENTED.clear();
+        represented = false;
         KNOWN.clear();
         AMOUNT_IDS.clear();
         TOOLTIP_AMOUNTS.clear();
@@ -165,6 +167,85 @@ public final class FluidDisplay {
 
     private FluidDisplay() {}
 
+    private static final Map<Fluid, ItemStack> REPRESENTED = new java.util.concurrent.ConcurrentHashMap<>();
+    private static volatile boolean represented;
+
+    /**
+     * The item a mod uses to stand for this fluid, or empty: NTM - Continuum registers every fluid as a Minecraft fluid but
+     * describes it (name, traits, help) only on its {@code hbm:fluid_icon} item, told apart from the other fluids' icons by
+     * JEI's subtype. Found among JEI's items: a stack of the fluid's mod whose subtype text names the fluid ({@code unsaturateds}
+     * for {@code hbm:unsaturateds}). Several items may carry a fluid (icons, buckets, canisters): the one with the shortest
+     * name wins (the plain fluid name), then the one recipes use as a fluid, then the one that stands for the most fluids. Without JEI, or when no subtype names the fluid, nothing.
+     */
+    public static ItemStack representative(Fluid fluid) {
+        if (fluid == null) return ItemStack.EMPTY;
+        if (!represented && scanner != null) {
+            represented = true;
+            try {
+                indexRepresentatives();
+                codechicken.nei.ItemList.refilter(); // the fluids that have a stand-in leave the list (see hasStandIn)
+            } catch (RuntimeException e) {
+                represented = false; // JEI not ready yet
+            }
+        }
+        final ItemStack stack = REPRESENTED.get(fluid);
+        return stack == null ? ItemStack.EMPTY : stack.copy();
+    }
+
+    /**
+     * A fluid display stack whose fluid has a stand-in item: the item list leaves it out, the stand-in (NTM's droplet) is
+     * listed already. Only what was found so far counts, so this never scans JEI's list itself (the filter runs on worker threads).
+     */
+    public static boolean hasStandIn(ItemStack stack) {
+        final Fluid fluid = fluidOf(stack);
+        return fluid != null && REPRESENTED.containsKey(fluid);
+    }
+
+    private static void indexRepresentatives() {
+        // "<namespace>:<word>" of every word of a subtype -> the stacks that carry it, by item
+        final Map<String, Map<Item, ItemStack>> byWord = new HashMap<>();
+        final Map<Item, Integer> fluidsPerItem = new HashMap<>();
+        final java.util.Set<Item> fluidItems = new java.util.HashSet<>();
+        for (String id : AMOUNT_IDS) {
+            final Item item = BuiltInRegistries.ITEM.get(net.minecraft.resources.ResourceLocation.parse(plainId(id)));
+            if (item != null) fluidItems.add(item);
+        }
+        for (ItemStack stack : scanner.get()) {
+            if (stack.isEmpty() || FLUIDS.containsKey(stack.getItem())) continue;
+            final String sub = subtypeOf(stack);
+            if (sub.isEmpty()) continue;
+            final String ns = BuiltInRegistries.ITEM.getKey(stack.getItem()).getNamespace();
+            for (String word : sub.toLowerCase(java.util.Locale.ROOT).split("[^a-z0-9_]+")) {
+                if (word.isEmpty()) continue;
+                byWord.computeIfAbsent(ns + ":" + word, k -> new HashMap<>()).putIfAbsent(stack.getItem(), stack.copy());
+            }
+        }
+        for (Fluid fluid : ITEMS.keySet()) {
+            final Map<Item, ItemStack> found = byWord.get(BuiltInRegistries.FLUID.getKey(fluid).toString());
+            if (found != null) for (Item item : found.keySet()) fluidsPerItem.merge(item, 1, Integer::sum);
+        }
+        for (Fluid fluid : ITEMS.keySet()) {
+            final Map<Item, ItemStack> found = byWord.get(BuiltInRegistries.FLUID.getKey(fluid).toString());
+            if (found == null) continue;
+            // the plain name wins: NTM's icon is "Unsaturated Hydrocarbons", its bucket "... Bucket", a canister "Canister (...)"
+            Item best = null;
+            int bestLen = Integer.MAX_VALUE;
+            for (Map.Entry<Item, ItemStack> e : found.entrySet()) {
+                final int len = e.getValue().getHoverName().getString().length();
+                if (best == null || len < bestLen
+                        || len == bestLen && score(e.getKey(), fluidItems, fluidsPerItem) > score(best, fluidItems, fluidsPerItem)) {
+                    best = e.getKey();
+                    bestLen = len;
+                }
+            }
+            REPRESENTED.put(fluid, found.get(best));
+        }
+    }
+
+    private static long score(Item item, java.util.Set<Item> fluidItems, Map<Item, Integer> fluidsPerItem) {
+        return (fluidItems.contains(item) ? 1_000_000L : 0L) + fluidsPerItem.getOrDefault(item, 0);
+    }
+
     /** Records a display item; called while the client registers them. */
     public static void add(Item item, Fluid fluid, String id) {
         FLUIDS.put(item, fluid);
@@ -228,14 +309,30 @@ public final class FluidDisplay {
     public static ItemStack named(ItemStack stack) {
         final Fluid fluid = fluidOf(stack);
         if (fluid != null) {
-            // the fluid's block carries its name ("Water", "Lava", a mod's own); a fluid without a block shows its id
+            // the fluid's block carries its name ("Water", "Lava", a mod's own); a fluid without a block (GregTech's) takes the
+            // name its fluid type gives it, as JEI shows it, and the id only where that name has no translation
             final var block = fluid.defaultFluidState().createLegacyBlock().getBlock();
             final net.minecraft.network.chat.Component name = block == net.minecraft.world.level.block.Blocks.AIR
-                    ? net.minecraft.network.chat.Component.literal(BuiltInRegistries.FLUID.getKey(fluid).getPath())
+                    ? typeName(fluid)
                     : block.getName();
             stack.set(DataComponents.CUSTOM_NAME, name.copy().withStyle(s -> s.withItalic(false)));
         }
         return stack;
+    }
+
+    /** The loader's name of a fluid, with its id as the fallback for a missing translation. */
+    private static net.minecraft.network.chat.Component typeName(Fluid fluid) {
+        final String path = BuiltInRegistries.FLUID.getKey(fluid).getPath();
+        net.minecraft.network.chat.Component own = null;
+        try {
+            own = codechicken.nei.NotEnoughItems.platform().fluidName(fluid);
+        } catch (RuntimeException | LinkageError e) {
+            // a broken fluid type: the id
+        }
+        if (own != null && own.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t) {
+            return net.minecraft.network.chat.Component.translatableWithFallback(t.getKey(), path, t.getArgs());
+        }
+        return own != null ? own : net.minecraft.network.chat.Component.literal(path);
     }
 
     /** The mod that owns the stack: the fluid's mod for a display item, else the item's. */

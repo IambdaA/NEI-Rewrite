@@ -24,9 +24,11 @@ An **unofficial rewrite of the GTNH fork of NotEnoughItems** for Minecraft 1.21.
 - **Cheat tools**: toolbar (time, weather, heal, game mode), delete mode, item magnet, extended creative inventory, mob spawner items, mob spawn overlay (`F7`), enchantment and potion creator
 - **With JEI**: recipes of every mod that has a JEI plugin (fluids included) and the `+` in modded crafting screens
 - **AE2 terminal search sync**: type in the terminal and NEI's search follows, and the other way round
+- **NEI's settings screen**, page by page as in NEI (Inventory, World, Commands, Tools), with a choice of button styles (NTNH, GTNH-Modernity, Vanilla)
+- **Plays well with other mods' buttons**: the panels and the cheat toolbar move aside for what other mods add beside the inventory (FTB Quests / FTB Teams sidebar and the like)
 - **Mod API** for other mods
 
-Hold **Alt** over an item to see its hotkeys. All keys are under *Options > Controls > NotEnoughItems*; the wrench button opens the settings window.
+Hold **Alt** over an item to see its hotkeys. All keys are under *Options > Controls > NotEnoughItems*; the wrench button opens the settings screen.
 
 ### Requirements
 
@@ -39,7 +41,7 @@ Works on the client alone. Install it on the **server too** to get recipe lookup
 
 ### Status
 
-Beta. Not everything from NEI is ported yet (for example giving items with cheats off). Please report bugs together with your `latest.log`.
+Beta. A few NEI features are not ported. Please report bugs on [GitHub](https://github.com/IambdaA/NEI-Rewrite/issues) together with your `latest.log`. Source code: <https://github.com/IambdaA/NEI-Rewrite>
 
 ### Credits & original work
 
@@ -56,6 +58,6 @@ The original NEI is open source under **LGPL-3.0-or-later**. NEI Rewrite is rele
 - **A new implementation, not a copy of the old mod.** The original is a Forge mod for Minecraft 1.7.10. NEI Rewrite is new Java code written for modern Minecraft on NeoForge and Fabric. It follows NEI's behaviour, look and search rules, and the GUI textures come unchanged from the GTNH repository.
 - **Recipes come from the game and from JEI.** The original reads recipes through its own recipe handler system (and GregTech: New Horizons' machine handlers). NEI Rewrite reads vanilla recipes from the game's recipe system and the recipes of other mods from JEI's plugins, so modded machines need JEI installed. There are no GregTech / GTNH-specific recipe handlers.
 - **Tags instead of the ore dictionary.** The `$` search matches item tags, which replaced the ore dictionary in modern Minecraft.
-- **Own settings and keys.** Options are kept in a config file and edited in the wrench button's settings window; hotkeys are normal Minecraft key binds. NEI's 1.7.10 config files are not read.
+- **Own settings and keys.** Options are kept in a config file and edited in the wrench button's settings screen; hotkeys are normal Minecraft key binds. NEI's 1.7.10 config files are not read.
 - **A smaller mod API.** The API class is the same idea as NEI's, but mods register through a NeoForge event (`NEIRegisterEvent`) or a Fabric entrypoint (`NEIPlugin`). NEI's 1.7.10 GUI handler and overlay APIs are not carried over.
-- **Not everything is ported.** A few NEI features are still missing (for example giving items with cheats off). See the changelog.
+- **Not everything is ported.** A few NEI features are missing (giving items with cheats off, the chunk boundary overlay). See the changelog.

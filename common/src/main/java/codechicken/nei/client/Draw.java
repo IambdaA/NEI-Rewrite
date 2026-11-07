@@ -11,7 +11,14 @@ final class Draw {
 
     /** Draws an item stack, or a fluid display item as its fluid. Every place that draws stacks goes through this. */
     static void stack(GuiGraphics g, net.minecraft.world.item.ItemStack stack, int x, int y) {
-        if (codechicken.nei.item.FluidDisplay.is(stack)) FluidDraw.draw(g, stack, x, y);
+        if (codechicken.nei.item.FluidDisplay.is(stack)) {
+            // a fluid its mod draws as an item of its own (NTM - Continuum's droplet icon) looks like that item; others get
+            // NEI's fluid texture
+            final net.minecraft.world.item.ItemStack standIn = codechicken.nei.item.FluidDisplay.representative(
+                    codechicken.nei.item.FluidDisplay.fluidOf(stack));
+            if (standIn.isEmpty()) FluidDraw.draw(g, stack, x, y);
+            else Gfx.item(g, standIn, x, y);
+        }
         else {
             Gfx.item(g, stack, x, y);
             if (stack.is(net.minecraft.world.item.Items.SPAWNER)) SpawnerLook.badge(g, stack, x, y); // NEI's mob inside the spawner
@@ -45,14 +52,86 @@ final class Draw {
         Gfx.fill(g, x + w - 1, y + 1, x + w, y + h, 0xFFFFFFFF);
     }
 
-    /** NEI's dark slate bevelled button (colours sampled from NEI 1.7.10): black edge, light top and left, dark bottom and right. */
+    /** The look of the buttons: {@code NEIConfig.UI_STYLE} 0 NTNH-Approximate, 1 GTNH-Modernity, 2 Vanilla. */
+    private static int style() {
+        return codechicken.nei.NEIConfig.UI_STYLE.get();
+    }
+
+    /** A bevelled button: an edge, light top and left, dark bottom and right, and the face colour in between. */
+    private static void bevel(GuiGraphics g, int x, int y, int w, int h, int edge, int face, int top, int left,
+            int shade) {
+        Gfx.fill(g, x, y, x + w, y + h, edge);
+        Gfx.fill(g, x + 1, y + 1, x + w - 1, y + h - 1, face);
+        Gfx.fill(g, x + 1, y + 1, x + w - 1, y + 2, top);
+        Gfx.fill(g, x + 1, y + 1, x + 2, y + h - 1, left);
+        Gfx.fill(g, x + 2, y + h - 2, x + w - 1, y + h - 1, shade);
+        Gfx.fill(g, x + w - 2, y + 2, x + w - 1, y + h - 2, shade);
+    }
+
+    /**
+     * The slate button of the NTNH pack, approximated with plain fills (no texture is included): a black edge that turns
+     * white under the mouse, a slate face, a lighter line on the top and left and a darker one on the bottom and right.
+     * Disabled (a switched-off option) is the same pattern darker.
+     */
+    private static void ntnhButton(GuiGraphics g, int x, int y, int w, int h, int state) {
+        if (state == 0) bevel(g, x, y, w, h, 0xFF000000, 0xFF1C2228, 0xFF272D33, 0xFF2F363C, 0xFF11161B);
+        else bevel(g, x, y, w, h, state == 2 ? 0xFFFFFFFF : 0xFF000000, 0xFF262E35, 0xFF40474D, 0xFF4F5962, 0xFF161D23);
+    }
+
+    /**
+     * Modernity-GTNH's dark button, sampled from a screenshot of the multiplayer screen (colours exact for the normal state):
+     * a 1 pixel edge, a one pixel light line on top, left and right, a light line again above the two dark bottom rows.
+     * Mouse over and disabled were not in the screenshot; they are the same pattern a little lighter / darker.
+     */
+    private static void gtnhButton(GuiGraphics g, int x, int y, int w, int h, int state) {
+        final int edge = 0xFF0A090E;
+        final int face = state == 0 ? 0xFF1B1C25 : state == 2 ? 0xFF2D3040 : 0xFF242631;
+        final int line = state == 0 ? 0xFF22232D : state == 2 ? 0xFF3A3D50 : 0xFF2D2F3C;
+        final int shade = state == 0 ? 0xFF101117 : 0xFF14151D;
+        Gfx.fill(g, x, y, x + w, y + h, edge);
+        Gfx.fill(g, x + 1, y + 1, x + w - 1, y + h - 1, face);
+        Gfx.fill(g, x + 1, y + 1, x + w - 1, y + 2, line); // top
+        Gfx.fill(g, x + 1, y + 1, x + 2, y + h - 4, line); // left
+        Gfx.fill(g, x + w - 2, y + 1, x + w - 1, y + h - 4, line); // right
+        Gfx.fill(g, x + 1, y + h - 4, x + w - 1, y + h - 3, line); // above the shade
+        Gfx.fill(g, x + 1, y + h - 3, x + w - 1, y + h - 1, shade);
+    }
+
+    /** The classic grey button. */
+    private static void vanillaButton(GuiGraphics g, int x, int y, int w, int h, int state) {
+        if (state == 0) bevel(g, x, y, w, h, 0xFF000000, 0xFF4A4A4A, 0xFF5A5A5A, 0xFF5A5A5A, 0xFF2E2E2E);
+        else bevel(g, x, y, w, h, 0xFF000000, state == 2 ? 0xFF7D87B5 : 0xFF6F6F6F, 0xFFA8A8A8, 0xFFA8A8A8, 0xFF3E3E3E);
+    }
+
+    /**
+     * The button of NEI's options screen, toolbar and panels (what {@code LayoutManager.drawButtonBackground} draws from the
+     * resource pack's widgets texture) in the look chosen by the UI Style option. {@code state} is NEI's: 0 disabled (a
+     * switched-off option), 1 normal, 2 mouse over.
+     */
+    static void neiButton(GuiGraphics g, int x, int y, int w, int h, int state) {
+        switch (style()) {
+            case 1 -> gtnhButton(g, x, y, w, h, state);
+            case 2 -> vanillaButton(g, x, y, w, h, state);
+            default -> ntnhButton(g, x, y, w, h, state);
+        }
+    }
+
     static void button(GuiGraphics g, int x, int y, int w, int h, boolean hover) {
-        Gfx.fill(g, x, y, x + w, y + h, 0xFF000000);
-        Gfx.fill(g, x + 1, y + 1, x + w - 1, y + h - 1, hover ? 0xFF35404A : 0xFF262E35);
-        Gfx.fill(g, x + 1, y + 1, x + w - 1, y + 2, 0xFF40474D);
-        Gfx.fill(g, x + 1, y + 1, x + 2, y + h - 1, 0xFF4F5962);
-        Gfx.fill(g, x + 2, y + h - 2, x + w - 1, y + h - 1, 0xFF161D23);
-        Gfx.fill(g, x + w - 2, y + 2, x + w - 1, y + h - 2, 0xFF161D23);
+        neiButton(g, x, y, w, h, hover ? 2 : 1);
+    }
+
+    private static final net.minecraft.resources.ResourceLocation DIRT = net.minecraft.resources.ResourceLocation
+            .fromNamespaceAndPath("minecraft", "textures/gui/menu_background.png");
+
+    /** NEI's {@code OptionScrollPane.drawOverlayTex}: the vanilla menu background tiled over the rectangle. */
+    static void dirt(GuiGraphics g, int x, int y, int w, int h) {
+        for (int dy = 0; dy < h; dy += 32) {
+            final int th = Math.min(32, h - dy);
+            for (int dx = 0; dx < w; dx += 32) {
+                final int tw = Math.min(32, w - dx);
+                Gfx.blit(g, DIRT, x + dx, y + dy, 0f, 0f, tw, th, 32, 32);
+            }
+        }
     }
 
     /** A right-pointing grey arrow. {@code x} is its left end, {@code cy} its vertical centre. */
@@ -93,6 +172,23 @@ final class Draw {
         Gfx.sprite(g, FLAME, x, y, 14, 14);
         final int burnt = (int) (fraction * 14);
         if (burnt > 0) Gfx.fill(g, x, y, x + 14, y + burnt, 0xC0C6C6C6); // the window's grey, nearly opaque
+    }
+
+    /**
+     * NEI's {@code panelFactor}: with Item Panel Scale the slot is not 18 px, so what is drawn for an 18 px slot at
+     * {@code (x, y)} (item at +1, amounts, markers) is scaled to fit. Pair with {@link #endSlotScale}.
+     */
+    static void beginSlotScale(GuiGraphics g, int x, int y, int slot) {
+        if (slot == 18) return;
+        final float f = (slot - 2) / 16f;
+        g.pose().pushPose();
+        g.pose().translate(x, y, 0f);
+        g.pose().scale(f, f, 1f);
+        g.pose().translate(-x, -y, 0f);
+    }
+
+    static void endSlotScale(GuiGraphics g, int slot) {
+        if (slot != 18) g.pose().popPose();
     }
 
     /** Text at half size, as NEI draws amounts and markers over a slot ({@code NEIClientUtils#drawNEIOverlayText}). */

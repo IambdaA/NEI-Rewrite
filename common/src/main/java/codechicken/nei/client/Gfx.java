@@ -27,6 +27,11 @@ public final class Gfx {
         g.fill(RenderType.guiOverlay(), x1, y1, x2, y2, color);
     }
 
+    /** A rectangle fading from {@code from} (top) to {@code to} (bottom), drawn over everything before it. */
+    public static void fillGradient(GuiGraphics g, int x1, int y1, int x2, int y2, int from, int to) {
+        g.fillGradient(RenderType.guiOverlay(), x1, y1, x2, y2, from, to, 0);
+    }
+
     public static void text(GuiGraphics g, Font font, Component text, int x, int y, int color, boolean shadow) {
         g.pose().pushPose();
         g.pose().translate(0f, 0f, TEXT_Z);

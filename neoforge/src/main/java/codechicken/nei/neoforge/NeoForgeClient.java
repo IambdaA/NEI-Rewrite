@@ -17,11 +17,13 @@ import net.neoforged.fml.ModLoader;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.ContainerScreenEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.client.event.RenderTooltipEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.registries.RegisterEvent;
@@ -47,13 +49,24 @@ public final class NeoForgeClient {
 
         final IEventBus bus = NeoForge.EVENT_BUS;
         bus.addListener((ClientTickEvent.Post e) -> ClientHooks.tick());
-        bus.addListener((RegisterClientCommandsEvent e) -> e.getDispatcher().register(ChatLinks.<CommandSourceStack>command()));
+        bus.addListener((RegisterClientCommandsEvent e) -> {
+            e.getDispatcher().register(ChatLinks.<CommandSourceStack>command());
+            e.getDispatcher().register(codechicken.nei.client.ReleaseNotice.<CommandSourceStack>command());
+        });
 
         bus.addListener((ScreenEvent.Init.Post e) -> ClientHooks.screenInit(e.getScreen()));
         bus.addListener((ScreenEvent.Render.Pre e) -> {
             if (ClientHooks.renderPre(e.getScreen(), e.getGuiGraphics(), e.getMouseX(), e.getMouseY(), e.getPartialTick())) {
                 e.setCanceled(true);
             }
+        });
+        // NEI's panels go right after the container's background, before its slots, tooltips and potion effect boxes (JEI does
+        // the same for its panels)
+        bus.addListener(EventPriority.HIGHEST, (ContainerScreenEvent.Render.Background e) ->
+                ClientHooks.renderBackground(e.getContainerScreen(), e.getGuiGraphics()));
+        // one tooltip, as in NEI: while the Alt hotkey box is up it replaces vanilla's tooltip for the slot (as JEI does for its own)
+        bus.addListener(EventPriority.HIGHEST, (RenderTooltipEvent.Pre e) -> {
+            if (ClientHooks.suppressVanillaTooltip()) e.setCanceled(true);
         });
         bus.addListener((ScreenEvent.Render.Post e) ->
                 ClientHooks.renderPost(e.getScreen(), e.getGuiGraphics(), e.getMouseX(), e.getMouseY(), e.getPartialTick()));

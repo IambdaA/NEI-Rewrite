@@ -19,7 +19,14 @@ import net.minecraft.network.chat.Component;
  */
 public final class ItemPanel {
 
-    public static final int SLOT = 18;
+    /** NEI's {@code ItemsGrid.SLOT_SIZE}: 18, or what Item Panel Scale makes it (shared by every panel, the bookmarks too). */
+    public static int SLOT = 18;
+
+    /** NEI's {@code ItemsPanelGrid#updateScale}: {@code 2 + ceil(8 * scale / 100) * 2}. */
+    static void updateScale() {
+        SLOT = 2 + (int) Math.ceil(8f * codechicken.nei.NEIConfig.ITEM_PANEL_SCALE.getAsInt() / 100) * 2;
+        BookmarkPanel.SLOT = SLOT;
+    }
     private static final int BTN = 14;
 
     private final Supplier<List<ItemEntry>> source;
@@ -39,6 +46,10 @@ public final class ItemPanel {
     private int columns;
     private int rows;
     private int page;
+    /** Slots under the potion effect boxes (NEI's hideItemPanelSlot) are left out; the items continue in the next slot. */
+    private boolean[] hidden = new boolean[0];
+    private int[] rank = new int[0]; // slot -> how many shown slots come before it
+    private int shownSlots;
     private boolean nav = true;
 
     /** The item list groups similar items into one slot (NEI's collapsible items). */
@@ -124,7 +135,25 @@ public final class ItemPanel {
             this.gridY = nav ? top + BTN + 4 : top;
             this.rows = Math.max(0, (bottom - gridY) / SLOT);
         }
+        refreshMask();
         clampPage();
+    }
+
+    /** Called with every layout (every frame): the effects and other mods' widgets come and go. */
+    private void refreshMask() {
+        final int n = Math.max(0, columns * rows);
+        if (hidden.length != n) {
+            hidden = new boolean[n];
+            rank = new int[n];
+        }
+        final List<int[]> areas = GuiAreas.current(); // other mods' widgets, JEI's exclusion areas, the potion boxes
+        int count = 0;
+        for (int s = 0; s < n; s++) {
+            hidden[s] = EffectAreas.hits(areas, x + (s % columns) * SLOT, gridY + (s / columns) * SLOT, SLOT, SLOT);
+            rank[s] = count;
+            if (!hidden[s]) count++;
+        }
+        shownSlots = count;
     }
 
     private int gridW() {
@@ -145,7 +174,7 @@ public final class ItemPanel {
     }
 
     private int perPage() {
-        return Math.max(1, columns * rows);
+        return Math.max(1, shownSlots);
     }
 
     public int pageCount() {
@@ -156,9 +185,10 @@ public final class ItemPanel {
         page = Math.max(0, Math.min(page, pageCount() - 1));
     }
 
-    /** True if the point is on the grid or the page row. */
+    /** True if the point is on the grid or the page row (and not on something another mod draws there). */
     public boolean contains(double mx, double my) {
         if (!isVisible()) return false;
+        if (GuiAreas.contains(mx, my)) return false; // the click belongs to that mod's widget
         final int top = nav ? Math.min(gridY, navY) : gridY;
         final int bottom = nav ? Math.max(gridY + rows * SLOT, navY + BTN) : gridY + rows * SLOT;
         return mx >= x && mx < x + gridW() && my >= top && my < bottom;
@@ -199,7 +229,9 @@ public final class ItemPanel {
         final int col = (int) ((mx - x) / SLOT);
         final int row = (int) ((my - gridY) / SLOT);
         if (col >= columns || row >= rows) return -1;
-        final int index = page * perPage() + row * columns + col;
+        final int slot = row * columns + col;
+        if (slot >= hidden.length || hidden[slot]) return -1;
+        final int index = page * perPage() + rank[slot];
         return index < items().size() ? index : -1;
     }
 
@@ -210,8 +242,10 @@ public final class ItemPanel {
         final int row = (int) ((my - gridY) / SLOT);
         if (col >= columns || row >= rows) return null;
 
+        final int slot = row * columns + col;
+        if (slot >= hidden.length || hidden[slot]) return null;
         final List<ItemEntry> items = items();
-        final int index = page * perPage() + row * columns + col;
+        final int index = page * perPage() + rank[slot];
         return index < items.size() ? items.get(index) : null;
     }
 
@@ -246,16 +280,20 @@ public final class ItemPanel {
 
         // NEI's order: highlight and group backgrounds, then group borders, then the items
         final int hoveredIndex = indexAt(mx, my);
-        final int[] slotGroup = new int[perPage()];
+        final int slots = hidden.length;
+        final int[] slotGroup = new int[slots];
         java.util.Arrays.fill(slotGroup, -1);
-        for (int i = 0; i < perPage() && start + i < items.size(); i++) slotGroup[i] = groupAtIndex(start + i);
+        for (int i = 0; i < slots; i++) {
+            if (!hidden[i] && start + rank[i] < items.size()) slotGroup[i] = groupAtIndex(start + rank[i]);
+        }
 
         final int collapsedBg = NEIConfig.color(NEIConfig.COLLAPSIBLE_COLLAPSED_COLOR);
         final int expandedBg = NEIConfig.color(NEIConfig.COLLAPSIBLE_EXPANDED_COLOR);
         final boolean force = arranged != null && arranged.forceExpand;
 
-        for (int i = 0; i < perPage(); i++) {
-            final int index = start + i;
+        for (int i = 0; i < slots; i++) {
+            if (hidden[i]) continue;
+            final int index = start + rank[i];
             if (index >= items.size()) break;
             final int cx = x + (i % columns) * SLOT;
             final int cy = gridY + (i / columns) * SLOT;
@@ -267,7 +305,7 @@ public final class ItemPanel {
             }
         }
 
-        for (int i = 0; i < perPage(); i++) {
+        for (int i = 0; i < slots; i++) {
             if (slotGroup[i] < 0) continue;
             final int cx = x + (i % columns) * SLOT;
             final int cy = gridY + (i / columns) * SLOT;
@@ -285,14 +323,16 @@ public final class ItemPanel {
             }
         }
 
-        for (int i = 0; i < perPage(); i++) {
-            final int index = start + i;
+        for (int i = 0; i < slots; i++) {
+            if (hidden[i]) continue;
+            final int index = start + rank[i];
             if (index >= items.size()) break;
 
             final ItemEntry entry = items.get(index);
             final int cx = x + (i % columns) * SLOT;
             final int cy = gridY + (i / columns) * SLOT;
 
+            Draw.beginSlotScale(g, cx, cy, SLOT);
             if (slotGroup[i] >= 0 && !force && !Collapsible.isExpanded(slotGroup[i])) {
                 // a collapsed group: its last item peeks out from behind the first
                 final List<ItemEntry> all = arranged.members.get(slotGroup[i]);
@@ -306,6 +346,7 @@ public final class ItemPanel {
                 final int n = amounts.applyAsInt(entry);
                 if (n > 1) Gfx.decorations(g, font, entry.stack.copyWithCount(n), cx + 1, cy + 1);
             }
+            Draw.endSlotScale(g, SLOT);
         }
 
         if (groupButtonShown()) {
@@ -321,10 +362,15 @@ public final class ItemPanel {
             HotkeyHelp.listGroupExpanded = group >= 0 && Collapsible.isExpanded(group);
             final String name = group >= 0 && !force && !Collapsible.isExpanded(group) ? Collapsible.displayName(group) : "";
             // As in NEI: a collapsed group shows its own name instead of the first item's
-            if (!name.isEmpty() && NEIConfig.COLLAPSIBLE_CUSTOM_NAME.getAsBoolean() && !HotkeyHelp.isAltDown()) {
+            if (!name.isEmpty() && NEIConfig.COLLAPSIBLE_CUSTOM_NAME.getAsBoolean() && !HotkeyHelp.helpDown()) {
                 ItemTooltip.requestPlain(List.of(Component.literal(name)));
             } else {
                 ItemTooltip.request(hovered.stack, where);
+                // NEI's HoveredRecipe ITEM_PANEL: an item with a favorite recipe shows it (Show Recipe Tooltips in Right Panel)
+                if (codechicken.nei.NEIConfig.FAVORITE_TOOLTIP_PANEL.getAsBoolean()) {
+                    final codechicken.nei.recipe.RecipeView favorite = RecipeBookmarks.favoriteView(hovered.stack);
+                    if (favorite != null) ItemTooltip.requestRecipe(favorite);
+                }
             }
         }
     }

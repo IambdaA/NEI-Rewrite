@@ -32,6 +32,29 @@ public final class NeoPlatform implements Platform {
     }
 
     @Override
+    public java.util.List<net.minecraft.network.chat.Component> fluidTooltip(net.minecraft.world.level.material.Fluid fluid,
+            boolean advanced) {
+        // NeoForge 21.1 has no FluidTooltipEvent: mods describe their fluids for JEI, so JEI's fluid tooltip is asked
+        if (!isModLoaded("jei")) return java.util.List.of();
+        return codechicken.nei.jei.NEIJeiPlugin.fluidTooltip(fluid, advanced);
+    }
+
+    @Override
+    public net.minecraft.network.chat.Component fluidName(net.minecraft.world.level.material.Fluid fluid) {
+        return fluid.getFluidType().getDescription();
+    }
+
+    @Override
+    public int fluidTemperature(net.minecraft.world.level.material.Fluid fluid) {
+        return fluid.getFluidType().getTemperature();
+    }
+
+    @Override
+    public boolean fluidGaseous(net.minecraft.world.level.material.Fluid fluid) {
+        return fluid.getFluidType().isLighterThanAir();
+    }
+
+    @Override
     public long fluidAmount(Object ingredient) {
         return ingredient instanceof net.neoforged.neoforge.fluids.FluidStack stack ? stack.getAmount() : -1;
     }

@@ -138,7 +138,16 @@ public final class BookmarkGrid {
         final Item item = new Item(id, amount, DEFAULT_GROUP_ID);
         item.recipeId = recipeId;
         items.add(item);
+        pop(item);
         changed();
+    }
+
+    /** NEI's {@code animation}: how far a new bookmark has popped up (0 - 1); the panel grows it by 0.1 a frame. */
+    public final Map<Item, Float> popping = new java.util.WeakHashMap<>();
+
+    /** NEI's {@code addItem(item, animate)}: a new bookmark pops up while REI Style Animation is on. */
+    private void pop(Item item) {
+        if (codechicken.nei.NEIConfig.BOOKMARKS_ANIMATION.getAsBoolean()) popping.put(item, 0f);
     }
 
     // ---- quantity (NEI shiftItemAmount / shiftRecipeAmount / shiftGroupAmount) ----
@@ -233,6 +242,7 @@ public final class BookmarkGrid {
                 item.factor = r.count();
                 if (pass == 1 && r.options() != null && r.options().size() > 1) item.options = r.options();
                 items.add(item);
+                pop(item);
             }
         }
         changed();

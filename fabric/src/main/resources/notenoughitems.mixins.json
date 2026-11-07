@@ -5,10 +5,12 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "ContainerScreenMixin",
+    "GuiGraphicsMixin",
     "KeyMappingMixin",
     "KeyboardHandlerMixin",
     "MinecraftMixin",
-    "MouseHandlerMixin"
+    "MouseHandlerMixin",
+    "ScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1

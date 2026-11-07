@@ -5,6 +5,7 @@ import java.util.Map;
 
 import codechicken.nei.Bookmarks;
 import codechicken.nei.ItemList;
+import codechicken.nei.NEIConfig;
 import codechicken.nei.bookmark.BookmarkGrid;
 import codechicken.nei.bookmark.ChainMath;
 import codechicken.nei.bookmark.BookmarkLayout;
@@ -13,6 +14,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * The bookmark panel on the left, laid out like GTNH NEI's {@code BookmarkPanel}:
@@ -34,7 +36,8 @@ import net.minecraft.network.chat.Component;
  */
 public final class BookmarkPanel {
 
-    public static final int SLOT = 18;
+    /** The slot size: {@link ItemPanel#SLOT} (Item Panel Scale). */
+    public static int SLOT = 18;
     public static final int STRIP = 7; // NEI: BookmarkGrid.GROUP_PANEL_WIDTH
     private static final int BTN = 14;
     private static final long DRAG_MS = 250;
@@ -479,6 +482,12 @@ public final class BookmarkPanel {
         Gfx.fill(g, rx, ry, rx + w, ry + h, color);
     }
 
+    /** The slots being dragged to a new place follow the mouse over everything, so they are drawn after the panels. */
+    public void renderDragged(GuiGraphics g, int mx, int my) {
+        if (!isVisible() || !sorting() || Bookmarks.grid().isEmpty()) return;
+        drawSorting(g, mx, my, lay(), page());
+    }
+
     public void render(GuiGraphics g, int mx, int my) {
         if (!isVisible()) return;
         final Font font = Minecraft.getInstance().font;
@@ -539,11 +548,22 @@ public final class BookmarkPanel {
 
             final int cx = gridX() + (rel % columns) * SLOT;
             final int cy = gridY + (rel / columns) * SLOT;
+            final Float pop = grid.popping.get(item);
+            if (pop != null) { // NEI's drawPoppingItem: a new bookmark grows from the middle of its slot
+                final float scale = pop + 0.1f;
+                if (scale >= 1) grid.popping.remove(item);
+                else grid.popping.put(item, scale);
+                g.pose().pushPose();
+                g.pose().translate(cx + SLOT * (1 - scale) / 2f, cy + SLOT * (1 - scale) / 2f, 0f);
+                g.pose().scale(Math.min(1f, scale), Math.min(1f, scale), 1f);
+                g.pose().translate(-cx, -cy, 0f);
+            }
+            Draw.beginSlotScale(g, cx, cy, SLOT);
             Draw.stack(g, entry.stack, cx + 1, cy + 1);
             drawAmounts(g, font, grid, lay, laid, slot.getKey(), item, cx, cy, ctx);
+            Draw.endSlotScale(g, SLOT);
+            if (pop != null) g.pose().popPose();
         }
-
-        if (sorting()) drawSorting(g, mx, my, lay, page);
 
         if (hovered != null) {
             HotkeyHelp.slotType = hoveredSlot.type;
@@ -555,6 +575,16 @@ public final class BookmarkPanel {
                 }
             }
             ItemTooltip.request(hovered.stack, HotkeyHelp.Where.BOOKMARK);
+            // NEI's HoveredRecipe BOOKMARK: a bookmark that remembers its recipe shows it, by Show Recipe Tooltips in Bookmarks
+            // (normal groups are NEI's horizontal view, todo lists its vertical view)
+            if (hoveredSlot.type != 2 && hoveredSlot.recipeId != null) {
+                final int mode = NEIConfig.BOOKMARK_RECIPE_TOOLTIPS.getAsInt();
+                final boolean todo = grid.group(hoveredSlot.groupId).todo;
+                if (mode == 3 || mode == 1 && !todo || mode == 2 && todo) {
+                    final codechicken.nei.recipe.RecipeView view = RecipeBookmarks.resolveCached(hoveredSlot.id, hoveredSlot.recipeId);
+                    if (view != null) ItemTooltip.requestRecipe(view);
+                }
+            }
         } else if (!dragging && !sorting()) {
             // NEI: hovering the strip shows "Bookmarks Group" and, with Alt held, its hotkeys
             final int row = stripRow(mx, my);
@@ -562,8 +592,84 @@ public final class BookmarkPanel {
                 final int stripGroup = lay.groupOfRow(page * rows + row);
                 final boolean inGroup = stripGroup != BookmarkLayout.DEFAULT_GROUP;
                 ItemTooltip.requestStrip(inGroup, inGroup && grid.group(stripGroup).crafting);
+                if (inGroup && grid.group(stripGroup).crafting) ItemTooltip.requestChain(chainLines(grid, stripGroup));
             }
         }
+    }
+
+    /**
+     * NEI's {@code RecipeChainTooltipLineHandler} without Shift: "Crafting Chain" lists what the chain makes (aqua; one item a
+     * row with its name when it is the only one, up to Max Vertical Tooltip Rows), "Ingredients" what it needs (yellow), with
+     * the amounts the panel calculates. Items before fluids, then the larger amounts first.
+     */
+    private static List<ItemTooltip.ItemLine> chainLines(BookmarkGrid grid, int groupId) {
+        final boolean shift = HotkeyHelp.isShiftDown();
+        final Map<String, long[]> outputs = new java.util.LinkedHashMap<>();
+        final Map<String, long[]> inputs = new java.util.LinkedHashMap<>();
+        final Map<String, long[]> crafts = new java.util.LinkedHashMap<>();
+        for (BookmarkGrid.Item item : grid.items) {
+            if (item.groupId != groupId) continue;
+            final ChainMath.Calc calc = grid.calc.get(item);
+            if (calc == null || calc.amount() <= 0) continue;
+            if (calc.type == ChainMath.Calc.RESULT && item.recipeId != null && grid.isOutputRecipe(groupId, item.recipeId)) {
+                outputs.computeIfAbsent(item.id, k -> new long[1])[0] += calc.amount();
+            } else if (calc.type == ChainMath.Calc.INGREDIENT) {
+                inputs.computeIfAbsent(item.id, k -> new long[1])[0] += calc.amount();
+            } else if (shift && calc.type == ChainMath.Calc.REMAINDER) {
+                outputs.computeIfAbsent(item.id, k -> new long[1])[0] += calc.amount(); // NEI: Shift adds the remainders
+            } else if (shift && calc.type == ChainMath.Calc.RESULT) {
+                crafts.computeIfAbsent(item.id, k -> new long[1])[0] += calc.amount(); // results made on the way
+            }
+        }
+        // NEI's Shift view: the ingredients against the inventory, what is missing and what you already have
+        final Map<String, long[]> missing = new java.util.LinkedHashMap<>();
+        final Map<String, long[]> available = new java.util.LinkedHashMap<>();
+        if (shift) {
+            final Map<String, Long> have = new java.util.HashMap<>();
+            final var player = Minecraft.getInstance().player;
+            if (player != null) {
+                for (int i = 0; i < 36; i++) {
+                    final ItemStack s = player.getInventory().getItem(i);
+                    if (!s.isEmpty()) have.merge(codechicken.nei.item.FluidDisplay.idOf(s), (long) s.getCount(), Long::sum);
+                }
+            }
+            for (Map.Entry<String, long[]> e : inputs.entrySet()) {
+                final long need = e.getValue()[0];
+                final long got = Math.min(need, have.getOrDefault(e.getKey(), 0L));
+                if (need - got > 0) missing.put(e.getKey(), new long[] { need - got });
+                if (got > 0) available.put(e.getKey(), new long[] { got });
+            }
+        }
+        final int screenH = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+        final int maxRows = Math.max(1, (screenH - 26 - 40 - 13) / 18); // NEI's maxLineRows
+        final List<ItemTooltip.ItemLine> lines = new java.util.ArrayList<>();
+        // NEI's order: Crafting Chain, Required Crafts, Missing Items (Shift), Ingredients (with Shift: the ones you have)
+        final List<Map<String, long[]>> maps = shift ? List.of(outputs, crafts, missing, available) : List.of(outputs, inputs);
+        final String[] labels = shift ? new String[] { "Crafting Chain", "Required Crafts", "Missing Items", "Ingredients" }
+                : new String[] { "Crafting Chain", "Ingredients" };
+        final net.minecraft.ChatFormatting[] colors = shift
+                ? new net.minecraft.ChatFormatting[] { net.minecraft.ChatFormatting.AQUA, net.minecraft.ChatFormatting.BLUE,
+                        net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.YELLOW }
+                : new net.minecraft.ChatFormatting[] { net.minecraft.ChatFormatting.AQUA, net.minecraft.ChatFormatting.YELLOW };
+        for (int pass = 0; pass < maps.size(); pass++) {
+            final Map<String, long[]> map = maps.get(pass);
+            final List<Map.Entry<String, long[]>> entries = new java.util.ArrayList<>(map.entrySet());
+            entries.removeIf(e -> ItemList.find(e.getKey()) == null);
+            entries.sort(java.util.Comparator.comparing((Map.Entry<String, long[]> e) -> codechicken.nei.item.FluidDisplay.isFluidId(e.getKey()))
+                    .thenComparingLong(e -> -e.getValue()[0]));
+            final List<ItemStack> stacks = new java.util.ArrayList<>();
+            final List<Long> amounts = new java.util.ArrayList<>();
+            for (Map.Entry<String, long[]> e : entries) {
+                stacks.add(ItemList.find(e.getKey()).stack);
+                amounts.add(e.getValue()[0]);
+            }
+            if (stacks.isEmpty()) continue;
+            // NEI: a single output, and with Shift the missing and the available ingredients, get one row per item with its name
+            final boolean vertical = pass == 0 && stacks.size() == 1 || shift && pass >= 2;
+            lines.add(new ItemTooltip.ItemLine(labels[pass], colors[pass], stacks, amounts, null,
+                    maxRows, vertical ? NEIConfig.BOOKMARK_VERTICAL_ROWS.getAsInt() : 0, false));
+        }
+        return lines;
     }
 
     /** NEI's {@code calculateGroupBorders} + {@code drawBorder}; shortcut: 1px lines, NEI's are 0.75px wide. */
@@ -582,6 +688,16 @@ public final class BookmarkPanel {
             // NEI's BookmarksGridSlot#beforeDraw: with Ctrl or Shift held the slots of the hovered recipe / row / group are
             // coloured by what they are (ingredient, result, remainder); otherwise only the hovered slot is lit
             final int shownColor = shownColor(grid, item, abs, ctx);
+            if (shownColor == 0 && item != hoveredSlot && item.type != 2 && item.recipeId != null
+                    && NEIConfig.BOOKMARK_MARKER.getAsInt() == 2) {
+                // NEI's drawMerkerBackground: Show Recipe Marker = Background (not while Shift shows a chain's amounts)
+                final ChainMath.Calc calc = grid.calc.get(item);
+                if (!(calc != null && shownOf(grid, item, calc, abs, ctx) == Shown.SHIFT)) {
+                    final boolean fluid = codechicken.nei.item.FluidDisplay.isFluidId(item.id);
+                    final boolean remainder = calc != null && calc.shiftAmount > 0 && calc.type == ChainMath.Calc.REMAINDER;
+                    Gfx.fill(g, cx, cy, cx + SLOT, cy + SLOT, remainder ? (fluid ? 0x44A033A0 : 0x33A033A0) : (fluid ? 0x5566CCFF : 0x3366CCFF));
+                }
+            }
             if (shownColor != 0) Gfx.fill(g, cx, cy, cx + SLOT, cy + SLOT, shownColor);
             else if (item == hoveredSlot) Gfx.fill(g, cx, cy, cx + SLOT, cy + SLOT, HIGHLIGHT);
 
@@ -628,7 +744,7 @@ public final class BookmarkPanel {
             smallText(g, font, text, cx + 17 - font.width(text) * 0.5f, cy + 17 - 4.5f, 0xFFFFFF);
         }
 
-        if (item.type != 1 || item.recipeId == null) return;
+        if (item.type == 2 || item.recipeId == null) return; // NEI: no marker on ingredients or without a recipe
 
         // first result of its recipe on a row
         final Integer prevIndex = lay.slotToItem.get(absSlot - 1);
@@ -636,15 +752,34 @@ public final class BookmarkPanel {
         final boolean todo = grid.group(item.groupId).todo;
         final boolean first = (absSlot % columns == 0 || !todo)
                 && (prev == null || prev.type == 2 || !item.recipeId.equals(prev.recipeId));
-        if (!first) return;
+        final int markerColor = NEIConfig.color(NEIConfig.BOOKMARK_MARKER_COLOR) & 0xFFFFFF;
 
-        final long real = calc != null ? calc.realMultiplier : item.factor <= 0 ? 0 : item.amount / item.factor;
-        if (shown == Shown.REAL) {
-            smallText(g, font, "x" + readable(real), cx + 1, cy + 1, 0xFFFFFF);
-        } else if (shown == Shown.SHIFT) {
-            smallText(g, font, "x" + readable(calc != null ? calc.multiplier : real), cx + 1, cy + 1, 0xFFFFFF);
-        } else if (grid.isOutputRecipe(item.groupId, item.recipeId) || real > 1) {
-            smallText(g, font, "x" + readable(real), cx + 1, cy + 1, 0xADADAD);
+        if (first) {
+            final long real = calc != null ? calc.realMultiplier : item.factor <= 0 ? 0 : item.amount / item.factor;
+            if (shown == Shown.REAL) {
+                smallText(g, font, "x" + readable(real), cx + 1, cy + 1, 0xFFFFFF);
+            } else if (shown == Shown.SHIFT) {
+                smallText(g, font, "x" + readable(calc != null ? calc.multiplier : real), cx + 1, cy + 1, 0xFFFFFF);
+            } else if (grid.isOutputRecipe(item.groupId, item.recipeId) || real > 1) {
+                smallText(g, font, "x" + readable(real), cx + 1, cy + 1, markerColor);
+            }
+        }
+
+        // NEI's drawRecipeMarker: the recipe type's icon (Show Handler Icon), else with Show Recipe Marker = Text an "R" at the
+        // top right; on the first result of the recipe, or on every result while the marker is Text
+        final int markerMode = NEIConfig.BOOKMARK_MARKER.getAsInt();
+        if (first || markerMode == 1) {
+            final ItemStack icon = NEIConfig.BOOKMARK_HANDLER_ICON.getAsBoolean() ? RecipeBookmarks.handlerIcon(item.id, item.recipeId) : ItemStack.EMPTY;
+            if (!icon.isEmpty()) {
+                final float f = 0.4f; // NEI: 40% of the slot, in its top right corner
+                g.pose().pushPose();
+                g.pose().translate(cx + 2 + 16 - 16 * f, cy, 0f);
+                g.pose().scale(f, f, 1f);
+                Draw.stack(g, icon, 0, 0);
+                g.pose().popPose();
+            } else if (markerMode == 1) {
+                smallText(g, font, "R", cx + 17 - font.width("R") * 0.5f, cy + 1, markerColor);
+            }
         }
     }
 

@@ -123,7 +123,7 @@ final class RecipeTransfer {
      * slots while the mouse is on the button. {@code pick} chooses the shown option of each ingredient.
      */
     static void drawGhosts(net.minecraft.client.gui.GuiGraphics g, AbstractContainerScreen<?> screen, RecipeView view,
-            java.util.function.Function<SlotView, ItemStack> pick) {
+            java.util.function.Function<SlotView, ItemStack> pick, boolean onlyEmpty) {
         final AbstractContainerMenu menu = screen.getMenu();
         final Grid grid = gridOf(menu);
         if (grid == null || !canTransfer(screen, view)) return;
@@ -133,11 +133,38 @@ final class RecipeTransfer {
             if (slot.output()) continue;
             final int[] cell = target(view, slot, ordinal++, grid);
             final Slot dest = menu.slots.get(grid.firstSlot() + cell[1] * grid.width() + cell[0]);
+            if (onlyEmpty && dest.hasItem()) continue;
             final int x = screen.leftPos + dest.x;
             final int y = screen.topPos + dest.y;
             Draw.stack(g, pick.apply(slot), x, y);
-            Gfx.fill(g, x, y, x + 16, y + 16, 0x908B8B8B); // the veil that makes it a ghost
+            // NEI's DefaultOverlayRenderer veils the item with 0x66555555; the hover ghost keeps its stronger veil
+            Gfx.fill(g, x, y, x + 16, y + 16, onlyEmpty ? 0x66555555 : 0x908B8B8B);
         }
+    }
+
+    // NEI's LayoutManager.overlayRenderer: a recipe shown faded in the grid until another screen opens
+    private static AbstractContainerScreen<?> overlayScreen;
+    private static RecipeView overlayView;
+    private static java.util.Map<SlotView, ItemStack> overlayStacks = java.util.Map.of();
+
+    /** NEI's {@code useOverlayRenderer}: the + without Shift. The cycling slots keep the stack they showed at the click. */
+    static void showOverlay(AbstractContainerScreen<?> screen, RecipeView view, java.util.function.Function<SlotView, ItemStack> pick) {
+        final java.util.Map<SlotView, ItemStack> stacks = new java.util.IdentityHashMap<>();
+        for (SlotView slot : view.slots()) if (!slot.output()) stacks.put(slot, pick.apply(slot));
+        overlayScreen = screen;
+        overlayView = view;
+        overlayStacks = stacks;
+    }
+
+    /** Draws the overlay over the empty grid slots of the screen it was made for (nothing on any other screen). */
+    static void drawOverlay(net.minecraft.client.gui.GuiGraphics g, AbstractContainerScreen<?> screen) {
+        if (overlayView == null) return;
+        if (screen != overlayScreen) {
+            overlayView = null; // NEI: the overlay ends when another screen loads
+            overlayScreen = null;
+            return;
+        }
+        drawGhosts(g, screen, overlayView, s -> overlayStacks.getOrDefault(s, s.options().get(0)), true);
     }
 
     private static void click(AbstractContainerMenu menu, int slot, int button, ClickType input) {

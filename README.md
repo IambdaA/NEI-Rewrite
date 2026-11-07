@@ -23,7 +23,8 @@ like NEI in GregTech: New Horizons.
 - A mod API for other mods (see below)
 
 Hold **Alt** over an item for its hotkeys. Keys are under Options > Controls > NotEnoughItems, options in the wrench
-button's settings window.
+button's settings screen, which follows NEI's options screen page by page (Inventory, World, Commands, Tools). Only Tools >
+Load handlers / catalysts from Config stay greyed out: they read NEI's 1.7.10 files.
 
 Not affiliated with the GTNH team. See `PORTING_NOTES.md` for the porting log and what is not ported.
 
@@ -73,6 +74,10 @@ One project, three parts: `common/` (all the mod's code, plain Minecraft code wi
 
 Needs JDK 21. The Fabric jar needs Fabric API next to it at runtime.
 
+## Source and bug reports
+
+Source code: <https://github.com/IambdaA/NEI-Rewrite>. Please report problems at <https://github.com/IambdaA/NEI-Rewrite/issues>, together with your `latest.log`.
+
 ## Credits and original work
 
 NEI Rewrite is a **derivative work**. It is based on **NotEnoughItems (NEI)**; the credit for the design, the features and the look
@@ -84,6 +89,11 @@ belongs to the original authors:
   inspired by it, and NEI Rewrite reads other mods' recipes through JEI's plugin API: <https://github.com/mezz/JustEnoughItems>
 
 The GUI textures in `assets/notenoughitems/textures/gui` come unchanged from the GTNH NotEnoughItems repository.
+
+The button styles of the setting UI Style are drawn in code with plain fills and include no texture of another project:
+**NTNH-Approximate** approximates the slate buttons of the **NTNH** modpack (<https://github.com/NTNewHorizons/NTNH>), and
+**GTNH-Modernity** approximates the dark UI of **Modernity-GTNH** (<https://github.com/ModernityGTNH/Modernity-GTNH>). Both are
+made from colours seen in screenshots; neither project's files are included.
 NEI Rewrite is made by **Iambda** and is not affiliated with or endorsed by the original authors or the GTNH team.
 
 ## How NEI Rewrite differs from the original
@@ -94,7 +104,7 @@ NEI Rewrite is made by **Iambda** and is not affiliated with or endorsed by the 
   Horizons' machine handlers). NEI Rewrite reads vanilla recipes from the game's recipe system and the recipes of other mods from
   JEI's plugins, so modded machines need JEI installed. There are no GregTech / GTNH-specific recipe handlers.
 - **Tags instead of the ore dictionary.** The `$` search matches item tags.
-- **Own settings and keys.** Options are kept in a config file and edited in the wrench button's settings window; hotkeys are normal
+- **Own settings and keys.** Options are kept in a config file and edited in the wrench button's settings screen; hotkeys are normal
   Minecraft key binds. NEI's 1.7.10 config files are not read.
 - **A smaller mod API.** Same idea as NEI's `API` class, but mods register through a NeoForge event (`NEIRegisterEvent`) or a Fabric entrypoint (`NEIPlugin`). NEI's 1.7.10 GUI handler and overlay APIs
   are not carried over.
