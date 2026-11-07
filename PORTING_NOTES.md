@@ -839,3 +839,9 @@ CurseForge asked for a credit and a link to the original content in the descript
 - `NEIClientEvents.addHistory` recorded the item only, so every fluid of `hbm:fluid_icon` became the plain item ("None") and replaced the others.
   It now records the lookup's focus stack (`RecipeOverlay.pendingFocus()`) and dedupes by id. Found on 1.21.1; 26.2 does not show it, so it is only here.
 - Not built here.
+
+## Stages 55-57 (26.1.2): the 26.2 settings screen, panel areas and Stage 57 brought over
+- Request: after the user confirmed Stage 57 on 26.2 and 1.21.1, port stages 55-57 (NEI's options screen, UI Style, panels around other mods' GUI elements, every settings row working, + moves items by default, U on machines, fluid tooltips with the mod's own lines) to 26.1.2.
+- How: `git merge-file` per file with base = 26.2 1.1.2, theirs = current 26.2, ours = 26.1.2 1.1.2. The two trees differed only in `Minecraft.screen` / `Minecraft.setScreen` (26.2: `gui.screen()` / `gui.setScreen`), so base and theirs got those two renames and nothing else. Two conflicts: `NEIClientEvents.openPresets` next to 26.1.2's `setScreen` comment, and the Fabric mixin list (26.1.2 keeps its `MinecraftMixin` instead of 26.2's `GuiMixin`, plus 26.2's new `GuiGraphicsExtractorMixin` and `ScreenMixin`). `SettingsWindow` (the old window, removed in 26.2's stage 55) deleted. 26.1.2's own history fix (`RecipeOverlay.pendingFocus`, history keyed by registry id) kept.
+- Checked: the unchanged 26.1.2 tree compiled first; after the merge `./gradlew --offline build` builds both jars with no errors. The new mixins' targets (`Screen#extractRenderStateWithTooltipAndSubtitles` calling `extractBackground`, `GuiGraphicsExtractor#setTooltipForNextFrameInternal`) exist in 26.1.2 with the same signatures (javap on the 26.1.2 jar).
+- Not checked in the game: all of it.

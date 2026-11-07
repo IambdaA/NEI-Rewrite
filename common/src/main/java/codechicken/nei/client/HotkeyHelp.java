@@ -36,6 +36,11 @@ final class HotkeyHelp {
         return altDown;
     }
 
+    /** Alt held and the hotkey list switched on (NEI's inventory.showHotkeys): the help box shows instead of the tooltip. */
+    static boolean helpDown() {
+        return altDown && codechicken.nei.NEIConfig.SHOW_HOTKEYS.getAsBoolean();
+    }
+
     static boolean isShiftDown() {
         return shiftDown;
     }
@@ -159,7 +164,7 @@ final class HotkeyHelp {
             lines.add(new Line(cheating ? "SHIFT + RMB" : "RMB", "Recipes that use this item"));
         }
 
-        box(g, mx, my, sw, sh, stack.getHoverName().getString(), lines, where == Where.SLOT);
+        box(g, mx, my, sw, sh, stack.getHoverName().getString(), lines, ItemTooltip.extraLines(stack));
         return true;
     }
 
@@ -183,7 +188,7 @@ final class HotkeyHelp {
             lines.add(new Line("ALT + LMB", "Toggle Collapse/Expand"));
             if (crafting) lines.add(new Line(NEIKeys.name(NEIKeys.OPEN_TREE), "Open Crafting Tree"));
         }
-        box(g, mx, my, sw, sh, "Bookmarks Group", lines, false);
+        box(g, mx, my, sw, sh, "Bookmarks Group", lines, List.of());
     }
 
     /** Help for the favorite (heart) button of a recipe (NEI's {@code GuiFavoriteButton#handleHotkeys}). */
@@ -193,7 +198,7 @@ final class HotkeyHelp {
         if (SubsetMenu.searchByClick()) lines.add(new Line("SHIFT + LMB", "Search by Subset"));
         lines.add(new Line("LMB", "Show Subset"));
         lines.add(new Line("RMB", "Hide Subset"));
-        box(g, mx, my, sw, sh, name, lines, false);
+        box(g, mx, my, sw, sh, name, lines, List.of());
     }
 
     static void drawHeart(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, boolean severalResults) {
@@ -201,7 +206,7 @@ final class HotkeyHelp {
         lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.BOOKMARK), "Save Recipe Tree"));
         lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.OPEN_TREE), "Open Crafting Tree"));
         if (severalResults) lines.add(new Line("MOUSE WHEEL", "Change favorite result")); // NEI: recipe.favorite.change_result_index
-        box(g, mx, my, sw, sh, "Favorite", lines, false);
+        box(g, mx, my, sw, sh, "Favorite", lines, List.of());
     }
 
     private static void chatLine(List<Line> lines, String text) {
@@ -222,17 +227,20 @@ final class HotkeyHelp {
         lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.CRAFT_ITEMS), "Craft Items"));
     }
 
+    /**
+     * One box like NEI's tooltip with the hotkeys on: the name, the hotkey lines, then {@code extra}, the item's own
+     * further lines (enchantments, lore ...).
+     */
     private static void box(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, String name, List<Line> lines,
-            boolean below) {
+            List<Component> extra) {
         final Font font = Minecraft.getInstance().font;
         int width = font.width(name);
         for (Line l : lines) width = Math.max(width, font.width(l.key()) + 8 + font.width(l.text()));
-        final int height = 12 + lines.size() * 10;
+        for (Component c : extra) width = Math.max(width, font.width(c));
+        final int height = 12 + (lines.size() + extra.size()) * 10;
 
-        // Normal tooltips sit right and slightly above the cursor; slots in the container screen already have one
-        // underneath, so the help goes below it.
         int x = mx + 12;
-        int y = below ? my + 70 : my - 12;
+        int y = my - 12;
         if (x + width + 8 > sw) x = Math.max(4, mx - width - 16);
         if (y + height + 8 > sh) y = Math.max(4, sh - height - 8);
 
@@ -247,6 +255,10 @@ final class HotkeyHelp {
         for (Line l : lines) {
             g.text(font, Component.literal(l.key()), x, ty, 0xFFFFFF55, false);
             g.text(font, Component.literal(l.text()), x + font.width(l.key()) + 8, ty, 0xFFAAAAAA, false);
+            ty += 10;
+        }
+        for (Component c : extra) {
+            g.text(font, c, x, ty, 0xFFFFFFFF, true);
             ty += 10;
         }
     }

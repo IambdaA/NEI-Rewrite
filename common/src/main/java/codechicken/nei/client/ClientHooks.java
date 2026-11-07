@@ -29,6 +29,7 @@ public final class ClientHooks {
     /** End of a client tick. */
     public static void tick() {
         Toolbar.onTick();
+        ReleaseNotice.onTick();
         TerminalSearchSync.onTick();
         AutoCraft.onTick();
         Magnet.onTick();
@@ -42,11 +43,44 @@ public final class ClientHooks {
         NEIClientEvents.onInit(ScreenEv.init(screen));
     }
 
+    /** The mouse and frame time of the latest {@link #renderPre}: NeoForge's Background event does not carry them. */
+    private static int frameMouseX;
+    private static int frameMouseY;
+    private static float framePartial;
+
     /** Before a screen draws; true skips drawing it. */
     public static boolean renderPre(Screen screen, GuiGraphicsExtractor g, int mx, int my, float partialTick) {
+        frameMouseX = mx;
+        frameMouseY = my;
+        framePartial = partialTick;
         final ScreenEv e = ScreenEv.render(screen, g, mx, my, partialTick);
         NEIClientEvents.onRenderPre(e);
         return e.isCanceled();
+    }
+
+    /**
+     * Right after the screen's dimmed background, before it draws slots, tooltips, potion effects and the carried item:
+     * NEI's panels are drawn here so those end up over them (NeoForge {@code ScreenEvent.Render.Background}).
+     */
+    public static void renderBackground(Screen screen, GuiGraphicsExtractor g) {
+        renderBackground(screen, g, frameMouseX, frameMouseY, framePartial);
+    }
+
+    /** Like {@link #renderBackground(Screen, GuiGraphicsExtractor)} for a loader that knows the mouse (Fabric's mixin). */
+    public static void renderBackground(Screen screen, GuiGraphicsExtractor g, int mx, int my, float partialTick) {
+        final org.joml.Matrix3x2fStack pose = g.pose();
+        pose.pushMatrix();
+        pose.identity(); // the screen may have left a transform on the stack; the panels use screen coordinates
+        try {
+            NEIClientEvents.onBackground(ScreenEv.render(screen, g, mx, my, partialTick));
+        } finally {
+            pose.popMatrix();
+        }
+    }
+
+    /** True while the Alt hotkey box stands in for vanilla's slot tooltip; the loader glue then drops the vanilla one. */
+    public static boolean suppressVanillaTooltip() {
+        return NEIClientEvents.suppressVanillaTooltip();
     }
 
     /** After a screen drew: NEI's panels, windows and tooltips go on top. */

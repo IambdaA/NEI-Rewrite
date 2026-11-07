@@ -26,7 +26,8 @@ like NEI in GregTech: New Horizons.
 - A mod API for other mods (see below)
 
 Hold **Alt** over an item for its hotkeys. Keys are under Options > Controls > NotEnoughItems, options in the wrench
-button's settings window.
+button's settings screen, which follows NEI's options screen page by page (Inventory, World, Commands, Tools). Only Tools >
+Load handlers / catalysts from Config stay greyed out: they read NEI's 1.7.10 files.
 
 Not affiliated with the GTNH team. See `PORTING_NOTES.md` for the porting log and what is not ported.
 
@@ -79,6 +80,10 @@ There is no separate API jar: compile against the mod jar (`compileOnly`).
 
 One project, three parts: `common/` (all the mod's code, plain Minecraft code with no loader API), and `neoforge/` and
 `fabric/` (the glue for each loader; each also compiles `common/`). Needs JDK 25. The Fabric jar needs Fabric API next to it at runtime.
+
+## Source and bug reports
+
+Source code: <https://github.com/IambdaA/NEI-Rewrite>. Please report problems at <https://github.com/IambdaA/NEI-Rewrite/issues>, together with your `latest.log`.
 
 ## Credits and original work
 

@@ -48,6 +48,7 @@ final class MobOverlay {
     private static final Identifier ZOMBIE_ID = Identifier.fromNamespaceAndPath("minecraft", "zombie");
 
     private static boolean on;
+    private static ClientLevel lastLevel;
     private static final List<Cell> CELLS = new ArrayList<>();
     private static long builtAt = -1000L;
 
@@ -63,10 +64,14 @@ final class MobOverlay {
     public static void onTick() {
         final Minecraft mc = Minecraft.getInstance();
         final ClientLevel level = mc.level;
-        if (level == null || mc.player == null) { // NEI resets the overlays with the world
-            on = false;
+        if (level == null || mc.player == null) {
             CELLS.clear();
             return;
+        }
+        if (level != lastLevel) { // NEI's ClientHandler#loadWorld: a new world or dimension resets the overlay unless locked
+            lastLevel = level;
+            CELLS.clear();
+            if (!codechicken.nei.NEIConfig.OVERLAYS_LOCK.getAsBoolean()) on = false;
         }
 
         while (NEIKeys.WORLD_MOBS.consumeClick()) {

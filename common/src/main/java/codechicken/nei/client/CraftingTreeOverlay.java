@@ -44,7 +44,7 @@ import net.minecraft.world.item.ItemStack;
  * a box with the boxes of its ingredients hanging below it.
  *
  * <ul>
- * <li>The wheel scrolls, Shift + wheel scrolls sideways, Ctrl + wheel zooms; dragging the empty background pans.</li>
+ * <li>The wheel scrolls, Shift + wheel scrolls sideways, Ctrl + wheel zooms (or the wheel alone, with the option "Tree Zoom without Ctrl"); dragging the empty background pans.</li>
  * <li>Ctrl + wheel over a root box changes how many times its recipe is made (Alt: one step is a stack).</li>
  * <li>Click a box: its recipes (left) or uses (right). The "+" in that recipe window makes the recipe the one for the
  * box (it replaces the recipes the old one needed).</li>
@@ -847,8 +847,7 @@ public final class CraftingTreeOverlay {
             if (on) {
                 Draw.button(g, menuX, ry, menuW, MENU_ROW, over);
             } else { // a section that is switched off looks dark, like a hidden subset
-                g.fill(menuX, ry, menuX + menuW, ry + MENU_ROW, 0xFF000000);
-                g.fill(menuX + 1, ry + 1, menuX + menuW - 1, ry + MENU_ROW - 1, 0xFF161D23);
+                Draw.neiButton(g, menuX, ry, menuW, MENU_ROW, 0);
             }
             final String label = sectionLabel(sections[i]);
             g.text(font, Component.literal(label), menuX + (menuW - font.width(label)) / 2, ry + (MENU_ROW - 8) / 2,
@@ -892,7 +891,7 @@ public final class CraftingTreeOverlay {
             }
         }
 
-        camera.scroll(mx, my, direction, shift, ctrl);
+        camera.scroll(mx, my, direction, shift, ctrl || codechicken.nei.NEIConfig.TREE_ZOOM_NO_CTRL.getAsBoolean()); // NEI: craftingTreeZoomWithoutModifier
     }
 
     /**

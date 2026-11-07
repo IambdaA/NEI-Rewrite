@@ -5,6 +5,11 @@
   "name": "${mod_name}",
   "description": "An unofficial rewrite of the GTNH fork of NotEnoughItems (NEI): item panel with NEI search syntax, recipe and usage lookup, bookmarks, crafting trees, autocrafting, cheat tools. Recipes of modded machines need JEI.",
   "authors": ["${mod_authors}"],
+  "contact": {
+    "homepage": "https://github.com/IambdaA/NEI-Rewrite",
+    "sources": "https://github.com/IambdaA/NEI-Rewrite",
+    "issues": "https://github.com/IambdaA/NEI-Rewrite/issues"
+  },
   "contributors": [
     {
       "name": "Chicken-Bones, mitchej123 and the GTNH team (original NotEnoughItems, LGPL-3.0-or-later)",

@@ -91,6 +91,9 @@ public final class NEIJeiPlugin implements IModPlugin {
         FluidDisplay.setScanner(() -> runtime.getIngredientManager().getAllIngredients(mezz.jei.api.constants.VanillaTypes.ITEM_STACK));
         FluidDisplay.setSubtypes(subtypeReader(runtime));
         codechicken.nei.recipe.CraftingBridge.set(bridge);
+        // the areas that mods (FTB Quests' sidebar, ...) tell JEI to keep free: NEI's panels keep away from them too
+        codechicken.nei.client.GuiAreas.setProvider(screen -> runtime.getScreenHelper().getGuiExclusionAreas(screen)
+                .map(r -> new int[] { r.getX(), r.getY(), r.getWidth(), r.getHeight() }).toList());
         // built on first use (the recipe index builds on the client thread), not here on JEI's loading thread
         RecipeSources.set(SOURCE, () -> {
             List<RecipeView> views = cache;
@@ -104,6 +107,7 @@ public final class NEIJeiPlugin implements IModPlugin {
         cache = null;
         if (bridge != null) codechicken.nei.recipe.CraftingBridge.clear(bridge);
         bridge = null;
+        codechicken.nei.client.GuiAreas.clearProvider();
         RecipeSources.remove(SOURCE);
     }
 

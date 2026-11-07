@@ -54,18 +54,35 @@ final class HighlightTips {
         final Font font = mc.font;
         final int sw = mc.getWindow().getGuiScaledWidth();
         final int sh = mc.getWindow().getGuiScaledHeight();
-        final int w = font.width(text) + 29;
-        final int h = 24;
+        final int w = boxWidth(font, text, null);
         final int x = (sw - w - 1) * NEIConfig.HUD_X.getAsInt() / 10000;
-        final int y = (sh - h - 1) * NEIConfig.HUD_Y.getAsInt() / 10000;
+        final int y = (sh - BOX_H - 1) * NEIConfig.HUD_Y.getAsInt() / 10000;
+        drawBox(g, font, stack, text, null, x, y);
+    }
 
+    static final int BOX_H = 24;
+
+    static int boxWidth(Font font, String text, String extra) {
+        return Math.max(font.width(text), extra == null ? 0 : font.width(extra)) + 29;
+    }
+
+    /** The box itself; {@code extra} is a second (red) line, used by the sample on the position screen. */
+    static void drawBox(net.minecraft.client.gui.GuiGraphicsExtractor g, Font font, ItemStack stack, String text, String extra,
+            int x, int y) {
+        final int w = boxWidth(font, text, extra);
+        final int h = BOX_H;
         // vanilla tooltip look: dark box with a purple frame
         g.fill(x, y, x + w, y + h, 0xF0100010);
         g.fill(x, y, x + w, y + 1, 0xFF3A1A80);
         g.fill(x, y + h - 1, x + w, y + h, 0xFF3A1A80);
         g.fill(x, y, x + 1, y + h, 0xFF3A1A80);
         g.fill(x + w - 1, y, x + w, y + h, 0xFF3A1A80);
-        g.text(font, Component.literal(text), x + 24, y + (h - 8) / 2, 0xFFA0A0A0, true);
+        if (extra == null) {
+            g.text(font, Component.literal(text), x + 24, y + (h - 8) / 2, 0xFFA0A0A0, true);
+        } else {
+            g.text(font, Component.literal(text), x + 24, y + 3, 0xFFA0A0A0, true);
+            g.text(font, Component.literal(extra), x + 24, y + 13, 0xFFFF5555, true);
+        }
         if (!stack.isEmpty()) Draw.stack(g, stack, x + 5, y + h / 2 - 8);
     }
 }
