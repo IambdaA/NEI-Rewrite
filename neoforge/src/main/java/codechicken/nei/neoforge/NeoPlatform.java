@@ -32,6 +32,29 @@ public final class NeoPlatform implements Platform {
     }
 
     @Override
+    public java.util.List<net.minecraft.network.chat.Component> fluidTooltip(net.minecraft.world.level.material.Fluid fluid,
+            boolean advanced) {
+        final var mc = net.minecraft.client.Minecraft.getInstance();
+        final java.util.List<net.minecraft.network.chat.Component> lines = new java.util.ArrayList<>();
+        final var stack = new net.neoforged.neoforge.fluids.FluidStack(fluid, 1000);
+        lines.add(stack.getHoverName());
+        net.neoforged.neoforge.event.EventHooks.onFluidTooltip(stack, mc.player, lines,
+                advanced ? net.minecraft.world.item.TooltipFlag.ADVANCED : net.minecraft.world.item.TooltipFlag.NORMAL,
+                net.minecraft.world.item.Item.TooltipContext.of(mc.level));
+        return lines.subList(1, lines.size());
+    }
+
+    @Override
+    public int fluidTemperature(net.minecraft.world.level.material.Fluid fluid) {
+        return fluid.getFluidType().getTemperature();
+    }
+
+    @Override
+    public boolean fluidGaseous(net.minecraft.world.level.material.Fluid fluid) {
+        return fluid.getFluidType().isLighterThanAir();
+    }
+
+    @Override
     public long fluidAmount(Object ingredient) {
         return ingredient instanceof net.neoforged.neoforge.fluids.FluidStack stack ? stack.getAmount() : -1;
     }

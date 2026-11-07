@@ -12,6 +12,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModLoader;
 import net.neoforged.fml.common.Mod;
@@ -24,6 +25,7 @@ import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.client.event.RenderGuiEvent;
+import net.neoforged.neoforge.client.event.RenderTooltipEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.registries.RegisterEvent;
@@ -50,7 +52,10 @@ public final class NeoForgeClient {
 
         final IEventBus bus = NeoForge.EVENT_BUS;
         bus.addListener((ClientTickEvent.Post e) -> ClientHooks.tick());
-        bus.addListener((RegisterClientCommandsEvent e) -> e.getDispatcher().register(ChatLinks.<CommandSourceStack>command()));
+        bus.addListener((RegisterClientCommandsEvent e) -> {
+            e.getDispatcher().register(ChatLinks.<CommandSourceStack>command());
+            e.getDispatcher().register(codechicken.nei.client.ReleaseNotice.<CommandSourceStack>command());
+        });
         bus.addListener((RecipesReceivedEvent e) -> ClientRecipes.set(e.getRecipeMap()));
         bus.addListener((ClientPlayerNetworkEvent.LoggingOut e) -> ClientRecipes.clear());
 
@@ -59,6 +64,11 @@ public final class NeoForgeClient {
             if (ClientHooks.renderPre(e.getScreen(), e.getGuiGraphics(), e.getMouseX(), e.getMouseY(), e.getPartialTick())) {
                 e.setCanceled(true);
             }
+        });
+        bus.addListener((ScreenEvent.Render.Background e) -> ClientHooks.renderBackground(e.getScreen(), e.getGuiGraphics()));
+        // one tooltip, as in NEI: while the Alt hotkey box is up it replaces vanilla's tooltip for the slot (as JEI does for its own)
+        bus.addListener(EventPriority.HIGHEST, (RenderTooltipEvent.GatherComponents e) -> {
+            if (ClientHooks.suppressVanillaTooltip()) e.setCanceled(true);
         });
         bus.addListener((ScreenEvent.Render.Post e) ->
                 ClientHooks.renderPost(e.getScreen(), e.getGuiGraphics(), e.getMouseX(), e.getMouseY(), e.getPartialTick()));

@@ -34,6 +34,23 @@ public final class FabricPlatform implements Platform {
         return FluidVariantAttributes.getName(FluidVariant.of(fluid));
     }
 
+    @Override
+    public java.util.List<Component> fluidTooltip(Fluid fluid, boolean advanced) {
+        final java.util.List<Component> lines = net.fabricmc.fabric.api.transfer.v1.client.fluid.FluidVariantRendering.getTooltip(
+                FluidVariant.of(fluid), advanced ? net.minecraft.world.item.TooltipFlag.ADVANCED : net.minecraft.world.item.TooltipFlag.NORMAL);
+        return lines.size() <= 1 ? java.util.List.of() : lines.subList(1, lines.size());
+    }
+
+    @Override
+    public int fluidTemperature(Fluid fluid) {
+        return FluidVariantAttributes.getTemperature(FluidVariant.of(fluid));
+    }
+
+    @Override
+    public boolean fluidGaseous(Fluid fluid) {
+        return FluidVariantAttributes.isLighterThanAir(FluidVariant.of(fluid));
+    }
+
     /** JEI's Fabric fluid ingredient ({@code IJeiFluidIngredient}); read by reflection so the glue does not need JEI to compile. */
     private static java.lang.reflect.Method amountGetter;
 

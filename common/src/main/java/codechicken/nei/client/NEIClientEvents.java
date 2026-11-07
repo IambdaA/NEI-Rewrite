@@ -52,7 +52,15 @@ public final class NEIClientEvents {
     /** NEI's bottom bar: wrench (config) and book (bookmark panel on / off), 20 x 20 with 2 pixels between. */
     private static final int BAR = 20;
 
-    private static boolean bookmarksVisible = true;
+    /** NEI's {@code inventory.bookmarks.enabled}: the book button, the bookmark.hide key and the settings switch it. */
+    private static boolean bookmarksVisible() {
+        return NEIConfig.BOOKMARKS_ENABLED.getAsBoolean();
+    }
+
+    private static void toggleBookmarks() {
+        NEIConfig.BOOKMARKS_ENABLED.set(!NEIConfig.BOOKMARKS_ENABLED.getAsBoolean());
+        NEIConfig.changed();
+    }
     private static RecipeOverlay overlay;
     private static CraftingTreeOverlay tree;
     private static ModalWindow modalWin;
@@ -78,6 +86,10 @@ public final class NEIClientEvents {
     // NEI's item quantity field: the bottom 20 pixels of the item list's area
     private static final QuantityBar QUANTITY = new QuantityBar();
     private static boolean quantityShown;
+    /** Where the search field is (NEI's {@code getSearchFieldArea}); the subsets button sits at its left end. */
+    private static int searchX;
+    private static int searchY;
+    private static int searchW;
     private static int panelLeft;
     private static int panelRight;
     private static String lastQuery = "";
@@ -176,6 +188,7 @@ public final class NEIClientEvents {
         layoutKey = 0;
         SubsetMenu.close();
         if (searchBox != null) searchBox.setFocused(false);
+        AutoFocus.load(event.getScreen());
     }
 
     /**
@@ -183,48 +196,74 @@ public final class NEIClientEvents {
      * were not final at init time (the creative inventory) still ends up right.
      */
     private static void layout(AbstractContainerScreen<?> screen) {
+        GuiAreas.refresh(screen); // what other mods draw beside the inventory: the panels keep away from it
         final int guiLeft = screen.leftPos;
-        final int right = guiLeft + screen.imageWidth + 6;
-        final int cols = Math.max(0, (screen.width - 4 - right) / ItemPanel.SLOT);
+        // NEI's world.panels.items (World > Panels Settings): the item panel's edges moved in from its free area
+        final int itemsFreeX = guiLeft + screen.imageWidth + 6;
+        final int[] itemPad = NEIConfig.PANEL_ITEMS.pixels(Math.max(1, screen.width - 4 - itemsFreeX), Math.max(1, screen.height - 12));
+        final int right = itemsFreeX + itemPad[0];
+        final int cols = Math.max(0, (screen.width - 4 - itemPad[2] - right) / ItemPanel.SLOT);
 
         // history: dash line + up to two rows, under the item list (NEI: 8 + 18 * rows)
         final int rows = HISTORY_LIST.isEmpty() || cols == 0 || !NEIConfig.HISTORY_ENABLED.getAsBoolean() ? 0
                 : Math.min(NEIConfig.HISTORY_ROWS.getAsInt(), (HISTORY_LIST.size() + cols - 1) / cols);
-        final int h = rows == 0 ? 0 : 8 + 18 * rows;
-        historyTop = screen.height - 6 - h;
+        final int h = rows == 0 ? 0 : 8 + ItemPanel.SLOT * rows;
+        historyTop = screen.height - 6 - itemPad[3] - h;
         panelLeft = right;
-        panelRight = screen.width - 4;
+        panelRight = screen.width - 4 - itemPad[2];
 
         Craftables.update(screen, cols);
         final int craftRows = Craftables.rows(cols);
-        craftablesTop = historyTop - (craftRows == 0 ? 0 : 8 + 18 * craftRows);
+        craftablesTop = historyTop - (craftRows == 0 ? 0 : 8 + ItemPanel.SLOT * craftRows);
 
         // item list: page row on top, grid below it, the quantity field at the bottom
         final int listBottom = craftablesTop - (rows + craftRows == 0 ? 0 : 2);
-        final int quantityH = QuantityBar.enabled() && cols >= 3 ? QuantityBar.H : 0;
-        ITEMS.layout(right, panelRight, 6, listBottom - quantityH);
-        quantityShown = quantityH > 0 && ITEMS.isVisible();
-        QUANTITY.layout(right, listBottom - QuantityBar.H, cols * ItemPanel.SLOT);
-        HISTORY.layout(right, panelRight, historyTop + 4, historyTop + 4 + 18 * rows);
-        CRAFTABLES.layout(right, panelRight, craftablesTop + 4, craftablesTop + 4 + 18 * craftRows);
+        // NEI's search widget position: centered (bottom of the screen) or right (under the item list, with the quantity
+        // field at its right end); both need the footer row under the list
+        final boolean searchBelow = !NEIConfig.SEARCH_CENTERED.getAsBoolean() && cols >= 3;
+        final int quantityH = (QuantityBar.enabled() || searchBelow) && cols >= 3 ? QuantityBar.H : 0;
+        ITEMS.layout(right, panelRight, 6 + itemPad[1], listBottom - quantityH);
+        final int listW = cols * ItemPanel.SLOT;
+        final boolean quantityOn = QuantityBar.enabled() && cols >= 3;
+        quantityShown = quantityOn && ITEMS.isVisible();
+        if (searchBelow) {
+            // NEI: the quantity field is the right 30% (at least 50 pixels), the search field the rest
+            final int qw = quantityOn ? Math.max((int) (QuantityBar.H * 2.5f), (int) (listW * 0.3f)) : 0;
+            QUANTITY.layout(right + listW - qw, listBottom - QuantityBar.H, qw);
+            searchX = right;
+            searchY = listBottom - QuantityBar.H;
+            searchW = listW - (quantityOn ? qw + 1 : 0);
+        } else {
+            QUANTITY.layout(right, listBottom - QuantityBar.H, listW);
+            // NEI's search field: centered at the bottom, as wide as the window (at most 176) minus 4
+            searchW = Math.min(screen.imageWidth, 176) - 4;
+            searchX = (screen.width - searchW) / 2;
+            searchY = screen.height - BAR - 2;
+        }
+        HISTORY.layout(right, panelRight, historyTop + 4, historyTop + 4 + ItemPanel.SLOT * rows);
+        CRAFTABLES.layout(right, panelRight, craftablesTop + 4, craftablesTop + 4 + ItemPanel.SLOT * craftRows);
 
         // bookmarks: page row on top, grid fills the left edge, page ("namespace") row at the bottom; the wrench and
         // book buttons take the bottom left corner
         final int toolbar = Toolbar.bottom(screen.width, screen.imageWidth);
-        final int key = Objects.hash(guiLeft, screen.width, screen.height, toolbar);
+        // the panel is the biggest rectangle of that edge that other mods' widgets leave free
+        final int bookTop = toolbar == 0 ? 6 : toolbar + 4;
+        // NEI's world.panels.bookmarks: the edges moved in from the free area, as set in World > Panels Settings
+        final int[] bookPad = NEIConfig.PANEL_BOOKMARKS.pixels(Math.max(1, guiLeft - 10), Math.max(1, screen.height - BAR - 6 - bookTop));
+        final int[] book = GuiAreas.fit(4 + bookPad[0], bookTop + bookPad[1], Math.max(4 + bookPad[0] + ItemPanel.SLOT, guiLeft - 6 - bookPad[2]),
+                Math.max(bookTop + bookPad[1] + ItemPanel.SLOT, screen.height - BAR - 6 - bookPad[3]));
+        final int key = Objects.hash(guiLeft, screen.width, screen.height, toolbar, java.util.Arrays.hashCode(book));
         if (key != layoutKey) {
             layoutKey = key;
-            BOOKMARKS.layout(4, guiLeft - 6, toolbar == 0 ? 6 : toolbar + 4, screen.height - BAR - 6);
+            if (book == null) BOOKMARKS.layout(4, 4, bookTop, bookTop); // nothing free: hidden
+            else BOOKMARKS.layout(book[0], book[2], book[1], book[3]);
         }
 
-        // NEI's search field: centered at the bottom, as wide as the window (at most 176) minus 4
-        final int fullW = Math.min(screen.imageWidth, 176) - 4;
-        final int fullX = (screen.width - fullW) / 2;
-        final int by = screen.height - BAR - 2;
         // subsets.widgetPosition off: the subsets button takes the left end of the search field
         final int sub = subsetsAtSearch(screen) ? BAR : 0;
-        final int bx = fullX + sub;
-        final int bw = fullW - sub;
+        final int by = searchY;
+        final int bx = searchX + sub;
+        final int bw = searchW - sub;
         if (searchBox == null) {
             searchBox = new EditBox(Minecraft.getInstance().font, bx, by, bw, BAR, Component.empty());
             SearchHighlight.apply(searchBox);
@@ -275,8 +314,8 @@ public final class NEIClientEvents {
         final boolean book = overBook(mx, my, sh);
         Draw.button(g, 2, y, BAR, BAR, wrench);
         Draw.button(g, 2 + BAR + 2, y, BAR, BAR, book);
-        Tex.blit(g, Tex.SPRITES, 256, 256, 4, y + 2, 32, 0, 16, 16);
-        Tex.blit(g, Tex.SPRITES, 256, 256, 2 + BAR + 4, y + 2, bookmarksVisible ? 16 : 0, 0, 16, 16);
+        Tex.blit(g, Tex.SPRITES, 256, 256, 4, y + 2, 32 + 16 * NEIConfig.cheatMode(), 0, 16, 16); // white, gold, red wrench
+        Tex.blit(g, Tex.SPRITES, 256, 256, 2 + BAR + 4, y + 2, bookmarksVisible() ? 16 : 0, 0, 16, 16);
 
         final boolean presets = overPresets(mx, my, sh);
         Draw.button(g, 2 + 2 * (BAR + 2), y, BAR, BAR, presets);
@@ -285,13 +324,26 @@ public final class NEIClientEvents {
         if (presets) {
             ItemTooltip.requestPlain(List.of(Component.literal("Presets List")));
         } else if (wrench) {
+            // NEI's LayoutManager.options tooltip: the mode in its colour (none, gold, red) and how to change it
+            final int mode = NEIConfig.cheatMode();
+            final int color = mode == 1 ? 0xFFAA00 : mode == 2 ? 0xFF5555 : 0xFFFFFF;
             ItemTooltip.requestPlain(List.of(Component.literal("NEI Config"),
-                    Component.literal(NEIConfig.CHEAT_ENABLED.getAsBoolean() ? "Cheat Mode" : "Recipe Mode")));
+                    Component.literal(NEIConfig.MODE_NAMES[mode]).withStyle(st -> st.withColor(color)),
+                    Component.literal("CTRL-click here to cycle between Recipe, Utility, and Cheat Mode.")
+                            .withStyle(st -> st.withColor(color))));
         } else if (book) {
             ItemTooltip.requestPlain(List.of(Component.literal("Toggle visibility of the Bookmark Panel")));
         }
     }
 
+
+    /** Opens the presets window over the container screen (the settings screen's World > Presets List). */
+    public static void openPresets(Screen screen) {
+        QUANTITY.blur();
+        if (searchBox != null) searchBox.setFocused(false);
+        overlay = null;
+        modalWin = new PresetsWindow(screen);
+    }
 
     /** Opens a screen (26.2 moved {@code setScreen} from Minecraft to its Gui). */
     private static void setScreen(Screen next) {
@@ -304,13 +356,12 @@ public final class NEIClientEvents {
         final Screen screen = event.getScreen();
         if (active(screen) && treeFor(screen) != null) event.setCanceled(true);
     }
-    public static void onRender(ScreenEv event) {
-        final Screen screen = event.getScreen();
-        if (!active(screen)) return;
+    /** Set when this frame's panels were already drawn by {@link #onBackground}. */
+    private static boolean panelsDrawn;
 
-        final var graphics = event.getGuiGraphics();
-        final int mx = (int) event.getMouseX();
-        final int my = (int) event.getMouseY();
+    /** Once per frame before anything is drawn: lays the panels out and starts the frame's tooltip request. */
+    private static void frameStart(Screen screen, int mx, int my) {
+        ItemPanel.updateScale(); // NEI's Item Panel Scale, before the panels are laid out
         layout((AbstractContainerScreen<?>) screen);
         // NEI remembers the search text whenever the box gains or loses focus
         if (searchBox != null && searchBox.isFocused() != searchWasFocused) {
@@ -319,12 +370,86 @@ public final class NEIClientEvents {
         }
         lastMouseX = mx;
         lastMouseY = my;
+        AutoFocus.frame(mx, my);
         ItemTooltip.begin();
+        NEIConfig.flush();
+    }
+
+    /**
+     * The first half of a frame: it runs right after the screen's dimmed background and before the screen draws its slots,
+     * its tooltips, the potion effect boxes and the item on the cursor (NeoForge {@code ScreenEvent.Render.Background}; a
+     * mixin on Fabric; JEI draws its panels at the same point). The item panels, history, craftables and bookmarks are
+     * drawn here so that all of that ends up over them, as in NEI, where item tooltips are drawn last. While a window
+     * covers the screen (recipes, crafting tree, presets) the whole frame is drawn by {@link #onRender} instead.
+     */
+    public static void onBackground(ScreenEv event) {
+        panelsDrawn = false;
+        final Screen screen = event.getScreen();
+        if (!active(screen) || treeFor(screen) != null || presetsFor(screen) != null || overlayFor(screen) != null) return;
+
+        final int mx = (int) event.getMouseX();
+        final int my = (int) event.getMouseY();
+        frameStart(screen, mx, my);
+        drawPanels(event.getGuiGraphics(), mx, my, screen);
+        panelsDrawn = true;
+    }
+
+    private static void drawPanels(net.minecraft.client.gui.GuiGraphicsExtractor graphics, int mx, int my, Screen screen) {
+        ITEMS.render(graphics, mx, my, screen.width, screen.height);
+        if (quantityShown) QUANTITY.render(graphics, mx, my);
+        if (!Craftables.items().isEmpty() && CRAFTABLES.isVisible()) {
+            final int color = NEIConfig.color(NEIConfig.CRAFTABLES_COLOR);
+            for (int dx = panelLeft; dx < panelRight; dx += 3) {
+                graphics.fill(dx, craftablesTop, Math.min(dx + 2, panelRight), craftablesTop + 1, color);
+            }
+            CRAFTABLES.render(graphics, mx, my, screen.width, screen.height);
+        }
+        if (!HISTORY_LIST.isEmpty() && HISTORY.isVisible() && NEIConfig.HISTORY_ENABLED.getAsBoolean()) {
+            // NEI draws a dashed line (nei:textures/dash.png, colour inventory.history.color) above the history grid
+            final int historyColor = NEIConfig.color(NEIConfig.HISTORY_COLOR);
+            for (int dx = panelLeft; dx < panelRight; dx += 3) {
+                graphics.fill(dx, historyTop, Math.min(dx + 2, panelRight), historyTop + 1, historyColor);
+            }
+            HISTORY.render(graphics, mx, my, screen.width, screen.height);
+        }
+        if (bookmarksVisible()) BOOKMARKS.render(graphics, mx, my);
+    }
+
+    /**
+     * The stack the Alt help box is drawn for over the container's own slots, or empty. The box replaces vanilla's tooltip
+     * for that slot (NEI shows one tooltip: the name, the hotkeys, then the item's other lines).
+     */
+    private static ItemStack slotHelpStack(Screen screen) {
+        if (!HotkeyHelp.helpDown() || !active(screen) || !(screen instanceof AbstractContainerScreen<?> container)) {
+            return ItemStack.EMPTY;
+        }
+        if (treeFor(screen) != null || presetsFor(screen) != null || overlayFor(screen) != null) return ItemStack.EMPTY;
+        if (!container.getMenu().getCarried().isEmpty() || ITEMS.entryAt(lastMouseX, lastMouseY) != null) return ItemStack.EMPTY;
+        final var slot = container.hoveredSlot;
+        return slot == null ? ItemStack.EMPTY : slot.getItem();
+    }
+
+    /** True while the Alt help box stands in for vanilla's slot tooltip, which the loader glue then drops. */
+    public static boolean suppressVanillaTooltip() {
+        final Screen screen = Minecraft.getInstance().gui.screen();
+        return screen != null && !slotHelpStack(screen).isEmpty();
+    }
+
+    public static void onRender(ScreenEv event) {
+        final Screen screen = event.getScreen();
+        if (!active(screen)) return;
+
+        final boolean early = panelsDrawn; // the panels are already under what the screen drew
+        panelsDrawn = false;
+
+        final var graphics = event.getGuiGraphics();
+        final int mx = (int) event.getMouseX();
+        final int my = (int) event.getMouseY();
+        if (!early) frameStart(screen, mx, my);
 
         final RecipeOverlay open = overlayFor(screen);
         final CraftingTreeOverlay treeWindow = treeFor(screen);
 
-        NEIConfig.flush();
         if (treeWindow != null) {
             ItemZoom.reset();
             // the tree window replaces the panels; a recipe window opened from it goes on top
@@ -345,51 +470,34 @@ public final class NEIClientEvents {
             return;
         }
 
-        if (open != null) graphics.fill(0, 0, screen.width, screen.height, 0x90000000); // dim the inventory
-
-        ITEMS.render(graphics, mx, my, screen.width, screen.height);
-        if (quantityShown) QUANTITY.render(graphics, mx, my);
-        if (!Craftables.items().isEmpty() && CRAFTABLES.isVisible()) {
-            final int color = NEIConfig.color(NEIConfig.CRAFTABLES_COLOR);
-            for (int dx = panelLeft; dx < panelRight; dx += 3) {
-                graphics.fill(dx, craftablesTop, Math.min(dx + 2, panelRight), craftablesTop + 1, color);
-            }
-            CRAFTABLES.render(graphics, mx, my, screen.width, screen.height);
+        if (!early) {
+            if (open != null) graphics.fill(0, 0, screen.width, screen.height, 0x90000000); // dim the inventory
+            drawPanels(graphics, mx, my, screen);
         }
-        if (!HISTORY_LIST.isEmpty() && HISTORY.isVisible() && NEIConfig.HISTORY_ENABLED.getAsBoolean()) {
-            // NEI draws a dashed line (nei:textures/dash.png, colour inventory.history.color) above the history grid
-            final int historyColor = NEIConfig.color(NEIConfig.HISTORY_COLOR);
-            for (int dx = panelLeft; dx < panelRight; dx += 3) {
-                graphics.fill(dx, historyTop, Math.min(dx + 2, panelRight), historyTop + 1, historyColor);
-            }
-            HISTORY.render(graphics, mx, my, screen.width, screen.height);
-        }
-        if (bookmarksVisible) BOOKMARKS.render(graphics, mx, my);
+        if (bookmarksVisible()) BOOKMARKS.renderDragged(graphics, mx, my); // the dragged slots go over everything
         Toolbar.render(graphics, mx, my, (AbstractContainerScreen<?>) screen);
         drawBar(graphics, mx, my, screen.height);
         if (subsetsShown((AbstractContainerScreen<?>) screen)) {
             final var container = (AbstractContainerScreen<?>) screen;
-            final int fullW = Math.min(container.imageWidth, 176) - 4;
             SubsetMenu.render(graphics, mx, my, screen.width, screen.height, !subsetsAtSearch(container),
-                    (screen.width - fullW) / 2, screen.height - BAR - 2, BAR);
+                    searchX, searchY, BAR);
         }
         else SubsetMenu.close();
         searchBox.extractRenderState(graphics, mx, my, event.getPartialTick());
 
         if (open != null) {
             open.render(graphics, mx, my, screen.width, screen.height);
-        } else if (HotkeyHelp.isAltDown() && screen instanceof AbstractContainerScreen<?> container) {
+        } else {
             // hotkey help for items in the container's own slots (panel items draw theirs themselves)
-            final var slot = container.hoveredSlot;
-            if (slot != null && ITEMS.entryAt(mx, my) == null && !slot.getItem().isEmpty()) {
-                ItemTooltip.request(slot.getItem(), HotkeyHelp.Where.SLOT);
-            }
+            final ItemStack helped = slotHelpStack(screen);
+            if (!helped.isEmpty()) ItemTooltip.request(helped, HotkeyHelp.Where.SLOT);
+            RecipeTransfer.drawOverlay(graphics, (AbstractContainerScreen<?>) screen); // NEI's overlay renderer (the + without Shift)
         }
 
         // As in NEI, the zoomed item is drawn over everything but the tooltip
         final var container = (AbstractContainerScreen<?>) screen;
         ItemZoom.update(container, NEIConfig.ZOOM_NEI_ONLY.getAsBoolean() ? panelStackAt(mx, my) : hoveredStack(screen), mx,
-                bookmarksVisible && BOOKMARKS.isVisible() ? Bookmarks.grid().size() : 0,
+                bookmarksVisible() && BOOKMARKS.isVisible() ? Bookmarks.grid().size() : 0,
                 ITEMS.isVisible() ? ItemList.getFiltered().size() : 0);
         ItemZoom.render(graphics, container);
 
@@ -407,7 +515,7 @@ public final class NEIClientEvents {
         if (ITEMS.contains(mx, my)) return ITEMS.entryAt(mx, my);
         if (HISTORY.contains(mx, my)) return HISTORY.entryAt(mx, my);
         if (CRAFTABLES.contains(mx, my)) return CRAFTABLES.entryAt(mx, my);
-        if (bookmarksVisible && BOOKMARKS.contains(mx, my)) return BOOKMARKS.entryAt(mx, my);
+        if (bookmarksVisible() && BOOKMARKS.contains(mx, my)) return BOOKMARKS.entryAt(mx, my);
         return null;
     }
 
@@ -430,6 +538,7 @@ public final class NEIClientEvents {
     public static void onMousePressed(ScreenEv event) {
         final Screen screen = event.getScreen();
         if (!active(screen)) return;
+        AutoFocus.cancel(); // NEI: any click ends autofocus
 
         final double mx = event.getMouseX();
         final double my = event.getMouseY();
@@ -523,12 +632,13 @@ public final class NEIClientEvents {
 
         if (button == 0 && (overWrench(mx, my, screen.height) || overBook(mx, my, screen.height))) {
             event.setCanceled(true);
-            if (overBook(mx, my, screen.height)) bookmarksVisible = !bookmarksVisible;
+            if (overBook(mx, my, screen.height)) toggleBookmarks();
+            else if (HotkeyHelp.isCtrlDown()) NEIConfig.setCheatMode(NEIConfig.cheatMode() + 1); // NEI: Ctrl + click cycles the mode
             else {
                 QUANTITY.blur();
                 if (searchBox != null) searchBox.setFocused(false);
                 overlay = null;
-                modalWin = new SettingsWindow(screen, null);
+                setScreen(new SettingsScreen(screen)); // NEI's options screen replaces the inventory
             }
             return;
         }
@@ -545,7 +655,7 @@ public final class NEIClientEvents {
             return;
         }
 
-        if (bookmarksVisible && BOOKMARKS.contains(mx, my)) {
+        if (bookmarksVisible() && BOOKMARKS.contains(mx, my)) {
             event.setCanceled(true);
             if (BOOKMARKS.pressed(mx, my, button, shift)) return; // group strip: drag to group, click to change view
             if (BOOKMARKS.mouseClicked(mx, my, button)) return; // page buttons
@@ -604,6 +714,8 @@ public final class NEIClientEvents {
             event.setCanceled(true);
             return;
         }
+        final RecipeOverlay recipeOpen = overlayFor(event.getScreen());
+        if (recipeOpen != null) recipeOpen.mouseReleased(); // a dragged scroll bar of the recipe window stops
         if (BOOKMARKS.released(event.getMouseX(), event.getMouseY(), event.getButton(), HotkeyHelp.isAltDown())) {
             event.setCanceled(true);
             // a Shift + click on a bookmark that did not turn into a sorting drag is a click after all
@@ -613,6 +725,7 @@ public final class NEIClientEvents {
     public static void onMouseScrolled(ScreenEv event) {
         final Screen screen = event.getScreen();
         if (!active(screen)) return;
+        AutoFocus.cancel();
 
         final double mx = event.getMouseX();
         final double my = event.getMouseY();
@@ -657,14 +770,14 @@ public final class NEIClientEvents {
 
         // As in NEI, the wheel over a slot of the container moves one item (see FastTransfer); the panels come first
         if (!ITEMS.contains(mx, my) && !HISTORY.contains(mx, my) && !CRAFTABLES.contains(mx, my)
-                && !(bookmarksVisible && BOOKMARKS.contains(mx, my)) && open == null
+                && !(bookmarksVisible() && BOOKMARKS.contains(mx, my)) && open == null
                 && FastTransfer.wheel((AbstractContainerScreen<?>) screen, dy)) {
             event.setCanceled(true);
             return;
         }
 
         // bookmarks: wheel over the page buttons switches page, Ctrl + wheel changes an amount, else turns the grid page
-        if (bookmarksVisible && BOOKMARKS.scrolled(mx, my, dy, HotkeyHelp.isCtrlDown())) {
+        if (bookmarksVisible() && BOOKMARKS.scrolled(mx, my, dy, HotkeyHelp.isCtrlDown())) {
             event.setCanceled(true);
             return;
         }
@@ -729,6 +842,17 @@ public final class NEIClientEvents {
                 return;
             }
         } else {
+            if (AutoFocus.active()) {
+                if (overlayFor(screen) != null || screen.getFocused() instanceof EditBox box && box.isFocused()) {
+                    AutoFocus.cancel();
+                } else if (searchBox != null && AutoFocus.onKey(key.key(), HotkeyHelp.isCtrlDown(), HotkeyHelp.isAltDown(),
+                        NEIKeys.is(Minecraft.getInstance().options.keyInventory, pressed)) == AutoFocus.Key.TYPE) {
+                    // NEI's autofocus: the first typing key goes to the search field, not to the inventory (E, number keys)
+                    searchBox.setFocused(true);
+                    event.setCanceled(true);
+                    return;
+                }
+            }
             if (QUANTITY.focused()) {
                 if (key.key() == GLFW_KEY_ESCAPE) {
                     QUANTITY.blur();
@@ -835,7 +959,7 @@ public final class NEIClientEvents {
         }
 
         if (treeWindow == null && NEIKeys.is(NEIKeys.TOGGLE_BOOKMARKS, pressed)) {
-            bookmarksVisible = !bookmarksVisible;
+            toggleBookmarks();
             event.setCanceled(true);
             return;
         }
@@ -856,7 +980,7 @@ public final class NEIClientEvents {
         }
 
         // NEI's bookmark.remove_recipe: Shift + key over a group's strip removes the whole group
-        if (HotkeyHelp.isShiftDown() && treeWindow == null && bookmarksVisible && NEIKeys.is(NEIKeys.REMOVE_GROUP, pressed)
+        if (HotkeyHelp.isShiftDown() && treeWindow == null && bookmarksVisible() && NEIKeys.is(NEIKeys.REMOVE_GROUP, pressed)
                 && BOOKMARKS.contains(lastMouseX, lastMouseY) && BOOKMARKS.itemAt(lastMouseX, lastMouseY) == null) {
             final int groupId = BOOKMARKS.hoveredGroup(lastMouseX, lastMouseY);
             if (groupId >= 0) {
@@ -873,7 +997,7 @@ public final class NEIClientEvents {
             final ItemStack over = hoveredStack(screen);
             if (!over.isEmpty()) {
                 final String id = codechicken.nei.item.FluidDisplay.idOf(over);
-                final BookmarkGrid.Item slot = bookmarksVisible ? BOOKMARKS.itemAt(lastMouseX, lastMouseY) : null;
+                final BookmarkGrid.Item slot = bookmarksVisible() ? BOOKMARKS.itemAt(lastMouseX, lastMouseY) : null;
                 final String recipeKey = slot != null && slot.recipeId != null ? slot.recipeId : RecipeBookmarks.favoriteKeyFor(id);
                 final RecipeView view = recipeKey == null ? null : RecipeBookmarks.resolve(id, recipeKey);
                 if (view != null) {
@@ -897,7 +1021,7 @@ public final class NEIClientEvents {
         // of the panels in chat. Needs the mod on the server.
         if (treeWindow == null && HotkeyHelp.isCtrlDown() && !NEIKeys.CHAT_LINK.isUnbound()
                 && NEIKeys.is(NEIKeys.CHAT_LINK, pressed)) {
-            if (bookmarksVisible && BOOKMARKS.contains(lastMouseX, lastMouseY)) {
+            if (bookmarksVisible() && BOOKMARKS.contains(lastMouseX, lastMouseY)) {
                 final var slot = BOOKMARKS.itemAt(lastMouseX, lastMouseY);
                 final int groupId = slot == null ? BOOKMARKS.hoveredGroup(lastMouseX, lastMouseY) : -1;
                 if (slot != null) ChatLinks.sendSlot(slot);
@@ -940,7 +1064,7 @@ public final class NEIClientEvents {
         if (treeWindow == null && !NEIKeys.PULL_ITEMS.isUnbound() && NEIKeys.is(NEIKeys.PULL_ITEMS, pressed)
                 && ContainerPull.available(screen)) {
             final boolean shift = HotkeyHelp.isShiftDown();
-            final var slot = bookmarksVisible && BOOKMARKS.contains(lastMouseX, lastMouseY)
+            final var slot = bookmarksVisible() && BOOKMARKS.contains(lastMouseX, lastMouseY)
                     ? BOOKMARKS.itemAt(lastMouseX, lastMouseY) : null;
             final ItemEntry bookmarked = slot != null ? ItemList.find(slot.id) : null;
             final ItemStack stack = bookmarked != null ? bookmarked.stack : hoveredStack(screen);
@@ -950,7 +1074,7 @@ public final class NEIClientEvents {
                 event.setCanceled(true);
                 return;
             }
-            final int groupId = bookmarksVisible ? BOOKMARKS.hoveredGroup(lastMouseX, lastMouseY) : -1;
+            final int groupId = bookmarksVisible() ? BOOKMARKS.hoveredGroup(lastMouseX, lastMouseY) : -1;
             if (groupId >= 0) {
                 ContainerPull.pullGroup(groupId, shift);
                 event.setCanceled(true);
@@ -964,9 +1088,9 @@ public final class NEIClientEvents {
                 && NEIKeys.is(NEIKeys.CRAFT_ITEMS, pressed) && HotkeyHelp.isShiftDown()) {
             final boolean missingOnly = HotkeyHelp.isCtrlDown();
             final BookmarkGrid grid = Bookmarks.grid();
-            final BookmarkGrid.Item slot = bookmarksVisible && BOOKMARKS.contains(lastMouseX, lastMouseY)
+            final BookmarkGrid.Item slot = bookmarksVisible() && BOOKMARKS.contains(lastMouseX, lastMouseY)
                     ? BOOKMARKS.itemAt(lastMouseX, lastMouseY) : null;
-            final int groupId = slot == null && bookmarksVisible ? BOOKMARKS.hoveredGroup(lastMouseX, lastMouseY) : -1;
+            final int groupId = slot == null && bookmarksVisible() ? BOOKMARKS.hoveredGroup(lastMouseX, lastMouseY) : -1;
             final RecipeOverlay window = overlayFor(screen);
             boolean used = false;
             if (slot != null && slot.recipeId != null && slot.type != 2) {
@@ -988,7 +1112,7 @@ public final class NEIClientEvents {
         // (NeoForge's isActiveAndMatches refuses a key whose binding has no modifier while Shift or Ctrl is held)
         if (!NEIKeys.BOOKMARK.isUnbound() && NEIKeys.is(NEIKeys.BOOKMARK, pressed)) {
             // As in NEI: over a bookmark slot the key removes that slot (a recipe's result takes its recipe along)
-            if (treeWindow == null && bookmarksVisible && BOOKMARKS.contains(lastMouseX, lastMouseY)) {
+            if (treeWindow == null && bookmarksVisible() && BOOKMARKS.contains(lastMouseX, lastMouseY)) {
                 final BookmarkGrid.Item slot = BOOKMARKS.itemAt(lastMouseX, lastMouseY);
                 if (slot != null) {
                     Bookmarks.removeSlot(slot, HotkeyHelp.isShiftDown());
@@ -1008,19 +1132,23 @@ public final class NEIClientEvents {
             // SHIFT over a recipe bookmarks the whole recipe (CTRL + SHIFT also keeps the counts)
             final RecipeOverlay recipeWindow = overlayFor(screen);
             if (HotkeyHelp.isShiftDown() && recipeWindow != null && recipeWindow.hoveredRecipe() != null) {
-                // NEI's default (bookmarkRecipeWithCount = true) keeps the counts with or without Ctrl
-                RecipeBookmarks.toggle(recipeWindow.hoveredRecipe(), recipeWindow.hovered(), true);
+                // NEI: the counts are kept with Ctrl, or always with Bookmark recipe with count (off by default)
+                RecipeBookmarks.toggle(recipeWindow.hoveredRecipe(), recipeWindow.hovered(),
+                        HotkeyHelp.isCtrlDown() || NEIConfig.BOOKMARK_RECIPE_WITH_COUNT.getAsBoolean());
                 event.setCanceled(true);
                 return;
             }
 
             final ItemStack target = hoveredStack(screen);
             if (!target.isEmpty()) {
-                // As in NEI: inside the recipe window the item remembers its recipe; Ctrl keeps a count of 1
-                final String recipeId = recipeWindow != null && recipeWindow.hoveredRecipe() != null
+                // As in NEI (ShortcutInputHandler#saveToBookmarks): inside the recipe window the item remembers its recipe when
+                // Bookmark items with recipe is on or that recipe is bookmarked already; Ctrl, or a bookmarked recipe, keeps a count
+                final String focused = recipeWindow != null && recipeWindow.hoveredRecipe() != null
                         ? RecipeBookmarks.key(recipeWindow.hoveredRecipe())
                         : null;
-                Bookmarks.toggle(codechicken.nei.item.FluidDisplay.idOf(target), recipeId, HotkeyHelp.isCtrlDown());
+                final boolean recipeBookmarked = focused != null && Bookmarks.existsRecipe(focused);
+                final String recipeId = recipeBookmarked || NEIConfig.BOOKMARK_ITEMS_WITH_RECIPE.getAsBoolean() ? focused : null;
+                Bookmarks.toggle(codechicken.nei.item.FluidDisplay.idOf(target), recipeId, HotkeyHelp.isCtrlDown() || recipeBookmarked);
                 event.setCanceled(true);
             }
             return;
@@ -1036,7 +1164,7 @@ public final class NEIClientEvents {
                 event.setCanceled(true);
                 return;
             }
-            if (bookmarksVisible && BOOKMARKS.contains(lastMouseX, lastMouseY)) {
+            if (bookmarksVisible() && BOOKMARKS.contains(lastMouseX, lastMouseY)) {
                 final int groupId = BOOKMARKS.hoveredGroup(lastMouseX, lastMouseY);
                 if (groupId >= 0 && Bookmarks.grid().group(groupId).crafting) {
                     openTree(screen, groupId);

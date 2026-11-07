@@ -85,7 +85,10 @@ public final class FabricClient implements ClientModInitializer {
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath(NotEnoughItems.MODID, "highlight_tips"),
                 (graphics, tickCounter) -> ClientHooks.hud(graphics));
         ClientCommandRegistrationCallback.EVENT.register(
-                (dispatcher, registryAccess) -> dispatcher.register(ChatLinks.<FabricClientCommandSource>command()));
+                (dispatcher, registryAccess) -> {
+                    dispatcher.register(ChatLinks.<FabricClientCommandSource>command());
+                    dispatcher.register(codechicken.nei.client.ReleaseNotice.<FabricClientCommandSource>command());
+                });
 
         ScreenEvents.AFTER_INIT.register((client, screen, width, height) -> screenInit(screen));
     }

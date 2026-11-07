@@ -176,8 +176,7 @@ final class SubsetMenu {
                 if (index >= p.owner().children.size()) { // an icon row: the item, dark when hidden
                     final ItemEntry item = p.owner().own.get(index - p.owner().children.size());
                     if (Subsets.isHidden(item)) {
-                        g.fill(p.x(), ry, p.x() + p.w(), ry + ROW, 0xFF000000);
-                        g.fill(p.x() + 1, ry + 1, p.x() + p.w() - 1, ry + ROW - 1, 0xFF161D23);
+                        Draw.neiButton(g, p.x(), ry, p.w(), ROW, 0);
                     } else {
                         Draw.button(g, p.x(), ry, p.w(), ROW, over);
                     }
@@ -187,8 +186,7 @@ final class SubsetMenu {
                 final Subsets.Tag t = p.owner().children.get(index);
                 final int state = Subsets.state(t);
                 if (state == 0) {
-                    g.fill(p.x(), ry, p.x() + p.w(), ry + ROW, 0xFF000000);
-                    g.fill(p.x() + 1, ry + 1, p.x() + p.w() - 1, ry + ROW - 1, 0xFF161D23);
+                    Draw.neiButton(g, p.x(), ry, p.w(), ROW, 0);
                 } else {
                     Draw.button(g, p.x(), ry, p.w(), ROW, over || CHAIN.contains(t));
                 }
@@ -234,7 +232,7 @@ final class SubsetMenu {
                 }
                 if (t != null && button == 0 && HotkeyHelp.isShiftDown() && searchByClick()) {
                     // As in NEI: Shift + click searches the subset ("%" prefix, the tag's path without spaces)
-                    NEIClientEvents.searchFor("%" + Subsets.pathOf(t).replace(" ", ""));
+                    NEIClientEvents.searchFor(SearchParser.typedPrefix('%') + Subsets.pathOf(t).replace(" ", ""));
                     return true;
                 }
                 if (t != null && (button == 0 || button == 1)) {

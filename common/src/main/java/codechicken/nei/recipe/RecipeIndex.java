@@ -25,15 +25,24 @@ import net.minecraft.world.item.crafting.display.SlotDisplayContext;
  */
 public final class RecipeIndex {
 
-    private record Index(Map<Item, List<RecipeView>> outputs, Map<Item, List<RecipeView>> inputs, int total,
-            List<RecipeView> crafting) {}
+    /** {@code catalysts}: the recipes a machine can make, by the machine (NEI's catalyst handler of a usage lookup). */
+    private record Index(Map<Item, List<RecipeView>> outputs, Map<Item, List<RecipeView>> inputs,
+            Map<Item, List<RecipeView>> catalysts, int total, List<RecipeView> crafting) {}
 
     private static volatile Index index;
 
     private RecipeIndex() {}
 
+    private static volatile int revision;
+
     public static void invalidate() {
         index = null;
+        revision++;
+    }
+
+    /** Changes whenever the index is dropped (new recipes arrived): what was worked out from it is stale. */
+    public static int revision() {
+        return revision;
     }
 
     public static List<RecipeView> recipesFor(Item item) {
@@ -41,7 +50,39 @@ public final class RecipeIndex {
     }
 
     public static List<RecipeView> usesOf(Item item) {
-        return get().inputs().getOrDefault(item, List.of());
+        return usesOf(item, true);
+    }
+
+    /**
+     * The recipes that use the item. With {@code withCatalysts} a machine's uses also list every recipe it can make (NEI's
+     * {@code getUsageAndCatalystHandler}); NEI leaves those out while JEI Style Recipe Catalysts is None or Ctrl is held.
+     */
+    public static List<RecipeView> usesOf(Item item, boolean withCatalysts) {
+        final Index i = get();
+        final List<RecipeView> uses = i.inputs().getOrDefault(item, List.of());
+        final List<RecipeView> made = withCatalysts ? i.catalysts().getOrDefault(item, List.of()) : List.of();
+        if (made.isEmpty()) return uses;
+        final List<RecipeView> all = new ArrayList<>(uses);
+        final Set<RecipeView> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        seen.addAll(uses);
+        for (RecipeView v : made) if (seen.add(v)) all.add(v);
+        return all;
+    }
+
+    /** Every recipe type (by title) with its number of recipes and one recipe of it, for NEI's handler dump. */
+    public static Map<String, Map.Entry<RecipeView, Integer>> types() {
+        final Map<String, java.util.Set<RecipeView>> seen = new java.util.TreeMap<>();
+        final Index i = get();
+        for (Map<Item, List<RecipeView>> map : List.of(i.outputs(), i.inputs())) {
+            for (List<RecipeView> views : map.values()) {
+                for (RecipeView v : views) {
+                    seen.computeIfAbsent(v.title(), k -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>())).add(v);
+                }
+            }
+        }
+        final Map<String, Map.Entry<RecipeView, Integer>> out = new java.util.LinkedHashMap<>();
+        for (var e : seen.entrySet()) out.put(e.getKey(), Map.entry(e.getValue().iterator().next(), e.getValue().size()));
+        return out;
     }
 
     /** Every crafting-table recipe (shaped or shapeless), for the craftables panel. */
@@ -88,11 +129,12 @@ public final class RecipeIndex {
     private static Index build() {
         final Map<Item, List<RecipeView>> outputs = new HashMap<>();
         final Map<Item, List<RecipeView>> inputs = new HashMap<>();
+        final Map<Item, List<RecipeView>> catalysts = new HashMap<>();
         final List<RecipeView> crafting = new ArrayList<>();
         int total = 0;
 
         final var level = Minecraft.getInstance().level;
-        if (level == null) return new Index(outputs, inputs, 0, crafting);
+        if (level == null) return new Index(outputs, inputs, catalysts, 0, crafting);
 
         final Set<String> removedIds = Presets.removedIds();
         final ContextMap context = SlotDisplayContext.fromLevel(level);
@@ -154,7 +196,7 @@ public final class RecipeIndex {
                 final List<ItemStack> allStations = new ArrayList<>(view.stations());
                 allStations.addAll(codechicken.nei.api.API.catalystsFor(view.title()));
                 for (ItemStack station : allStations) {
-                    final List<RecipeView> list = inputs.computeIfAbsent(station.getItem(), k -> new ArrayList<>());
+                    final List<RecipeView> list = catalysts.computeIfAbsent(station.getItem(), k -> new ArrayList<>());
                     if (list.isEmpty() || list.get(list.size() - 1) != view) list.add(view);
                 }
             }
@@ -163,6 +205,6 @@ public final class RecipeIndex {
         NotEnoughItems.LOGGER.info("NEI indexed {} recipe displays; fluids with recipes: {}, with uses: {}", total,
                 outputs.keySet().stream().filter(codechicken.nei.item.FluidDisplay::isFluidItem).count(),
                 inputs.keySet().stream().filter(codechicken.nei.item.FluidDisplay::isFluidItem).count());
-        return new Index(outputs, inputs, total, crafting);
+        return new Index(outputs, inputs, catalysts, total, crafting);
     }
 }

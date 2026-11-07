@@ -5,10 +5,12 @@
   "compatibilityLevel": "JAVA_25",
   "client": [
     "ContainerScreenMixin",
+    "GuiGraphicsExtractorMixin",
     "GuiMixin",
     "KeyMappingMixin",
     "KeyboardHandlerMixin",
-    "MouseHandlerMixin"
+    "MouseHandlerMixin",
+    "ScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 0

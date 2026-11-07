@@ -58,6 +58,8 @@ public final class FluidDisplay {
     public static void setScanner(java.util.function.Supplier<? extends Iterable<ItemStack>> all) {
         scanner = all;
         scanned = false;
+        REPRESENTED.clear();
+        represented = false;
         KNOWN.clear();
         AMOUNT_IDS.clear();
         TOOLTIP_AMOUNTS.clear();
@@ -164,6 +166,85 @@ public final class FluidDisplay {
     }
 
     private FluidDisplay() {}
+
+    private static final Map<Fluid, ItemStack> REPRESENTED = new java.util.concurrent.ConcurrentHashMap<>();
+    private static volatile boolean represented;
+
+    /**
+     * The item a mod uses to stand for this fluid, or empty: NTM - Continuum registers every fluid as a Minecraft fluid but
+     * describes it (name, traits, help) only on its {@code hbm:fluid_icon} item, told apart from the other fluids' icons by
+     * JEI's subtype. Found among JEI's items: a stack of the fluid's mod whose subtype text names the fluid ({@code unsaturateds}
+     * for {@code hbm:unsaturateds}). Several items may carry a fluid (icons, buckets, canisters): the one with the shortest
+     * name wins (the plain fluid name), then the one recipes use as a fluid, then the one that stands for the most fluids. Without JEI, or when no subtype names the fluid, nothing.
+     */
+    public static ItemStack representative(Fluid fluid) {
+        if (fluid == null) return ItemStack.EMPTY;
+        if (!represented && scanner != null) {
+            represented = true;
+            try {
+                indexRepresentatives();
+                codechicken.nei.ItemList.refilter(); // the fluids that have a stand-in leave the list (see hasStandIn)
+            } catch (RuntimeException e) {
+                represented = false; // JEI not ready yet
+            }
+        }
+        final ItemStack stack = REPRESENTED.get(fluid);
+        return stack == null ? ItemStack.EMPTY : stack.copy();
+    }
+
+    /**
+     * A fluid display stack whose fluid has a stand-in item: the item list leaves it out, the stand-in (NTM's droplet) is
+     * listed already. Only what was found so far counts, so this never scans JEI's list itself (the filter runs on worker threads).
+     */
+    public static boolean hasStandIn(ItemStack stack) {
+        final Fluid fluid = fluidOf(stack);
+        return fluid != null && REPRESENTED.containsKey(fluid);
+    }
+
+    private static void indexRepresentatives() {
+        // "<namespace>:<word>" of every word of a subtype -> the stacks that carry it, by item
+        final Map<String, Map<Item, ItemStack>> byWord = new HashMap<>();
+        final Map<Item, Integer> fluidsPerItem = new HashMap<>();
+        final java.util.Set<Item> fluidItems = new java.util.HashSet<>();
+        for (String id : AMOUNT_IDS) {
+            final Item item = BuiltInRegistries.ITEM.getValue(net.minecraft.resources.Identifier.parse(plainId(id)));
+            if (item != null) fluidItems.add(item);
+        }
+        for (ItemStack stack : scanner.get()) {
+            if (stack.isEmpty() || FLUIDS.containsKey(stack.getItem())) continue;
+            final String sub = subtypeOf(stack);
+            if (sub.isEmpty()) continue;
+            final String ns = BuiltInRegistries.ITEM.getKey(stack.getItem()).getNamespace();
+            for (String word : sub.toLowerCase(java.util.Locale.ROOT).split("[^a-z0-9_]+")) {
+                if (word.isEmpty()) continue;
+                byWord.computeIfAbsent(ns + ":" + word, k -> new HashMap<>()).putIfAbsent(stack.getItem(), stack.copy());
+            }
+        }
+        for (Fluid fluid : ITEMS.keySet()) {
+            final Map<Item, ItemStack> found = byWord.get(BuiltInRegistries.FLUID.getKey(fluid).toString());
+            if (found != null) for (Item item : found.keySet()) fluidsPerItem.merge(item, 1, Integer::sum);
+        }
+        for (Fluid fluid : ITEMS.keySet()) {
+            final Map<Item, ItemStack> found = byWord.get(BuiltInRegistries.FLUID.getKey(fluid).toString());
+            if (found == null) continue;
+            // the plain name wins: NTM's icon is "Unsaturated Hydrocarbons", its bucket "... Bucket", a canister "Canister (...)"
+            Item best = null;
+            int bestLen = Integer.MAX_VALUE;
+            for (Map.Entry<Item, ItemStack> e : found.entrySet()) {
+                final int len = e.getValue().getHoverName().getString().length();
+                if (best == null || len < bestLen
+                        || len == bestLen && score(e.getKey(), fluidItems, fluidsPerItem) > score(best, fluidItems, fluidsPerItem)) {
+                    best = e.getKey();
+                    bestLen = len;
+                }
+            }
+            REPRESENTED.put(fluid, found.get(best));
+        }
+    }
+
+    private static long score(Item item, java.util.Set<Item> fluidItems, Map<Item, Integer> fluidsPerItem) {
+        return (fluidItems.contains(item) ? 1_000_000L : 0L) + fluidsPerItem.getOrDefault(item, 0);
+    }
 
     /** Records a display item; called while the client registers them. */
     public static void add(Item item, Fluid fluid, String id) {
