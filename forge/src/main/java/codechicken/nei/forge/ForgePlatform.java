@@ -29,6 +29,13 @@ public final class ForgePlatform implements Platform {
         return ModList.get().isLoaded(id);
     }
 
+    @Override
+    public boolean staysInGrid(net.minecraft.world.item.ItemStack stack) {
+        if (!stack.hasCraftingRemainingItem()) return false;
+        final net.minecraft.world.item.ItemStack rest = stack.getCraftingRemainingItem();
+        return !rest.isEmpty() && rest.is(stack.getItem());
+    }
+
     /** JEI's Forge fluid ingredient is Forge's own {@link FluidStack}, counted in millibuckets. */
     @Override
     public Fluid fluidOf(Object ingredient) {

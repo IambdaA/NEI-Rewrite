@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "nei_smoketest",
+  "version": "0",
+  "name": "NEI smoke test driver (dev only)",
+  "description": "Drives the client from nei-smoketest/commands.txt for NEI Rewrite's tests. Not for normal play.",
+  "environment": "client",
+  "entrypoints": { "client": ["codechicken.nei.smoketest.NeiSmokeTest"] },
+  "depends": { "fabric-api": "*" }
+}

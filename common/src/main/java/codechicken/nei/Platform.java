@@ -21,6 +21,14 @@ public interface Platform {
 
     boolean isModLoaded(String id);
 
+    /**
+     * True if crafting gives the stack back into its grid cell (a tool with a crafting remainder of itself, like a GregTech
+     * hammer): one is enough for any number of crafts. Vanilla only knows remainders per item; Forge asks the stack.
+     */
+    default boolean staysInGrid(net.minecraft.world.item.ItemStack stack) {
+        return stack.getItem().hasCraftingRemainingItem() && stack.getItem().getCraftingRemainingItem() == stack.getItem();
+    }
+
     /** The loader's name of a fluid (its fluid type's description), or null when the loader has none. */
     default net.minecraft.network.chat.Component fluidName(net.minecraft.world.level.material.Fluid fluid) {
         return null;

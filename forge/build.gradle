@@ -34,6 +34,22 @@ if (jei_version == 'none') {
 sourceSets.main.java.srcDir '../common/src/main/java'
 sourceSets.main.resources.srcDir '../common/src/main/resources'
 
+// Test driver (src/smoketest): its own jar for test copies of Prism instances, never part of the published mod.
+// ./gradlew :forge:reobfSmoketestJar -> forge/build/libs/nei-smoketest-forge-1.20.1.jar (SRG names, for a real game)
+sourceSets {
+    smoketest {
+        java.srcDir '../common/src/smoketest/java' // the loader-neutral driver (SmokeCore)
+        compileClasspath += main.compileClasspath
+    }
+}
+// reobfuscate() publishes the remapped jar through the source set's api/runtimeElements, which only main has
+['smoketestRuntimeElements', 'smoketestApiElements'].each { configurations.create(it) { canBeConsumed = true; canBeResolved = false } }
+def smoketestJar = tasks.register('smoketestJar', Jar) {
+    from sourceSets.smoketest.output
+    archiveBaseName = 'nei-smoketest-forge-1.20.1'
+    archiveClassifier = 'dev'
+}
+
 legacyForge {
     version = "${minecraft_version}-${forge_version}"
 
@@ -51,6 +67,13 @@ legacyForge {
         "${mod_id}" {
             sourceSet(sourceSets.main)
         }
+    }
+}
+
+obfuscation {
+    reobfuscate(smoketestJar, sourceSets.smoketest) {
+        archiveBaseName = 'nei-smoketest-forge-1.20.1'
+        archiveClassifier = ''
     }
 }
 

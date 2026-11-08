@@ -506,6 +506,7 @@ public final class NEIClientEvents {
             // hotkey help for items in the container's own slots (panel items draw theirs themselves)
             final ItemStack helped = slotHelpStack(screen);
             if (!helped.isEmpty()) ItemTooltip.request(helped, HotkeyHelp.Where.SLOT);
+            requestHeldHint(screen, mx, my); // over a panel with a stack on the cursor: what a click does
             RecipeTransfer.drawOverlay(graphics, (AbstractContainerScreen<?>) screen); // NEI's overlay renderer (the + without Shift)
         }
 
@@ -535,14 +536,63 @@ public final class NEIClientEvents {
     }
 
     /**
+     * NEI's {@code PanelWidget.handleDraggedClick}: a click on a panel while holding a stack never picks anything. When
+     * NEI may delete (Cheat Mode, or Utility Mode with Delete) a left click deletes the held stack and a right click one
+     * item of it; otherwise the stack is dropped as vanilla drops it outside the window (left all, right one).
+     */
+    /** Whether a click on a panel deletes the held stack (else it drops it): see {@link #heldClick}. */
+    private static boolean heldDeletes(Screen screen) {
+        final boolean creative = screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+        return NEIConfig.canPerform("delete") && (creative || Deleting.server());
+    }
+
+    /** True over the panels whose clicks go to {@link #clickEntry} (and so to {@link #heldClick} while holding a stack). */
+    private static boolean overClickPanel(double mx, double my) {
+        return ITEMS.contains(mx, my) || HISTORY.contains(mx, my) || CRAFTABLES.contains(mx, my)
+                || bookmarksVisible() && BOOKMARKS.contains(mx, my);
+    }
+
+    /** NEI's prompt while a held stack is over a panel: says what a click will do instead of the item's tooltip. */
+    private static void requestHeldHint(Screen screen, int mx, int my) {
+        if (!(screen instanceof AbstractContainerScreen<?> container) || container.getMenu().getCarried().isEmpty()) return;
+        if (!overClickPanel(mx, my)) return;
+        final boolean delete = heldDeletes(screen);
+        ItemTooltip.requestPlain(List.of(
+                Component.literal(delete ? "Click to delete" : "Click to drop").withStyle(net.minecraft.ChatFormatting.RED),
+                Component.literal(delete ? "Right click: delete one" : "Right click: drop one").withStyle(net.minecraft.ChatFormatting.GRAY)));
+    }
+
+    private static boolean heldClick(Screen screen, int button) {
+        if (!(screen instanceof AbstractContainerScreen<?> container)) return false;
+        final ItemStack held = container.getMenu().getCarried();
+        if (held.isEmpty()) return false;
+        final boolean creative = screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+        if (heldDeletes(screen)) {
+            if (button == 1) Deleting.decreaseHeld(container);
+            else Deleting.deleteHeld(container);
+        } else if (creative) {
+            final var player = Minecraft.getInstance().player; // as the creative screen drops a stack clicked outside
+            final ItemStack drop = button == 1 ? held.split(1) : held.copyAndClear();
+            if (held.isEmpty()) container.getMenu().setCarried(ItemStack.EMPTY);
+            player.drop(drop, true);
+            Minecraft.getInstance().gameMode.handleCreativeModeItemDrop(drop);
+        } else {
+            FastTransfer.click(container.getMenu(), -999, button);
+        }
+        return true;
+    }
+
+    /**
      * Left / right click on a panel item. As in NEI ({@code PanelWidget#mouseUp}): while cheating, a plain click gives
      * the item and Shift + click opens recipes / uses; otherwise (cheats off, or the recipe window is open) a click
      * opens recipes (left) / uses (right).
      */
     private static void clickEntry(Screen screen, ItemEntry entry, int button, boolean shift) {
-        if (entry == null || (button != 0 && button != 1)) return;
+        if (button != 0 && button != 1) return;
+        if (heldClick(screen, button)) return;
+        if (entry == null) return;
         if (!shift && overlayFor(screen) == null && NEIConfig.CHEAT_ENABLED.getAsBoolean()
-                && !codechicken.nei.item.FluidDisplay.is(entry.stack)) {
+                && !(codechicken.nei.item.FluidDisplay.is(entry.stack) && NEIActions.bucketOf(entry.stack).isEmpty())) {
             // NEI: a left click gives the quantity field's amount (a full stack when it is empty), a right click gives one
             NEIActions.give(entry, button == 1 ? 1 : QuantityBar.multiplier(entry.stack.getMaxStackSize()), screen);
         } else {
@@ -551,7 +601,19 @@ public final class NEIClientEvents {
         }
     }
 
+    /**
+     * Set when NEI took a mouse press, so the matching release is not passed on either. Vanilla would otherwise see a
+     * release without its press: over NEI's panels (outside the window) that counts as a click outside, which throws the
+     * cursor stack into the world, the stack a cheat click just gave included.
+     */
+    private static boolean swallowRelease;
+
     public static void onMousePressed(ScreenEv event) {
+        pressed(event);
+        swallowRelease = event.isCanceled();
+    }
+
+    private static void pressed(ScreenEv event) {
         final Screen screen = event.getScreen();
         if (!active(screen)) return;
         AutoFocus.cancel(); // NEI: any click ends autofocus
@@ -717,6 +779,13 @@ public final class NEIClientEvents {
     }
 
     public static void onMouseReleased(ScreenEv event) {
+        final boolean swallow = swallowRelease;
+        swallowRelease = false;
+        released(event);
+        if (swallow && active(event.getScreen())) event.setCanceled(true);
+    }
+
+    private static void released(ScreenEv event) {
         if (!active(event.getScreen())) return;
         final CraftingTreeOverlay treeWindow = treeFor(event.getScreen());
         if (treeWindow != null) {
@@ -735,7 +804,8 @@ public final class NEIClientEvents {
         if (BOOKMARKS.released(event.getMouseX(), event.getMouseY(), event.getButton(), HotkeyHelp.isAltDown())) {
             event.setCanceled(true);
             // a Shift + click on a bookmark that did not turn into a sorting drag is a click after all
-            clickEntry(event.getScreen(), BOOKMARKS.takeDeferredClick(), 0, true);
+            final ItemEntry deferred = BOOKMARKS.takeDeferredClick();
+            if (deferred != null) clickEntry(event.getScreen(), deferred, 0, true);
         }
     }
 

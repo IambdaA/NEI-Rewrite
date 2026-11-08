@@ -1,0 +1,9 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="LGPL-3.0-or-later"
+
+[[mods]]
+modId="nei_smoketest"
+version="0"
+displayName="NEI smoke test driver (dev only)"
+description="Drives the client from nei-smoketest/commands.txt for NEI Rewrite's tests. Not for normal play."
