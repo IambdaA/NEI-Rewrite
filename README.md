@@ -1,6 +1,6 @@
 # NEI Rewrite
 
-**Download on [CurseForge](https://www.curseforge.com/minecraft/mc-mods/nei-features-for-jei)**
+**Download on [CurseForge](www.curseforge.com/minecraft/mc-mods/unoffical-nei-rewrite)**
 
 
 An **unofficial** rewrite of the [GTNH fork of NotEnoughItems](https://github.com/GTNewHorizons/NotEnoughItems) for
