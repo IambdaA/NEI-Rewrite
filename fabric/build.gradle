@@ -32,6 +32,20 @@ if (jei_version == 'none') {
     sourceSets.main.java.exclude('codechicken/nei/jei/**')
 }
 
+// Test driver (src/smoketest + ../common/src/smoketest): its own jar for test copies of Prism instances, never part of the
+// published mod (26.x is not obfuscated: no remapping). ./gradlew :fabric:smoketestJar
+sourceSets {
+    smoketest {
+        java.srcDir '../common/src/smoketest/java'
+        compileClasspath += main.compileClasspath + main.output
+        runtimeClasspath += main.runtimeClasspath + main.output
+    }
+}
+tasks.register('smoketestJar', Jar) {
+    from sourceSets.smoketest.output
+    archiveBaseName = "nei-smoketest-fabric-${minecraft_version}"
+}
+
 loom {
     // 26.x is not obfuscated: no mappings, no remapping (Mojang's own names)
     accessWidenerPath = file('src/main/resources/notenoughitems.accesswidener')

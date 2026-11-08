@@ -34,6 +34,19 @@ base {
 // Mojang ships Java 25 to end users in 26.2, so mods should target Java 25.
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
+// Test driver (src/smoketest + ../common/src/smoketest): its own jar for test copies of Prism instances, never part of the
+// published mod. ./gradlew :neoforge:smoketestJar
+sourceSets {
+    smoketest {
+        java.srcDir '../common/src/smoketest/java'
+        compileClasspath += main.compileClasspath
+    }
+}
+tasks.register('smoketestJar', Jar) {
+    from sourceSets.smoketest.output
+    archiveBaseName = "nei-smoketest-neoforge-${minecraft_version}"
+}
+
 neoForge {
     // Specify the version of NeoForge to use.
     version = project.neo_version

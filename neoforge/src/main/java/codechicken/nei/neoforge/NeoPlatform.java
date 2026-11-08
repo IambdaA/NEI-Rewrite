@@ -27,6 +27,12 @@ public final class NeoPlatform implements Platform {
     }
 
     @Override
+    public boolean staysInGrid(net.minecraft.world.item.ItemStack stack) {
+        final net.minecraft.world.item.ItemStackTemplate rest = stack.getItem().getCraftingRemainder(stack);
+        return rest != null && rest.item().value() == stack.getItem();
+    }
+
+    @Override
     public net.minecraft.network.chat.Component fluidName(net.minecraft.world.level.material.Fluid fluid) {
         return fluid.getFluidType().getDescription();
     }
