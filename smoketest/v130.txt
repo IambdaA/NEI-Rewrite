@@ -1,0 +1,178 @@
+# 1.3.0 features (26.2 Fabric dev client, 640x360 GUI). run.sh resets NEI's config first, so options start at defaults.
+# Check the screenshots; the log check catches crashes and exceptions.
+world
+wait 20
+cmd gamemode creative
+cmd effect clear @s
+cmd clear @s
+inv
+wait 20
+move 320 60
+shot 01-inventory-release-notice
+
+# Wrench: Ctrl + click cycles Cheat (red) -> Recipe (white, no toolbar) -> Utility (gold, Delete + Magnet) -> Cheat
+move 12 347
+wait 5
+shot 02-wrench-cheat
+press ctrl
+click 12 347
+release ctrl
+move 12 347
+wait 5
+shot 03-wrench-recipe
+press ctrl
+click 12 347
+release ctrl
+move 12 347
+wait 5
+shot 04-wrench-utility
+press ctrl
+click 12 347
+release ctrl
+
+# Toolbar keeps clear of other mods' buttons: a column (FTB sidebar) and a button inside the toolbar row
+fakewidget 2 2 20 64
+close
+inv
+wait 10
+move 320 60
+areas
+shot 05-avoid-column
+fakewidget 60 2 64 20
+close
+inv
+wait 10
+move 320 60
+areas
+shot 06-avoid-row
+fakewidget off
+close
+inv
+wait 10
+
+# Settings: first screen (Report Issues), Tools > Data Dumps rows, every dump in every mode (files in run-smoketest/dumps)
+click 12 347
+wait 10
+move 630 5
+shot 07-settings
+click 321 107
+wait 5
+click 321 83
+wait 5
+move 630 5
+shot 08-data-dumps
+click 430 35
+click 430 59
+click 430 83
+click 430 107
+click 430 131
+click 430 155
+click 430 179
+wait 10
+click 364 155
+wait 3
+click 430 155
+wait 10
+click 364 155
+click 364 179
+wait 3
+move 630 5
+shot 09-dump-modes-json
+click 430 155
+click 430 179
+wait 20
+# back to the first screen, Inventory > Recipes GUI: Use Infinite Scroll on, catalysts Scroll
+click 320 344
+wait 5
+click 320 344
+wait 5
+click 321 35
+wait 5
+move 630 5
+shot 10-settings-inventory
+click 321 203
+wait 5
+click 430 179
+click 430 59
+wait 3
+move 630 5
+shot 11-settings-recipes
+click 320 344
+wait 3
+click 320 344
+wait 3
+click 320 344
+wait 10
+
+# Recipe window scroll bar dragging (uses of stick, infinite scroll)
+click 320 347
+type stick
+wait 10
+click 320 60
+move 486 33
+wait 3
+key u
+wait 20
+move 630 200
+wait 3
+shot 12-scroll-top
+drag 406 88 406 210
+wait 5
+shot 13-scroll-dragged-middle
+drag 406 210 406 330
+wait 5
+shot 14-scroll-dragged-bottom
+key escape
+wait 5
+click 320 347
+key a ctrl
+key backspace
+click 320 60
+
+# Survival: item panel skips the slots under the effect boxes, Alt over a slot shows one box, the + closes the window
+close
+cmd gamemode survival
+cmd give @s oak_log 4
+cmd effect give @s speed 600
+cmd effect give @s strength 600
+cmd effect give @s night_vision 600
+inv
+wait 10
+move 630 200
+wait 3
+shot 15-effects-panel
+move 248 247
+wait 3
+press alt
+wait 3
+shot 16-alt-slot
+release alt
+click 320 347
+type oak planks
+wait 10
+click 320 60
+move 422 33
+wait 3
+key r
+wait 15
+click 390 131
+wait 10
+screen
+move 630 200
+wait 3
+shot 17-plus-closed-and-filled
+
+# Known issue check: a toast (recipe unlock) is an area NEI avoids (JEI's toast reflow), the panel moves while it shows
+close
+cmd recipe take @s *
+cmd recipe give @s minecraft:oak_planks
+inv
+wait 5
+areas
+move 630 200
+shot 18-toast
+
+cmd effect clear @s
+cmd clear @s
+cmd gamemode creative
+quit

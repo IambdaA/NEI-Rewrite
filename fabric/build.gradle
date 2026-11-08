@@ -32,9 +32,44 @@ if (jei_version == 'none') {
     sourceSets.main.java.exclude('codechicken/nei/jei/**')
 }
 
+// Dev-only test driver (src/smoketest): used by the smokeTest run below, never part of the published jar.
+sourceSets {
+    smoketest {
+        java.srcDir '../common/src/smoketest/java' // the loader-neutral driver (SmokeCore)
+        compileClasspath += main.compileClasspath + main.output
+        runtimeClasspath += main.runtimeClasspath + main.output
+    }
+}
+
+// The same driver as a jar for test copies of Prism instances (26.x is not obfuscated: no remapping).
+// ./gradlew :fabric:smoketestJar -> fabric/build/libs/nei-smoketest-fabric-<mc>-<version>.jar
+tasks.register('smoketestJar', Jar) {
+    from sourceSets.smoketest.output
+    archiveBaseName = "nei-smoketest-fabric-${minecraft_version}"
+}
+
 loom {
     // 26.x is not obfuscated: no mappings, no remapping (Mojang's own names)
     accessWidenerPath = file('src/main/resources/notenoughitems.accesswidener')
+
+    mods {
+        "${mod_id}" { sourceSet sourceSets.main }
+        nei_smoketest { sourceSet sourceSets.smoketest }
+    }
+
+    // ./gradlew :fabric:runSmokeTest -Pnei.smoketest.script=<file>  (see smoketest/README.md in the tree root)
+    runs {
+        smokeTest {
+            client()
+            name = 'NEI Smoke Test'
+            source sourceSets.smoketest
+            runDir = 'run-smoketest'
+            programArgs '--width', '1280', '--height', '720'
+            if (project.hasProperty('nei.smoketest.script')) {
+                vmArg "-Dnei.smoketest.script=${file(project.property('nei.smoketest.script')).absolutePath}"
+            }
+        }
+    }
 }
 
 dependencies {

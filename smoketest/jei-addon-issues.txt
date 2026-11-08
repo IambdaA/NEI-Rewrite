@@ -1,0 +1,99 @@
+# Expected: every CARRIED after a cheat click holds a stack, held stacks are deleted (never dropped), the end shot's
+# chat says no entities were killed.
+# Checks NEI against the issues reported on IambdaA/NEI-features-for-JEI (cheat clicks, click to delete, quantity field).
+world
+wait 20
+cmd gamemode creative
+cmd effect clear @s
+cmd clear @s
+cmd kill @e[type=item]
+inv
+wait 20
+move 320 60
+carried
+
+# #11: a cheat click puts a stack on the cursor every time, not only the first time
+log #11 first give
+click 432 33
+wait 5
+carried
+click 239 231
+wait 5
+carried
+log #11 second give
+click 432 33
+wait 5
+carried
+wait 20
+carried
+click 257 231
+wait 5
+carried
+
+# #12: holding a stack and clicking a different panel item (NEI: right click deletes one, left click the stack)
+log #12 creative, holding hotbar stack, right click then left click another panel item
+click 239 231
+wait 5
+carried
+click 450 33 right
+wait 5
+carried
+move 450 33
+wait 5
+shot i12-creative-hover-holding
+click 450 33
+wait 5
+carried
+shot i12-creative-after
+click 275 231
+wait 5
+
+# #7: digits typed into the quantity field
+log #7 quantity field, typing 12345
+click 521 343
+type 12345
+wait 5
+shot i07-quantity-typed
+click 320 60
+wait 5
+click 432 33
+wait 5
+carried
+click 293 231
+wait 5
+click 521 343
+key backspace
+key backspace
+key backspace
+key backspace
+key backspace
+click 320 60
+wait 5
+
+# #12 in survival (the delete click needs the server side of NEI, which the dev client has)
+log #12 survival
+cmd gamemode survival
+cmd clear @s
+cmd give @s minecraft:stone 5
+close
+wait 10
+inv
+wait 20
+move 320 60
+shot i12-survival-inv
+click 248 247
+wait 5
+carried
+move 450 33
+wait 5
+shot i12-survival-hover-holding
+click 450 33
+wait 20
+carried
+shot i12-survival-after
+cmd gamemode creative
+log dropped item entities (expect none):
+cmd kill @e[type=item]
+wait 10
+shot i-end-chat
+quit

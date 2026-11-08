@@ -20,6 +20,15 @@ public interface Platform {
 
     boolean isModLoaded(String id);
 
+    /**
+     * True if crafting gives the stack back into its grid cell (a tool with a crafting remainder of itself, like a GregTech
+     * hammer): one is enough for any number of crafts. Vanilla only knows remainders per item; NeoForge asks the stack.
+     */
+    default boolean staysInGrid(net.minecraft.world.item.ItemStack stack) {
+        final net.minecraft.world.item.ItemStackTemplate rest = stack.getItem().getCraftingRemainder();
+        return rest != null && rest.item().value() == stack.getItem();
+    }
+
     /** The display name of a fluid (the loaders keep it in their own fluid APIs). */
     net.minecraft.network.chat.Component fluidName(net.minecraft.world.level.material.Fluid fluid);
 

@@ -1,0 +1,40 @@
+# #14: a cheat click on a fluid gives its bucket; holding a stack over a panel shows "Click to delete".
+world
+wait 20
+cmd gamemode creative
+cmd effect clear @s
+cmd clear @s
+inv
+wait 20
+click 320 347
+type lava
+wait 10
+click 320 60
+move 432 33
+wait 5
+shot f01-lava-1
+move 450 33
+wait 5
+shot f02-lava-2
+log click first lava result
+click 432 33
+wait 5
+carried
+click 239 231
+wait 5
+log click second lava result
+click 450 33
+wait 5
+carried
+click 257 231
+wait 5
+log hold a stack over the item panel
+click 239 231
+wait 5
+carried
+move 470 120
+wait 5
+shot f03-hint-creative
+click 239 231
+wait 5
+quit

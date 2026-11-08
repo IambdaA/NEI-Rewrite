@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "nei_smoketest",
+  "version": "0",
+  "name": "NEI smoke test driver (dev only)",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["codechicken.nei.smoketest.NeiSmokeTest"]
+  },
+  "mixins": ["nei_smoketest.mixins.json"],
+  "depends": {
+    "fabric-api": "*"
+  }
+}

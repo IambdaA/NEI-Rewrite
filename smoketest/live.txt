@@ -1,0 +1,8 @@
+world
+wait 20
+cmd gamemode creative
+cmd effect clear @s
+inv
+wait 20
+move 320 60
+shot live-00

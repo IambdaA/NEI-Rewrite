@@ -1,5 +1,7 @@
 # NEI Rewrite
 
+**Download on [CurseForge](https://www.curseforge.com/minecraft/mc-mods/nei-features-for-jei)**
+
 > **IMPORTANT: recipes of modded machines need [JEI](https://modrinth.com/mod/jei) installed.**
 > NEI Rewrite shows vanilla recipes by itself. For machines from other mods (AE2, Create, Mekanism ...) it reads the
 > recipes from JEI's plugins, so install JEI next to it. JEI's own screens are switched off; you only see NEI.

@@ -1,0 +1,23 @@
+# Basic smoke test (gui scale 2, 1280x720 window = 640x360 GUI coordinates).
+world
+wait 20
+inv
+wait 20
+screen
+shot 01-inventory
+# search: click the search box, type, check the panel filters
+click 320 347
+type iron ingot
+wait 20
+shot 02-search
+# recipe lookup: unfocus the search box (click empty sky), hover the first panel slot, press R
+click 320 60
+move 432 33
+wait 5
+key r
+wait 20
+screen
+shot 03-recipe
+key escape
+wait 10
+quit

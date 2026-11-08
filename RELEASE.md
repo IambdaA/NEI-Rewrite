@@ -4,7 +4,7 @@ The store texts are in `store/` (`modrinth.md`, `curseforge.html`, `summary.txt`
 
 ## Before the first upload
 
-1. `./gradlew build`, then run `neoforge/build/libs/notenoughitems-neoforge-26.2-1.3.0.jar` in a clean 26.2 NeoForge instance and `fabric/build/libs/notenoughitems-fabric-26.2-1.3.0.jar` (with Fabric API) in a Fabric one.
+1. `./gradlew build`, then run `neoforge/build/libs/notenoughitems-neoforge-26.2-1.3.1.jar` in a clean 26.2 NeoForge instance and `fabric/build/libs/notenoughitems-fabric-26.2-1.3.1.jar` (with Fabric API) in a Fabric one.
 2. Start a **dedicated server** with the jar and join it: with the mod on both sides, on the client only and on the server only.
 3. Repository: https://github.com/IambdaA/NEI-Rewrite (issue tracker and project links are in the mod metadata, README and store texts).
 4. `jei_version` in `gradle.properties` is pinned (30.47.0.240); raise it when you test against a newer JEI.

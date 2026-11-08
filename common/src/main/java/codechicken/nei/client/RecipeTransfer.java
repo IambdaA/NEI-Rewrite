@@ -210,9 +210,13 @@ final class RecipeTransfer {
         final Map<Long, Integer> moves = new LinkedHashMap<>(); // (source << 32 | destination) -> how many items
         final int[] inCell = new int[menu.slots.size()];
         final net.minecraft.world.item.Item[] cellItem = new net.minecraft.world.item.Item[menu.slots.size()];
+        // cells holding a tool that crafting puts back (a GregTech hammer): the first set's one serves every set, as many
+        // sets as the tool has uses left
+        final boolean[] stays = new boolean[menu.slots.size()];
+        int toolUses = Integer.MAX_VALUE;
 
         int sets = 0;
-        for (int set = 0; set < maxSets; set++) {
+        for (int set = 0; set < Math.min(maxSets, toolUses); set++) {
             final int[] left = remaining.clone();
             final Set<Integer> setMissing = new HashSet<>();
             final List<int[]> setMoves = new ArrayList<>(); // {source menu slot, destination menu slot}
@@ -225,6 +229,7 @@ final class RecipeTransfer {
 
                 final int[] cell = target(view, slot, ordinal++, grid);
                 final int dest = grid.firstSlot() + cell[1] * grid.width() + cell[0];
+                if (set > 0 && stays[dest]) continue;
                 int best = -1;
                 for (int src : sources) {
                     if (left[src] <= 0 || !matches(slot, menu.slots.get(src).getItem())) continue;
@@ -242,6 +247,11 @@ final class RecipeTransfer {
                 if (inCell[dest] + 1 > limit) fits = false;
                 left[best]--;
                 setMoves.add(new int[] { best, dest });
+                final ItemStack source = menu.slots.get(best).getItem();
+                if (set == 0 && codechicken.nei.NotEnoughItems.platform().staysInGrid(source)) {
+                    stays[dest] = true;
+                    if (source.isDamageableItem()) toolUses = Math.min(toolUses, source.getMaxDamage() - source.getDamageValue());
+                }
             }
 
             if (set == 0) missing = setMissing; // the first set places what it can and reports the rest
