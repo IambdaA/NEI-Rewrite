@@ -69,10 +69,23 @@ public final class NEIJeiPlugin implements IModPlugin {
      * JEI's own subtype identity of a stack (what its {@code getUid} says besides the item): the fluid of an NTM fluid icon,
      * the enchantment of a book. JEI 29+ answers a list of {@code [item, subtype data]}; no data means a plain stack.
      */
+    /** Set once the running JEI turns out not to have {@code getUid} (it came later than the oldest JEI we accept). */
+    private static volatile boolean noGetUid;
+
     private static java.util.function.Function<ItemStack, String> subtypeReader(IJeiRuntime runtime) {
         final var helper = runtime.getIngredientManager().getIngredientHelper(mezz.jei.api.constants.VanillaTypes.ITEM_STACK);
         return stack -> {
-            final Object uid = helper.getUid(stack, mezz.jei.api.ingredients.subtypes.UidContext.Recipe);
+            Object uid;
+            if (noGetUid) {
+                uid = helper.getUniqueId(stack, mezz.jei.api.ingredients.subtypes.UidContext.Recipe);
+            } else {
+                try {
+                    uid = helper.getUid(stack, mezz.jei.api.ingredients.subtypes.UidContext.Recipe);
+                } catch (NoSuchMethodError e) { // an older JEI than the one NEI is built with: only the unique id string
+                    noGetUid = true;
+                    uid = helper.getUniqueId(stack, mezz.jei.api.ingredients.subtypes.UidContext.Recipe);
+                }
+            }
             if (uid instanceof List<?> list) return list.size() > 1 && list.get(1) != null ? String.valueOf(list.get(1)) : "";
             return "";
         };

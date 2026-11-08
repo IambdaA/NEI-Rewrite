@@ -27,6 +27,13 @@ public final class NeoPlatform implements Platform {
     }
 
     @Override
+    public boolean staysInGrid(net.minecraft.world.item.ItemStack stack) {
+        if (!stack.hasCraftingRemainingItem()) return false;
+        final net.minecraft.world.item.ItemStack rest = stack.getCraftingRemainingItem();
+        return !rest.isEmpty() && rest.is(stack.getItem());
+    }
+
+    @Override
     public net.minecraft.world.level.material.Fluid fluidOf(Object ingredient) {
         return ingredient instanceof net.neoforged.neoforge.fluids.FluidStack stack ? stack.getFluid() : null;
     }

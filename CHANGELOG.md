@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.1
+
+- Fixed: from the second cheat click on, the stack NEI gave you was thrown into the world as soon as you let go of the mouse (the same happened to any stack on the cursor clicked over NEI's panels)
+- As in NEI: clicking a panel while holding a stack deletes it in Cheat Mode (or Utility Mode with Delete), a right click deletes one item; otherwise the stack is dropped. Over a panel, the held stack's tooltip says "Click to delete" / "Click to drop"
+- Cheat Mode: a click on a fluid gives its bucket, as JEI does (fluids without a bucket still open their recipes)
+- The `+` and autocrafting fill several sets when a recipe uses a tool that stays in the grid (GregTech's hammers, files, saws ...), as many as the tool has durability left; before, one craft at a time
+- Fixed: with an older JEI 19 than NEI is built with, NEI's item list could stay empty (seen on 1.20.1 with ATM9's JEI)
+
 ## 1.3.0 (1.21.1, NeoForge and Fabric)
 
 - After joining a world, a chat message asks you to report issues on GitHub (the word is a link); its "Turn off this message" link switches it off, Inventory > Release Notice in the settings switches it back on

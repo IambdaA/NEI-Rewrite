@@ -32,6 +32,28 @@ if (jei_version == 'none') {
     sourceSets.main.java.exclude('codechicken/nei/jei/**')
 }
 
+// Test driver (src/smoketest + ../common/src/smoketest): its own jar for test copies of Prism instances, never part of the
+// published mod. ./gradlew :fabric:remapSmoketestJar -> fabric/build/libs/nei-smoketest-fabric-<mc>-<version>.jar
+sourceSets {
+    smoketest {
+        java.srcDir '../common/src/smoketest/java'
+        compileClasspath += main.compileClasspath
+        runtimeClasspath += main.runtimeClasspath
+    }
+}
+def smoketestJar = tasks.register('smoketestJar', Jar) {
+    from sourceSets.smoketest.output
+    archiveBaseName = "nei-smoketest-fabric-${minecraft_version}"
+    archiveClassifier = 'dev'
+    destinationDirectory = layout.buildDirectory.dir('devlibs')
+}
+tasks.register('remapSmoketestJar', net.fabricmc.loom.task.RemapJarTask) {
+    dependsOn smoketestJar
+    inputFile = smoketestJar.flatMap { it.archiveFile }
+    archiveBaseName = "nei-smoketest-fabric-${minecraft_version}"
+    archiveClassifier = ''
+}
+
 loom {
     // mojmap, like the NeoForge module (and the shared code)
     accessWidenerPath = file('src/main/resources/notenoughitems.accesswidener')

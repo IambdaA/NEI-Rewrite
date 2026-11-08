@@ -1,5 +1,7 @@
 # NEI Rewrite
 
+**Download on [CurseForge](https://www.curseforge.com/minecraft/mc-mods/nei-features-for-jei)**
+
 
 An **unofficial** rewrite of the [GTNH fork of NotEnoughItems](https://github.com/GTNewHorizons/NotEnoughItems) for
 Minecraft 1.21.1 on **NeoForge and Fabric**, by Iambda. It follows NEI's design and rules, but the code is new. It aims to look and work

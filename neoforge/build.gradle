@@ -31,6 +31,19 @@ if (jei_version == 'none') {
 sourceSets.main.java.srcDir '../common/src/main/java'
 sourceSets.main.resources.srcDir '../common/src/main/resources'
 
+// Test driver (src/smoketest + ../common/src/smoketest): its own jar for test copies of Prism instances, never part of the
+// published mod. NeoForge runs with Mojang names, so the plain jar works: ./gradlew :neoforge:smoketestJar
+sourceSets {
+    smoketest {
+        java.srcDir '../common/src/smoketest/java'
+        compileClasspath += main.compileClasspath
+    }
+}
+tasks.register('smoketestJar', Jar) {
+    from sourceSets.smoketest.output
+    archiveBaseName = "nei-smoketest-neoforge-${minecraft_version}"
+}
+
 neoForge {
     version = project.neo_version
     // accesstransformer.cfg in src/main/resources/META-INF is picked up automatically
