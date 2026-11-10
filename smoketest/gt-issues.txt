@@ -1,0 +1,222 @@
+# NEIF issues #18 and #20 with GregTech CEu recipes (1.20.1 Forge instance with GT only):
+#  #18 two macerator recipes of stone dust stay apart (A and Shift+A)
+#  NEI's Bookmark items with recipe: A over a GT recipe's output remembers the recipe
+#  #20 a bookmarked GT recipe: the Shift preview against the item zoom, and a held stack over the bookmarks after it (shots)
+world
+wait 20
+cmd gamemode creative
+cmd effect clear @s
+cmd clear @s
+cmd kill @e[type=item]
+cmd time set 1000
+cmd weather clear
+inv
+wait 40
+screen
+# a normal creative tab (the Search tab would take every key, as in vanilla), and an empty bookmark page (the
+# instance's own bookmarks are backed up and restored by the runner)
+clickwindow 13 -14
+wait 10
+expect screenkind == creative
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+cheatmode 2
+call NEIConfig.QUANTITY.set(0)
+call NEIConfig.HISTORY_ENABLED.set(true)
+call NEIConfig.ZOOM_ENABLED.set(false)
+call NEIConfig.SEARCH_HIDE_UNTIL.set(false)
+call NEIConfig.RECIPE_INFINITE_SCROLL.set(false)
+call NEIConfig.RECIPE_SHIFT_OVERLAY.set(false)
+clickwindow 60 5
+wait 5
+
+section 34 a held stack over a bookmark shows only the delete hint (NEIF issue #17)
+close
+wait 10
+cmd gamemode creative
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+cheatmode 2
+call NEIConfig.QUANTITY.set(0)
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+clickwindow 60 5
+wait 5
+search diamond
+wait 30
+finditem diamond
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 1
+search stone
+wait 30
+finditem stone
+clickhere
+wait 5
+expect carried == minecraft:stone
+finditem BOOKMARKS diamond
+wait 3
+expect tooltip == Delete Item
+shot s34-held-over-bookmark
+finditem stone
+wait 3
+clickhere
+wait 5
+expect carried == empty
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+section 35 two recipes of the stick: A over each output gives two bookmarks that remember their recipe (NEIF #18; NEI's Bookmark items with recipe)
+search stick
+wait 30
+finditem stick
+wait 3
+key r
+wait 30
+expect NEIClientEvents.overlay.item contains stick
+tab craft
+wait 10
+shot s35-stick-recipes
+findslot 1:stick
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 1
+expect Bookmarks.grid().items.get(0).recipeId != null
+findslot 2:stick
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 2
+expect Bookmarks.grid().items.get(1).recipeId != null
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+section 36 Shift+A over two recipes of the stick keeps both recipes (NEIF #18)
+key esc
+wait 5
+search stick
+wait 30
+finditem stick
+wait 3
+key r
+wait 30
+tab craft
+wait 10
+expect NEIClientEvents.overlay.page == 0
+findslot 1:stick
+wait 3
+press shift
+key a
+release shift
+wait 3
+expect Bookmarks.grid().size() >= 2
+findslot 2:stick
+wait 3
+press shift
+key a
+release shift
+wait 3
+expect Bookmarks.grid().size() >= 4
+shot s36-two-recipes
+key esc
+wait 5
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+section 37 GregTech: A over two macerator recipes of stone dust gives two bookmarks that remember their recipe (NEIF #18; NEI's Bookmark items with recipe)
+requires gtceu:stone_dust
+search stone dust
+wait 30
+finditem stone dust
+wait 3
+key r
+wait 60
+tab macerator
+wait 10
+shot s37-macerator
+findslot 1:stone dust
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 1
+expect Bookmarks.grid().items.get(0).recipeId != null
+findslot 2:stone dust
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 2
+expect Bookmarks.grid().items.get(1).recipeId != null
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+section 38 GregTech: Shift+A over two macerator recipes keeps both recipes (NEIF #18)
+requires gtceu:stone_dust
+key esc
+wait 5
+search stone dust
+wait 30
+finditem stone dust
+wait 3
+key r
+wait 60
+tab macerator
+wait 10
+expect NEIClientEvents.overlay.page == 0
+findslot 1:stone dust
+wait 3
+press shift
+key a
+release shift
+wait 3
+expect Bookmarks.grid().size() >= 2
+findslot 2:stone dust
+wait 3
+press shift
+key a
+release shift
+wait 3
+expect Bookmarks.grid().size() >= 4
+shot s38-two-recipes
+key esc
+wait 5
+
+section 39 GregTech: a bookmarked GT recipe's Shift preview with the item zoom on; a held stack over the bookmarks after it (NEIF #20, shots)
+requires gtceu:stone_dust
+call NEIConfig.ZOOM_ENABLED.set(true)
+finditem BOOKMARKS stone dust
+wait 5
+press shift
+wait 5
+expect tooltip == Stone Dust
+shot s39-shift-preview-zoom
+release shift
+wait 3
+call NEIConfig.ZOOM_ENABLED.set(false)
+search stone
+wait 30
+finditem stone
+clickhere
+wait 5
+expect carried == minecraft:stone
+finditem BOOKMARKS stone dust
+wait 3
+shot s39-held-over-gt-bookmark
+moveby 36 0
+wait 3
+expect tooltip == Delete Item
+shot s39-held-over-third-bookmark
+moveby 18 0
+wait 3
+shot s39-held-over-fourth-bookmark
+finditem stone
+wait 3
+clickhere
+wait 5
+expect carried == empty
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+quit

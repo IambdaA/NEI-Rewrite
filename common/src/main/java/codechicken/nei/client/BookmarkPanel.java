@@ -428,6 +428,11 @@ public final class BookmarkPanel {
         }
     }
 
+    /** NEI's {@code inEditingState}: a group being dragged out on the strip or bookmarks being sorted. */
+    public boolean inEditingState() {
+        return dragging || sorting();
+    }
+
     private boolean sorting() {
         return sortGroup >= 0 || sortItem != null;
     }
@@ -567,6 +572,7 @@ public final class BookmarkPanel {
 
         if (hovered != null) {
             HotkeyHelp.slotType = hoveredSlot.type;
+            HotkeyHelp.slotRecipeId = hoveredSlot.recipeId;
             HotkeyHelp.slotAltToggle = grid.group(hoveredSlot.groupId).collapsed || grid.group(hoveredSlot.groupId).crafting;
             HotkeyHelp.slotOnlyResult = true;
             for (BookmarkGrid.Item o : grid.items) {
@@ -598,30 +604,74 @@ public final class BookmarkPanel {
     }
 
     /**
-     * NEI's {@code RecipeChainTooltipLineHandler} without Shift: "Crafting Chain" lists what the chain makes (aqua; one item a
-     * row with its name when it is the only one, up to Max Vertical Tooltip Rows), "Ingredients" what it needs (yellow), with
-     * the amounts the panel calculates. Items before fluids, then the larger amounts first.
+     * What a crafting chain group's tooltip lists: what the chain makes, what it needs and, with Shift, the crafts on the
+     * way and the ingredients against the inventory. A tool that stays in the grid and wears down (GregTech's hammers,
+     * files, saws ...) is counted in durability: every craft that uses it adds the damage one craft does, so two recipes
+     * using the same hammer add up their uses instead of asking for two hammers. Those ids are in {@code tools}.
      */
-    private static List<ItemTooltip.ItemLine> chainLines(BookmarkGrid grid, int groupId) {
-        final boolean shift = HotkeyHelp.isShiftDown();
+    public record ChainTotals(Map<String, long[]> outputs, Map<String, long[]> inputs, Map<String, long[]> crafts,
+            Map<String, long[]> missing, Map<String, long[]> available, java.util.Set<String> tools) {}
+
+    /** The durability one craft takes from this item when it is a tool that stays in the grid, else 0. */
+    public static int toolWear(String id) {
+        final codechicken.nei.item.ItemEntry entry = ItemList.find(id);
+        return entry == null ? 0 : codechicken.nei.NotEnoughItems.platform().toolDamagePerCraft(entry.stack);
+    }
+
+    /**
+     * What a crafting chain makes in a machine or a furnace (a recipe that does not go on a crafting grid) and uses itself, less
+     * what the inventory holds. Autocrafting cannot make these, so the give-missing key hands them over with the missing
+     * ingredients.
+     */
+    public static Map<String, long[]> machineMade(BookmarkGrid grid, int groupId, ChainTotals totals) {
+        final Map<String, long[]> out = new java.util.LinkedHashMap<>();
+        final var player = Minecraft.getInstance().player;
+        for (BookmarkGrid.Item item : grid.items) {
+            if (item.groupId != groupId || item.type != 1 || item.recipeId == null || out.containsKey(item.id)) continue;
+            final long[] used = totals.crafts().get(item.id);
+            if (used == null) continue;
+            final codechicken.nei.recipe.RecipeView view = RecipeBookmarks.resolve(item.id, item.recipeId);
+            if (view == null || view.crafting() != codechicken.nei.recipe.RecipeView.Crafting.NONE) continue;
+            long have = 0;
+            if (player != null) {
+                for (int i = 0; i < 36; i++) {
+                    final ItemStack s = player.getInventory().getItem(i);
+                    if (!s.isEmpty() && codechicken.nei.item.FluidDisplay.idOf(s).equals(item.id)) have += s.getCount();
+                }
+            }
+            if (used[0] - have > 0) out.put(item.id, new long[] { used[0] - have });
+        }
+        return out;
+    }
+
+    public static ChainTotals chainTotals(BookmarkGrid grid, int groupId, boolean shift) {
         final Map<String, long[]> outputs = new java.util.LinkedHashMap<>();
         final Map<String, long[]> inputs = new java.util.LinkedHashMap<>();
         final Map<String, long[]> crafts = new java.util.LinkedHashMap<>();
+        final java.util.Set<String> tools = new java.util.HashSet<>();
+        final Map<String, Integer> wear = new java.util.HashMap<>();
         for (BookmarkGrid.Item item : grid.items) {
             if (item.groupId != groupId) continue;
             final ChainMath.Calc calc = grid.calc.get(item);
-            if (calc == null || calc.amount() <= 0) continue;
-            if (calc.type == ChainMath.Calc.RESULT && item.recipeId != null && grid.isOutputRecipe(groupId, item.recipeId)) {
-                outputs.computeIfAbsent(item.id, k -> new long[1])[0] += calc.amount();
-            } else if (calc.type == ChainMath.Calc.INGREDIENT) {
-                inputs.computeIfAbsent(item.id, k -> new long[1])[0] += calc.amount();
-            } else if (shift && calc.type == ChainMath.Calc.REMAINDER) {
-                outputs.computeIfAbsent(item.id, k -> new long[1])[0] += calc.amount(); // NEI: Shift adds the remainders
-            } else if (shift && calc.type == ChainMath.Calc.RESULT) {
-                crafts.computeIfAbsent(item.id, k -> new long[1])[0] += calc.amount(); // results made on the way
+            if (calc == null) continue;
+            // as NEI's RecipeChainTooltipLineHandler: what is left over of a result once the chain has used what it needs,
+            // and of an ingredient only what no recipe of the chain makes (ChainMath's shiftAmount)
+            final long need = calc.shiftAmount;
+            if (calc.type == ChainMath.Calc.INGREDIENT) {
+                if (need <= 0) continue;
+                final int perCraft = wear.computeIfAbsent(item.id, BookmarkPanel::toolWear);
+                if (perCraft > 0) tools.add(item.id);
+                inputs.computeIfAbsent(item.id, k -> new long[1])[0] += perCraft > 0 ? need * perCraft : need;
+                continue;
             }
+            if (need > 0 && (calc.type == ChainMath.Calc.RESULT || shift && calc.type == ChainMath.Calc.REMAINDER)) {
+                outputs.computeIfAbsent(item.id, k -> new long[1])[0] += need; // NEI: Shift adds the remainders
+            }
+            final long used = calc.amount() - need; // what the chain itself uses of this result
+            if (shift && used > 0) crafts.computeIfAbsent(item.id, k -> new long[1])[0] += used; // NEI's Required Crafts
         }
         // NEI's Shift view: the ingredients against the inventory, what is missing and what you already have
+        // (a tool: the durability its copies in the inventory have left)
         final Map<String, long[]> missing = new java.util.LinkedHashMap<>();
         final Map<String, long[]> available = new java.util.LinkedHashMap<>();
         if (shift) {
@@ -630,7 +680,10 @@ public final class BookmarkPanel {
             if (player != null) {
                 for (int i = 0; i < 36; i++) {
                     final ItemStack s = player.getInventory().getItem(i);
-                    if (!s.isEmpty()) have.merge(codechicken.nei.item.FluidDisplay.idOf(s), (long) s.getCount(), Long::sum);
+                    if (s.isEmpty()) continue;
+                    final String id = codechicken.nei.item.FluidDisplay.idOf(s);
+                    final long n = tools.contains(id) && s.isDamageableItem() ? s.getMaxDamage() - s.getDamageValue() : s.getCount();
+                    have.merge(id, n, Long::sum);
                 }
             }
             for (Map.Entry<String, long[]> e : inputs.entrySet()) {
@@ -640,11 +693,24 @@ public final class BookmarkPanel {
                 if (got > 0) available.put(e.getKey(), new long[] { got });
             }
         }
+        return new ChainTotals(outputs, inputs, crafts, missing, available, tools);
+    }
+
+    /**
+     * NEI's {@code RecipeChainTooltipLineHandler} without Shift: "Crafting Chain" lists what the chain makes (aqua; one item a
+     * row with its name when it is the only one, up to Max Vertical Tooltip Rows), "Ingredients" what it needs (yellow), with
+     * the amounts the panel calculates. Items before fluids, then the larger amounts first. A tool's number is the durability
+     * the chain takes from it, drawn in blue.
+     */
+    private static List<ItemTooltip.ItemLine> chainLines(BookmarkGrid grid, int groupId) {
+        final boolean shift = HotkeyHelp.isShiftDown();
+        final ChainTotals t = chainTotals(grid, groupId, shift);
         final int screenH = Minecraft.getInstance().getWindow().getGuiScaledHeight();
         final int maxRows = Math.max(1, (screenH - 26 - 40 - 13) / 18); // NEI's maxLineRows
         final List<ItemTooltip.ItemLine> lines = new java.util.ArrayList<>();
         // NEI's order: Crafting Chain, Required Crafts, Missing Items (Shift), Ingredients (with Shift: the ones you have)
-        final List<Map<String, long[]>> maps = shift ? List.of(outputs, crafts, missing, available) : List.of(outputs, inputs);
+        final List<Map<String, long[]>> maps = shift ? List.of(t.outputs(), t.crafts(), t.missing(), t.available())
+                : List.of(t.outputs(), t.inputs());
         final String[] labels = shift ? new String[] { "Crafting Chain", "Required Crafts", "Missing Items", "Ingredients" }
                 : new String[] { "Crafting Chain", "Ingredients" };
         final net.minecraft.ChatFormatting[] colors = shift
@@ -655,7 +721,9 @@ public final class BookmarkPanel {
             final Map<String, long[]> map = maps.get(pass);
             final List<Map.Entry<String, long[]>> entries = new java.util.ArrayList<>(map.entrySet());
             entries.removeIf(e -> ItemList.find(e.getKey()) == null);
-            entries.sort(java.util.Comparator.comparing((Map.Entry<String, long[]> e) -> codechicken.nei.item.FluidDisplay.isFluidId(e.getKey()))
+            // items, then tools, then fluids; the larger amounts first
+            entries.sort(java.util.Comparator.comparingInt((Map.Entry<String, long[]> e) ->
+                            codechicken.nei.item.FluidDisplay.isFluidId(e.getKey()) ? 2 : t.tools().contains(e.getKey()) ? 1 : 0)
                     .thenComparingLong(e -> -e.getValue()[0]));
             final List<ItemStack> stacks = new java.util.ArrayList<>();
             final List<Long> amounts = new java.util.ArrayList<>();
@@ -666,8 +734,10 @@ public final class BookmarkPanel {
             if (stacks.isEmpty()) continue;
             // NEI: a single output, and with Shift the missing and the available ingredients, get one row per item with its name
             final boolean vertical = pass == 0 && stacks.size() == 1 || shift && pass >= 2;
-            lines.add(new ItemTooltip.ItemLine(labels[pass], colors[pass], stacks, amounts, null,
-                    maxRows, vertical ? NEIConfig.BOOKMARK_VERTICAL_ROWS.getAsInt() : 0, false));
+            final ItemTooltip.ItemLine line = new ItemTooltip.ItemLine(labels[pass], colors[pass], stacks, amounts, null,
+                    maxRows, vertical ? NEIConfig.BOOKMARK_VERTICAL_ROWS.getAsInt() : 0, false);
+            line.durability = t.tools();
+            lines.add(line);
         }
         return lines;
     }

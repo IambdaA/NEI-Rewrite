@@ -36,6 +36,13 @@ public final class ForgePlatform implements Platform {
         return !rest.isEmpty() && rest.is(stack.getItem());
     }
 
+    /** The loader's remainder is the tool after one craft: the difference in damage is what a craft costs (GregTech: its own). */
+    @Override
+    public int toolDamagePerCraft(net.minecraft.world.item.ItemStack stack) {
+        if (!stack.isDamageableItem() || !staysInGrid(stack)) return 0;
+        return Math.max(1, stack.getCraftingRemainingItem().getDamageValue() - stack.getDamageValue());
+    }
+
     /** JEI's Forge fluid ingredient is Forge's own {@link FluidStack}, counted in millibuckets. */
     @Override
     public Fluid fluidOf(Object ingredient) {

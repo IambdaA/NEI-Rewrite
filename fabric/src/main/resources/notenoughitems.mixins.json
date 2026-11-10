@@ -4,6 +4,7 @@
   "package": "codechicken.nei.fabric.mixin",
   "compatibilityLevel": "JAVA_17",
   "client": [
+    "ClientPacketListenerMixin",
     "ContainerScreenMixin",
     "GuiGraphicsMixin",
     "KeyMappingMixin",

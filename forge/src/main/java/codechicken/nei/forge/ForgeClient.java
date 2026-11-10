@@ -52,6 +52,8 @@ final class ForgeClient {
             e.getDispatcher().register(codechicken.nei.client.ReleaseNotice.<CommandSourceStack>command());
         });
 
+        // the server sent its recipes (joining, /reload): ClientRecipes cannot tell on its own on 1.20.1
+        bus.addListener((net.minecraftforge.client.event.RecipesUpdatedEvent e) -> codechicken.nei.recipe.ClientRecipes.recipesUpdated());
         bus.addListener((ScreenEvent.Init.Post e) -> ClientHooks.screenInit(e.getScreen()));
         bus.addListener((ScreenEvent.Render.Pre e) -> {
             if (ClientHooks.renderPre(e.getScreen(), e.getGuiGraphics(), e.getMouseX(), e.getMouseY(), e.getPartialTick())) {

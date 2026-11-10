@@ -26,6 +26,9 @@ public final class NEIKeys {
     public static final KeyMapping USAGE = key("usage", GLFW.GLFW_KEY_U);
     public static final KeyMapping BOOKMARK = key("bookmark", GLFW.GLFW_KEY_A);
     public static final KeyMapping TOGGLE_BOOKMARKS = key("toggle_bookmarks", GLFW.GLFW_KEY_B);
+    /** NEI's {@code gui.prev} / {@code gui.next}: the page of the panel under the mouse. */
+    public static final KeyMapping PREV_PAGE = key("prev_page", GLFW.GLFW_KEY_PAGE_UP);
+    public static final KeyMapping NEXT_PAGE = key("next_page", GLFW.GLFW_KEY_PAGE_DOWN);
     public static final KeyMapping BACK = key("back", GLFW.GLFW_KEY_BACKSPACE);
     /** NEI's {@code bookmark.chat_link}: with Ctrl over a group's strip, a bookmark or an item, shares it in chat. */
     public static final KeyMapping CHAT_LINK = key("chat_link", GLFW.GLFW_KEY_L);
@@ -75,6 +78,8 @@ public final class NEIKeys {
     public static final KeyMapping FAVORITE_ITEM = key("favorite_item", GLFW.GLFW_KEY_F);
     /** NEI's {@code bookmark.remove_recipe}: Shift + key over a bookmark group removes the group. */
     public static final KeyMapping REMOVE_GROUP = key("remove_group", GLFW.GLFW_KEY_A);
+    /** Not in NEI: in Cheat Mode, over a crafting chain group's strip, gives what the chain still lacks of its ingredients. */
+    public static final KeyMapping GIVE_MISSING = key("give_missing", GLFW.GLFW_KEY_G);
 
     /** NEI's {@code gui.search}: focuses the search field (the panel must be showing). */
     public static final KeyMapping FOCUS_SEARCH = key("focus_search", GLFW.GLFW_KEY_F);

@@ -52,10 +52,12 @@ public final class NEIJeiPlugin implements IModPlugin {
     private static final int MAX_INPUTS = 9;
     private static final int[] OUTPUT_ROWS = { 1, 0, 2 };
 
-    /** The types NEI already reads from the synced recipes (and JEI's fuel / info pseudo recipes NEI has no use for). */
+    /**
+     * The types NEI already reads from the synced recipes. JEI's fuel pages and information pages are read from JEI: they are
+     * what NEI's FuelRecipeHandler (fuels with burn times) and InformationHandler (item descriptions) show.
+     */
     private static final Set<String> NEI_COVERS = Set.of("minecraft:crafting", "minecraft:smelting", "minecraft:blasting",
-            "minecraft:smoking", "minecraft:campfire_cooking", "minecraft:stonecutting", "minecraft:smithing",
-            "minecraft:smelting_fuel", "minecraft:blasting_fuel", "minecraft:smoking_fuel", "jei:information");
+            "minecraft:smoking", "minecraft:campfire_cooking", "minecraft:stonecutting", "minecraft:smithing");
 
     private static volatile List<RecipeView> cache;
     private static Bridge bridge;
@@ -242,6 +244,7 @@ public final class NEIJeiPlugin implements IModPlugin {
     @SuppressWarnings("deprecation")
     private static int slotAmount(IRecipeSlotView slot, List<ItemStack> options) {
         final ItemStack first = options.get(0);
+        if (!FluidDisplay.namedLikeFluid(first)) return 0;
         if (first.getCount() > 1 || !first.hasTag() || FluidDisplay.subtypeOf(first).isEmpty()) return 0;
         if (!(slot instanceof IRecipeSlotDrawable drawable)) return 0;
         try {
@@ -453,7 +456,7 @@ public final class NEIJeiPlugin implements IModPlugin {
                     final int own = FluidDisplay.itemFluidAmount(stack);
                     if (own > 0) return own;
                     if (stack.hasTag() && !FluidDisplay.subtypeOf(stack).isEmpty()
-                            && s instanceof IRecipeSlotDrawable drawable) {
+                            && FluidDisplay.namedLikeFluid(stack) && s instanceof IRecipeSlotDrawable drawable) {
                         return FluidDisplay.amountIn(drawable.getTooltip());
                     }
                     return 0;

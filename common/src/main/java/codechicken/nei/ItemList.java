@@ -65,6 +65,11 @@ public final class ItemList {
     /** Entries made for subtyped ids that the item list does not hold (every fluid of an NTM fluid icon). */
     private static final java.util.Map<String, ItemEntry> SUBTYPED = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** Whether the item list itself holds this id (not counting entries made on demand for subtyped ids). */
+    public static boolean listed(String registryId) {
+        return registryId != null && byId.containsKey(registryId);
+    }
+
     public static ItemEntry find(String registryId) {
         final ItemEntry e = byId.get(registryId);
         if (e != null || registryId == null || registryId.indexOf(codechicken.nei.item.FluidDisplay.MARK) < 0) return e;
@@ -209,7 +214,7 @@ public final class ItemList {
 
         CompletableFuture.runAsync(() -> {
             final List<ItemEntry> result = source.parallelStream().filter(e -> !Subsets.isHidden(e) && !Presets.hides(e) && !API.hides(e)
-                    && !codechicken.nei.item.FluidDisplay.hasStandIn(e.stack) && safeMatch(filter, e)).toList();
+                    && !codechicken.nei.item.FluidDisplay.standInListed(e.stack) && safeMatch(filter, e)).toList();
             if (generation == GENERATION.get()) filtered = result;
         }, WORKER).exceptionally(t -> {
             NotEnoughItems.LOGGER.error("Item search failed", t);
