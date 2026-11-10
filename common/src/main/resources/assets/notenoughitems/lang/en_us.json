@@ -8,6 +8,8 @@
   "key.notenoughitems.usage": "Show uses",
   "key.notenoughitems.bookmark": "Add / remove bookmark",
   "key.notenoughitems.toggle_bookmarks": "Show / hide bookmark panel",
+  "key.notenoughitems.prev_page": "Previous page (panel under the mouse)",
+  "key.notenoughitems.next_page": "Next page (panel under the mouse)",
   "key.notenoughitems.back": "Recipe window: previous view",
   "key.notenoughitems.terminal_name": "Search Item in AE2 Terminal",
   "key.notenoughitems.open_crafting_tree": "Open Crafting Tree Window",

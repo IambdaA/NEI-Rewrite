@@ -90,6 +90,11 @@ public final class RecipeOverlay {
      * data component; a lookup of such a stack must only find recipes with that very stack, not with the item's other kinds.
      */
     private static ItemStack pendingFocus = ItemStack.EMPTY;
+
+    /** The stack the next lookup is about (set by {@link #focusNext}), or empty. */
+    static ItemStack pendingFocus() {
+        return pendingFocus;
+    }
     private ItemStack focus = ItemStack.EMPTY;
 
     public static void focusNext(ItemStack stack) {

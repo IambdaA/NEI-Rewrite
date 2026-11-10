@@ -1,0 +1,70 @@
+# NEI parity fixes: "Delete Item" tooltip, no tooltip + drop outside Cheat Mode, PageUp/PageDown over panels, JEI fuel pages.
+world
+wait 20
+cmd gamemode creative
+cmd effect clear @s
+cmd clear @s
+cmd kill @e[type=item]
+inv
+wait 30
+cheatmode 2
+log creative, Cheat Mode: holding a stack over the panel shows only "Delete Item"
+search stone
+wait 10
+finditem stone
+clickhere
+wait 5
+clickinv 0
+wait 5
+clickinv 0
+wait 5
+carried
+finditem stone
+wait 5
+shot q1-delete-item
+clickhere
+wait 5
+carried
+log PageDown over the item panel (page row should go from 1/N to 2/N)
+search
+wait 10
+finditem stone
+wait 5
+shot q2-page-before
+key pagedown
+wait 5
+shot q3-page-after
+key pageup
+wait 5
+log survival, Recipe Mode: no tooltip over the panel, the click drops the stack
+cmd gamemode survival
+cmd clear @s
+cmd give @s minecraft:stone 5
+close
+wait 10
+inv
+wait 20
+cheatmode 0
+clickinv 0
+wait 5
+carried
+search stone
+wait 10
+finditem stone
+wait 5
+shot q4-no-tooltip
+clickhere
+wait 10
+carried
+log fuel pages from JEI: uses of coal
+cmd gamemode creative
+cheatmode 2
+search coal
+wait 10
+finditem coal
+key u
+wait 20
+move 5 5
+shot q5-coal-uses
+key esc
+quit

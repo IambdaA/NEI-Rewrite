@@ -32,6 +32,9 @@ public final class NEIKeys {
     public static final KeyMapping USAGE = key("usage", GLFW.GLFW_KEY_U);
     public static final KeyMapping BOOKMARK = key("bookmark", GLFW.GLFW_KEY_A);
     public static final KeyMapping TOGGLE_BOOKMARKS = key("toggle_bookmarks", GLFW.GLFW_KEY_B);
+    /** NEI's {@code gui.prev} / {@code gui.next}: the page of the panel under the mouse. */
+    public static final KeyMapping PREV_PAGE = key("prev_page", GLFW.GLFW_KEY_PAGE_UP);
+    public static final KeyMapping NEXT_PAGE = key("next_page", GLFW.GLFW_KEY_PAGE_DOWN);
     public static final KeyMapping BACK = key("back", GLFW.GLFW_KEY_BACKSPACE);
     /** NEI's {@code bookmark.chat_link}: with Ctrl over a group's strip, a bookmark or an item, shares it in chat. */
     public static final KeyMapping CHAT_LINK = key("chat_link", GLFW.GLFW_KEY_L);

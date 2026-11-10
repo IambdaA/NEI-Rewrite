@@ -428,6 +428,11 @@ public final class BookmarkPanel {
         }
     }
 
+    /** NEI's {@code inEditingState}: a group being dragged out on the strip or bookmarks being sorted. */
+    public boolean inEditingState() {
+        return dragging || sorting();
+    }
+
     private boolean sorting() {
         return sortGroup >= 0 || sortItem != null;
     }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.2
+
+- As in NEI: a stack held over NEI's panels shows the tooltip "Delete Item" when a click deletes it, and no tooltip when a click drops it. It is deleted in Cheat Mode or in creative mode (NEI's rule), and the panels leave it alone while you sort bookmarks or autocrafting runs
+- As in NEI: Page Up / Page Down over the item panel or the bookmarks turn that panel's page (rebindable)
+- With JEI: its fuel pages (what burns in a furnace, blast furnace and smoker) and its information pages (item descriptions other mods add) are shown, as NEI's Fuel and Information handlers do; before, they were left out
+- Fixed: the history panel kept one entry for all of NTM's fluid icons
+
 ## 1.3.1
 
 - Fixed: from the second cheat click on, the stack NEI gave you was thrown into the world as soon as you let go of the mouse (the same happened to any stack on the cursor clicked over NEI's panels)
