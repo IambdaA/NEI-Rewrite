@@ -46,7 +46,9 @@ Target: Minecraft 26.2, NeoForge 26.2.0.90 (from the official MDK), ModDevGradle
 |---|---|
 | Left click an item (either panel, or inside the recipe window) | its recipes |
 | Right click an item | recipes that use it |
-| Shift + click an item in a panel | give it: left = full stack, right = one (creative or cheats on) |
+| Click an item in a panel in Cheat Mode | give it: left = the quantity field's amount (a full stack when empty), right = one; Shift + click opens recipes instead (as NEI) |
+| Click a panel while holding a stack | Cheat Mode or creative: delete it (right click: one item), else drop it (as NEI's HeldItemHandler) |
+| PageUp / PageDown over a panel | its previous / next page (NEI `gui.prev` / `gui.next`) |
 | `R` / `U` over any item | recipes / uses (rebindable) |
 | `A` over any item | add / remove bookmark (rebindable) |
 | `B` | show / hide the bookmark panel (rebindable) |
@@ -105,14 +107,19 @@ Run `./gradlew compileJava` and fix in this order; the errors should point at ex
 
 ## Known gaps / behavior differences from NEI
 
-- Item list is one default stack per registry item. Variants (enchanted books, potions, ...) need creative-tab
-  contents; planned for stage 2.
-- Tooltip search (`#`) builds tooltips lazily on the search worker thread. If a mod's tooltip code is not
-  thread safe this should move to the client thread.
-- Not yet ported from NEI search: expression-mode (ANTLR) search, recipe tokens (`< >`), alternate space modes,
-  alias/untranslated-name matching, collapsible item groups.
-- Item list is built once on first container screen open; it is not rebuilt on language change or resource reload.
-- Panel is hidden when there is less than one slot of free width beside the container screen.
+(Rewritten 2026-11-08 after a comparison with GTNH NEI 2.8.172; the stage notes below are history and may describe
+things that changed later.)
+
+- Not ported: middle-click drag of a panel item (NEI's dragged stack: drop it on the bookmarks or into ghost slots such as
+  filters); the next-tooltip-page key (`gui.next_tooltip`); NEI's chat commands (`/recipeid`, bookmark add, untranslator);
+  the recipe export (`RecipeDumper` JSON) and the item icon export; per-action server permissions (NEI's server config;
+  here vanilla operator rights decide); the Item IDs and Item Untranslator options; search prefix redefinitions.
+- Recipes of handlers NEI has built in (brewing, anvil repair, fuels, item information, fireworks) come from JEI when JEI
+  is installed; without JEI only vanilla crafting, cooking, stonecutting and smithing show.
+- Dropped on purpose (the author's decision): the chunk boundary overlay, giving items with cheats off, fluid amounts for
+  Continuum's oil refinery.
+- Tooltip search (`#`) builds tooltips on the search threads, as NEI does; a mod whose tooltip code is not thread safe can
+  misbehave there.
 
 ## Suggested stage order
 

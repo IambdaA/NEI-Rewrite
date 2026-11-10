@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.2
+
+- Cheat Mode: G over a crafting chain group's strip gives what the chain still lacks of its ingredients (the Missing Items of its Shift tooltip) and what its machine or furnace steps make, which autocrafting cannot, so the group can be autocrafted. A tool comes as enough tools for the durability the chain takes, a fluid as filled buckets. Rebindable under Controls; the Alt help lists it only in Cheat Mode
+- Alt help: the group strip lists Shift + A (Remove Group); an item whose recipe fits the open crafting grid lists Shift + S (Fill Crafting Grid) and Shift + Ctrl + S (with quantity); an item with a favorite recipe lists Shift + F (Save Recipe Tree), which now also works over the craftables panel
+- Fixed: a crafting chain's bookmark group tooltip listed intermediate items under both "Crafting Chain" and "Ingredients". Its amounts now follow NEI: what the chain still needs
+- Bookmark group tooltip: a tool that stays in the grid and wears down (GregTech's hammers, files, saws ...) shows the durability the whole chain takes from it, in blue, instead of a count of tools
+- Fixed: fluids were missing from the item list (water too). A fluid is now hidden only when a mod lists an item with exactly the fluid's name in its place (NTM - Continuum's droplets)
+- Fixed: NTM's fluid packs, barrels and tanks were counted as millibuckets of fluid (one Packaged Natural Gas as 32000 mB). Only items named like a fluid count in mB now
+- As in NEI: a stack held over NEI's panels shows the tooltip "Delete Item" when a click deletes it, and no tooltip when a click drops it. It is deleted in Cheat Mode or in creative mode (NEI's rule), and the panels leave it alone while you sort bookmarks or autocrafting runs
+- As in NEI: Page Up / Page Down over the item panel or the bookmarks turn that panel's page (rebindable)
+- With JEI: its fuel pages (what burns in a furnace, blast furnace and smoker) and its information pages (item descriptions other mods add) are shown, as NEI's Fuel and Information handlers do; before, they were left out
+
 ## 1.3.1
 
 - Fixed: from the second cheat click on, the stack NEI gave you was thrown into the world as soon as you let go of the mouse (the same happened to any stack on the cursor clicked over NEI's panels)
