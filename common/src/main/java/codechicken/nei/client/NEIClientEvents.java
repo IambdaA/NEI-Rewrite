@@ -1069,7 +1069,8 @@ public final class NEIClientEvents {
             return;
         }
         if (HotkeyHelp.isShiftDown() && treeWindow == null && NEIKeys.is(NEIKeys.FAVORITE, pressed)
-                && (ITEMS.contains(lastMouseX, lastMouseY) || HISTORY.contains(lastMouseX, lastMouseY))) {
+                && (ITEMS.contains(lastMouseX, lastMouseY) || HISTORY.contains(lastMouseX, lastMouseY)
+                        || CRAFTABLES.contains(lastMouseX, lastMouseY))) {
             final ItemStack over = panelStackAt(lastMouseX, lastMouseY);
             if (!over.isEmpty()) RecipeBookmarks.saveFavoriteTree(codechicken.nei.item.FluidDisplay.idOf(over));
             event.setCanceled(true);
@@ -1249,6 +1250,18 @@ public final class NEIClientEvents {
                 event.setCanceled(true);
             }
             return;
+        }
+
+        // Not in NEI: in Cheat Mode the key over a crafting chain group's strip gives what the chain still lacks of its
+        // ingredients (its Shift tooltip's Missing Items), so the group can be autocrafted from there
+        if (treeWindow == null && !NEIKeys.GIVE_MISSING.isUnbound() && NEIKeys.is(NEIKeys.GIVE_MISSING, pressed)
+                && NEIConfig.CHEAT_ENABLED.getAsBoolean() && bookmarksVisible() && BOOKMARKS.contains(lastMouseX, lastMouseY)) {
+            final int groupId = BOOKMARKS.hoveredGroup(lastMouseX, lastMouseY);
+            if (groupId >= 0 && Bookmarks.grid().group(groupId).crafting) {
+                codechicken.nei.NEIActions.giveMissing(Bookmarks.grid(), groupId);
+                event.setCanceled(true);
+                return;
+            }
         }
 
         // As in NEI, Shift + the tree key over a recipe's heart saves the recipe tree and opens it; the key alone over a

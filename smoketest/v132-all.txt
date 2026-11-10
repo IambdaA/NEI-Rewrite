@@ -1,0 +1,119 @@
+# NEI 1.3.1 + 1.3.2 on every version and loader (positions come from NEI: search / finditem / clickinv).
+# Expected values are in the log notes; check the shots for tooltips, the page change, the fuel tab and the chat lines.
+world
+wait 20
+cmd gamemode creative
+cmd effect clear @s
+cmd clear @s
+cmd kill @e[type=item]
+inv
+wait 40
+screen
+cheatmode 2
+
+log A cheat click gives a stack every time (expect 64x stone, empty, 64x stone)
+search stone
+wait 10
+finditem stone
+clickhere
+wait 5
+carried
+clickinv 0
+wait 5
+carried
+finditem stone
+clickhere
+wait 5
+carried
+clickinv 1
+wait 5
+
+log B creative, Cheat Mode: held stack over the panel shows "Delete Item"; right click deletes one (63), left click the rest (empty)
+clickinv 0
+wait 5
+finditem stone
+wait 5
+shot b-delete-item
+clickhere right
+wait 5
+carried
+clickhere
+wait 5
+carried
+
+log C a cheat click on the Lava fluid gives a lava bucket
+search lava
+wait 10
+finditem lava
+clickhere
+wait 5
+carried
+clickinv 2
+wait 5
+
+log D PageDown over the item panel turns the page (compare the two shots), PageUp turns it back
+search
+wait 10
+finditem stone
+wait 5
+shot d1-page-before
+key pagedown
+wait 5
+shot d2-page-after
+key pageup
+wait 5
+
+log E uses of coal include the fuel pages (see the tabs)
+search coal
+wait 10
+finditem coal
+key u
+wait 20
+move 5 5
+shot e-coal-uses
+key esc
+wait 5
+
+log F survival, Recipe Mode: no tooltip over the panel, the click drops the stack (expect 5x stone, then empty; chat: Killed Stone)
+cmd gamemode survival
+cmd clear @s
+cmd kill @e[type=item]
+cmd give @s minecraft:stone 5
+close
+wait 10
+inv
+wait 20
+cheatmode 0
+clickinv 0
+wait 5
+carried
+search stone
+wait 10
+finditem stone
+wait 5
+shot f1-no-tooltip
+clickhere
+wait 10
+carried
+cmd kill @e[type=item,nbt={Item:{id:"minecraft:stone"}}]
+wait 10
+shot f2-dropped-chat
+
+log G survival, Cheat Mode: the click deletes the stack (expect 5x stone, then empty; chat: No entity was found)
+cheatmode 2
+cmd give @s minecraft:stone 5
+wait 10
+clickinv 0
+wait 5
+carried
+finditem stone
+wait 5
+shot g1-delete-item-survival
+clickhere
+wait 20
+carried
+cmd kill @e[type=item,nbt={Item:{id:"minecraft:stone"}}]
+wait 10
+shot g2-deleted-chat
+cmd gamemode creative
+quit

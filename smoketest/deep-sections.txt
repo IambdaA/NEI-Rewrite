@@ -1,0 +1,268 @@
+section 24 fluids are in the item list: water, and a mod's fluid (NTM's unsaturated hydrocarbons)
+close
+wait 10
+cmd gamemode creative
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+cheatmode 0
+search &fluid/minecraft/water
+wait 40
+expect ItemList.getFiltered().size() == 1
+expect standin:notenoughitems:fluid/minecraft/water == none
+requires hbm:liquidator_helmet
+search &fluid/hbm/unsaturateds
+wait 40
+expect ItemList.getFiltered().size() == 1
+finditem unsaturated hydrocarbons
+wait 3
+shot s24-unsaturateds-in-list
+key r
+wait 10
+expect NEIClientEvents.overlay != null
+tab cracking
+wait 5
+expect NEIClientEvents.overlay.pageCount() >= 1
+move 5 5
+shot s24-unsaturateds-cracking
+key esc
+wait 5
+
+section 25 NTM - Continuum: a fluid is drawn as NTM's droplet
+requires hbm:liquidator_helmet continuum
+expect standin:notenoughitems:fluid/hbm/unsaturateds contains hbm:fluid_icon
+
+section 26 NTM: a fluid is drawn with its own texture, like water
+requires hbm:liquidator_helmet !continuum
+expect standin:notenoughitems:fluid/hbm/unsaturateds == none
+
+section 27 autocraft the NTM liquidator helmet from its recipe chain (lead and rubber cladding, duct tape ...)
+requires hbm:liquidator_helmet
+close
+wait 10
+cmd gamemode creative
+cmd clear @s
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+call NEIConfig.FAVORITES_ENABLED.set(true)
+call NEIConfig.FAVORITE_GENERATE.set(true)
+call NEIConfig.AUTOCRAFT.set(true)
+search liquidator suit helmet
+wait 30
+finditem liquidator suit helmet
+wait 3
+key r
+wait 10
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+press shift
+key a
+release shift
+wait 10
+expect chaingroups == 1
+expect chainout:hbm:liquidator_helmet == 1
+expect chaincraft:hbm:cladding_lead == 2
+expect chainin:hbm:cladding_lead == 0
+expect chaincraft:hbm:ducttape >= 10
+expect chainin:hbm:ducttape == 0
+probe chain
+key esc
+wait 5
+close
+wait 10
+cmd gamemode survival
+cmd clear @s
+cmd tp @s ~ ~ ~ 0 0
+cmd setblock ~ ~1 ~2 minecraft:crafting_table
+wait 10
+use
+wait 20
+expect screenkind == crafting
+givemissing
+wait 20
+expect chain contains missing={}
+finditem BOOKMARKS liquidator suit helmet
+wait 3
+press shift
+key c
+release shift
+waituntil inv:hbm:liquidator_helmet 1 120
+expect inv:hbm:liquidator_helmet == 1
+shot s27-helmet-crafted
+close
+wait 10
+cmd setblock ~ ~1 ~2 minecraft:air
+cmd gamemode creative
+
+section 28 chain maths with fluids: NTM rubber from the chemical plant, its unsaturated hydrocarbons from the cracking tower
+requires hbm:liquidator_helmet
+close
+wait 10
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+call NEIConfig.FAVORITE_WHEEL.set(true)
+search unsaturated hydrocarbons
+wait 30
+finditem unsaturated hydrocarbons
+wait 3
+key r
+wait 10
+tab cracking
+wait 5
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+scrolluntil NEIClientEvents.overlay.choice unsaturated_hydrocarbons 6
+clickhere
+wait 5
+key esc
+wait 5
+search rubber bar
+wait 30
+finditem rubber bar
+wait 3
+key r
+wait 10
+tab chemical plant
+wait 5
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+clickhere
+wait 5
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+press shift
+key a
+release shift
+wait 10
+expect chainout:hbm:ingot_rubber == 2
+expect chainin:hbm:sulfur == 1
+probe chain
+key esc
+wait 5
+movepath NEIClientEvents.BOOKMARKS.x NEIClientEvents.BOOKMARKS.gridY 2 4
+wait 5
+shot s28-rubber-chain-tooltip
+call NEIConfig.FAVORITE_WHEEL.set(false)
+
+section 29 the cracking tower makes the 500 mB of unsaturated hydrocarbons the chemical plant needs
+requires hbm:liquidator_helmet
+expect chaincraft:@unsaturated_hydrocarbons == 500
+expect chainin:@unsaturated_hydrocarbons == 0
+expect chainin:@steam > 0
+
+section 30 NTM - Continuum: recipes name its fluids with its droplets
+requires hbm:liquidator_helmet continuum
+expect chain contains hbm:fluid_icon~
+
+section 31 NTM (not Continuum): recipes name the fluid itself
+requires hbm:liquidator_helmet !continuum
+expect chain contains notenoughitems:fluid/hbm/
+# a packaged fluid is an item (one pack), not 32000 of them because its tooltip says 32000mB
+expect chainin:@packaged_natural_gas <= 1
+
+section 32 GregTech: the LV cutter's recipe chain; a tool counts the durability the chain takes from it (in blue)
+requires gtceu:lv_cutter
+close
+wait 10
+cmd gamemode creative
+cmd clear @s
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+favor gtceu:lv_electric_motor shaped gtceu:iron_rod
+favor gtceu:lv_conveyor_module shaped gtceu:rubber_plate
+favor gtceu:lv_machine_hull shaped
+favor gtceu:lv_machine_casing shaped
+favor gtceu:tin_single_cable shapeless
+favor gtceu:tin_single_wire shaped
+favor gtceu:cobalt_brass_buzz_saw_blade shaped
+favor gtceu:iron_rod shaped minecraft:iron_ingot
+favor gtceu:magnetic_iron_rod shapeless
+favor gtceu:copper_single_wire shaped
+favor gtceu:tin_plate shaped
+favor gtceu:wrought_iron_plate shaped
+favor gtceu:cobalt_brass_plate shaped
+search basic cutter
+wait 30
+finditem basic cutter
+wait 3
+key r
+wait 10
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+press shift
+key a
+release shift
+wait 10
+expect chainout:gtceu:lv_cutter == 1
+expect chaincraft:gtceu:lv_electric_motor == 3
+expect chaincraft:gtceu:tin_single_cable == 11
+expect chaincraft:gtceu:tin_plate == 11
+expect chainin:gtceu:tin_ingot == 22
+expect chaintool:gtceu:tin_ingot == false
+expect chaintool:*_hammer == true
+expect chaintool:*_wire_cutter == true
+expect chaintool:*_file == true
+expect chaintool:*_wrench == true
+# the number is durability: crafts that use the tool times what one craft takes (GregTech's own, by tool and material)
+expect chainuses:*_wire_cutter == 24
+expect chainuses:*_hammer == 18
+expect chainuses:*_file == 10
+expect chainin:*_hammer >= 18
+probe chain
+key esc
+wait 5
+movepath NEIClientEvents.BOOKMARKS.x NEIClientEvents.BOOKMARKS.gridY 2 4
+wait 5
+shot s31-cutter-tooltip
+press shift
+wait 5
+shot s31-cutter-tooltip-shift
+release shift
+givechain *_hammer
+wait 10
+expect chainmissing:*_hammer == 0
+expect chainhave:*_hammer >= 18
+
+section 33 GregTech: autocraft the LV cutter (the tools stay in the grid)
+requires gtceu:lv_cutter
+close
+wait 10
+cmd gamemode survival
+cmd clear @s
+cmd tp @s ~ ~ ~ 0 0
+cmd setblock ~ ~1 ~2 minecraft:crafting_table
+wait 10
+use
+wait 20
+expect screenkind == crafting
+givemissing
+wait 40
+expect chain contains missing={}
+finditem BOOKMARKS basic cutter
+wait 3
+press shift
+key c
+release shift
+waituntil inv:gtceu:lv_cutter 1 400
+expect inv:gtceu:lv_cutter == 1
+shot s32-cutter-crafted
+close
+wait 10
+cmd setblock ~ ~1 ~2 minecraft:air
+cmd gamemode creative
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+

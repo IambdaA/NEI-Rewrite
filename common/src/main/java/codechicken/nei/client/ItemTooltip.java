@@ -368,6 +368,8 @@ final class ItemTooltip {
         final List<Long> amounts;
         final boolean favorites;
         final int active;
+        /** Ids whose number is a tool's durability use (drawn in blue), not a count. */
+        java.util.Set<String> durability = java.util.Set.of();
         final List<String> names = new ArrayList<>();
         int nameRows;
         int columns;
@@ -455,7 +457,9 @@ final class ItemTooltip {
                 final boolean fluid = codechicken.nei.item.FluidDisplay.isFluidId(id);
                 final String text = fluid ? codechicken.nei.item.FluidDisplay.amountLabel(amount)
                         : amount < 10_000 ? String.valueOf(amount) : amount < 1_000_000 ? amount / 1000 + "K" : amount / 1_000_000 + "M";
-                Draw.smallText(g, font, text, fluid ? sx + 1 : sx + 17 - font.width(text) * 0.5f, sy + 17 - 4.5f, 0xFFFFFF);
+                // a tool's durability use is blue, a count white
+                Draw.smallText(g, font, text, fluid ? sx + 1 : sx + 17 - font.width(text) * 0.5f, sy + 17 - 4.5f,
+                        durability.contains(id) ? 0x55AAFF : 0xFFFFFF);
             }
             if (favorites && RecipeBookmarks.isFavoriteItem(codechicken.nei.item.FluidDisplay.idOf(stack))) {
                 Draw.smallText(g, font, "F", sx + 1, sy + 1, 0xFDD835);

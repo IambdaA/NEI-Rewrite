@@ -72,6 +72,9 @@ final class HotkeyHelp {
 
     private record Line(String key, String text) {}
 
+    /** The last box drawn, as "title|key: text|..." (read by the test driver). */
+    static String lastBox = "";
+
     /**
      * Draws the help box if Alt is held. Returns true if it did, in which case the caller skips its own tooltip.
      */
@@ -79,6 +82,8 @@ final class HotkeyHelp {
     static int slotType;
     /** True if the hovered result is the only result of its recipe. */
     static boolean slotOnlyResult;
+    /** The recipe the hovered bookmark remembers, or null (the fill lines use it before the item's favorite). */
+    static String slotRecipeId;
     /** True if Alt + click does something on the hovered bookmark: expands its collapsed group or folds its recipe. */
     static boolean slotAltToggle;
     /** Set by the item list for a hovered collapsible group: how many items it has (0 = not a group). */
@@ -128,10 +133,14 @@ final class HotkeyHelp {
             final String key = NEIKeys.name(NEIKeys.BOOKMARK);
             lines.add(new Line(key, "Add Bookmark"));
             lines.add(new Line("CTRL + " + key, "Add Bookmark with Count"));
+            if (where == Where.LIST && hasFavoriteTree(stack)) {
+                lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.FAVORITE), "Save Recipe Tree"));
+            }
             if (where == Where.LIST) chatLine(lines, "Send Item to Chat");
             if (where == Where.RECIPE) {
                 lines.add(new Line("CTRL + SHIFT + " + key, "Add Bookmark with Recipe & Count"));
                 lines.add(new Line("SHIFT + " + key, "Add Bookmark with Recipe"));
+                fillLines(lines, stack, null);
                 craftLines(lines);
                 chatLine(lines, "Send Item to Chat");
                 lines.add(new Line("CTRL + SHIFT + " + NEIKeys.name(NEIKeys.CHAT_LINK), "Send Recipe to Chat"));
@@ -143,6 +152,7 @@ final class HotkeyHelp {
             lines.add(new Line("CTRL + ALT + Scroll", "Change Quantity with Multiplier"));
             chatLine(lines, slotType == 0 ? "Send Item to Chat" : "Send Recipe to Chat");
             pullLines(lines);
+            if (slotType != 2) fillLines(lines, stack, slotRecipeId);
             if (slotType != 2 && slotType != 0) craftLines(lines);
             lines.add(new Line("SHIFT + LMB + Drag", "Move Position"));
             if (slotAltToggle) lines.add(new Line("ALT + LMB", "Toggle Collapse/Expand"));
@@ -156,6 +166,7 @@ final class HotkeyHelp {
         lines.add(new Line("CTRL + " + NEIKeys.name(NEIKeys.COPY_NAME), "Copy Item Name"));
         lines.add(new Line("CTRL + " + NEIKeys.name(NEIKeys.COPY_TAGS), "Copy Item Tags"));
         lines.add(new Line("CTRL + " + NEIKeys.name(NEIKeys.COPY_ID), "Copy Item ID"));
+        if (where == Where.LIST || where == Where.SLOT) fillLines(lines, stack, null);
         if (where != Where.SLOT && where != Where.SUBSET) {
             // As in NEI: while cheating a plain click gives the item, so recipes / uses move to Shift + click
             final boolean cheating = where != Where.RECIPE && where != Where.TREE && where != Where.TREE_ROOT
@@ -169,8 +180,8 @@ final class HotkeyHelp {
     }
 
     /**
-     * Help for the thin group strip beside the bookmarks. Wording and order follow NEI's {@code BookmarkPanel#handleHotkeys};
-     * actions that are not ported yet (group quantity, crafting chain, sorting) are left out.
+     * Help for the thin group strip beside the bookmarks. Wording and order follow NEI's {@code BookmarkPanel#handleHotkeys} and
+     * the group lines of {@code ShortcutInputHandler#handleHotkeys}. Ctrl + LMB does what LMB does, as in NEI.
      */
     static void drawStrip(GuiGraphicsExtractor g, int mx, int my, int sw, int sh, boolean inGroup, boolean crafting) {
         final List<Line> lines = new ArrayList<>();
@@ -181,9 +192,14 @@ final class HotkeyHelp {
             lines.add(new Line("RMB + Drag", "Remove/Exclude Group"));
             lines.add(new Line("LMB", "Toggle Group Mode"));
             lines.add(new Line("RMB", "Toggle Crafting Chain"));
+            lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.REMOVE_GROUP), "Remove Group"));
             chatLine(lines, "Send Bookmark Group to Chat");
             pullLines(lines);
             if (crafting) craftLines(lines);
+            // not in NEI: Cheat Mode gives what the chain still lacks of its ingredients
+            if (crafting && codechicken.nei.NEIConfig.CHEAT_ENABLED.getAsBoolean() && !NEIKeys.GIVE_MISSING.isUnbound()) {
+                lines.add(new Line(NEIKeys.name(NEIKeys.GIVE_MISSING), "Give Missing Ingredients"));
+            }
             lines.add(new Line("SHIFT + LMB + Drag", "Move Position"));
             lines.add(new Line("ALT + LMB", "Toggle Collapse/Expand"));
             if (crafting) lines.add(new Line(NEIKeys.name(NEIKeys.OPEN_TREE), "Open Crafting Tree"));
@@ -220,6 +236,29 @@ final class HotkeyHelp {
         lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.PULL_ITEMS), "Pull missing Items"));
     }
 
+    /**
+     * NEI's {@code gui.overlay} lines: Shift + key fills the open crafting grid with the recipe the bookmark remembers, else the
+     * item's favorite recipe; listed when that recipe fits the grid.
+     */
+    private static void fillLines(List<Line> lines, ItemStack stack, String recipeKey) {
+        if (NEIKeys.OVERLAY.isUnbound()
+                || !(Minecraft.getInstance().gui.screen() instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> screen)) {
+            return;
+        }
+        final String id = codechicken.nei.item.FluidDisplay.idOf(stack);
+        final String key = recipeKey != null ? recipeKey : RecipeBookmarks.favoriteKeyFor(id);
+        final codechicken.nei.recipe.RecipeView view = key == null ? null : RecipeBookmarks.resolveCached(id, key);
+        if (view == null || !RecipeTransfer.canTransfer(screen, view)) return;
+        lines.add(new Line("SHIFT + " + NEIKeys.name(NEIKeys.OVERLAY), "Fill Crafting Grid"));
+        lines.add(new Line("SHIFT + CTRL + " + NEIKeys.name(NEIKeys.OVERLAY), "Fill Crafting Grid With Quantity"));
+    }
+
+    /** The item has a favorite recipe whose tree Shift + the favorite key saves (NEI: recipe.favorite.bookmark_recipe). */
+    private static boolean hasFavoriteTree(ItemStack stack) {
+        final String key = RecipeBookmarks.favoriteKeyFor(codechicken.nei.item.FluidDisplay.idOf(stack));
+        return key != null && !key.startsWith(RecipeBookmarks.FAV_ITEM);
+    }
+
     /** NEI lists the craft keys for recipes while autocrafting is on. */
     private static void craftLines(List<Line> lines) {
         if (!AutoCraft.enabled()) return;
@@ -250,6 +289,9 @@ final class HotkeyHelp {
         g.fill(x - 3, y - 2, x - 2, y + height + 2, 0xFF3C00BF);
         g.fill(x + width + 2, y - 2, x + width + 3, y + height + 2, 0xFF3C00BF);
 
+        final StringBuilder drawn = new StringBuilder(name);
+        for (Line l : lines) drawn.append('|').append(l.key()).append(": ").append(l.text());
+        lastBox = drawn.toString();
         g.text(font, Component.literal(name), x, y, 0xFFFFFFFF, true);
         int ty = y + 12;
         for (Line l : lines) {

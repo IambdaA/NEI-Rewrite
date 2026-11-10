@@ -1,0 +1,1354 @@
+# NEI Rewrite: every feature, with checks (expect ...) that pass or fail by themselves. Runs unchanged on every version and
+# loader: positions come from NEI itself (search, finditem, clickinv, clickpath, clickbottom, toolbar).
+# Needs JEI for the fuel pages; sections marked (server) need NEI on the server, which singleplayer always has.
+world
+wait 20
+cmd gamemode creative
+cmd effect clear @s
+cmd clear @s
+cmd kill @e[type=item]
+cmd time set 1000
+cmd weather clear
+inv
+wait 40
+screen
+# a normal creative tab (the Search tab would take every key, as in vanilla), and an empty bookmark page (the
+# instance's own bookmarks are backed up and restored by the runner)
+clickwindow 13 -14
+wait 10
+expect screenkind == creative
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+cheatmode 2
+call NEIConfig.QUANTITY.set(0)
+call NEIConfig.HISTORY_ENABLED.set(true)
+call NEIConfig.ZOOM_ENABLED.set(false)
+call NEIConfig.SEARCH_HIDE_UNTIL.set(false)
+call NEIConfig.RECIPE_INFINITE_SCROLL.set(false)
+call NEIConfig.RECIPE_SHIFT_OVERLAY.set(false)
+clickwindow 60 5
+wait 5
+
+section 1 item list and search
+search
+wait 60
+expect ItemList.getFiltered().size() > 500
+search stone
+wait 30
+expect ItemList.getFiltered().size() > 5
+expect ItemList.getFiltered().size() < 5000
+finditem stone
+wait 3
+expect tooltip contains Stone
+search @nonexistentmodxyz
+wait 30
+expect ItemList.getFiltered().size() == 0
+search @minecraft
+wait 30
+expect ItemList.getFiltered().size() > 500
+search &minecraft:diamond_sword
+wait 30
+finditem diamond sword
+expect ItemList.getFiltered().size() >= 1
+search $minecraft:logs
+wait 30
+expect ItemList.getFiltered().size() >= 8
+finditem oak log
+search oak -log
+wait 30
+finditem oak planks
+expect ItemList.getFiltered().size() > 1
+search "oak planks"
+wait 30
+finditem oak planks
+search dirt|sand
+wait 30
+finditem dirt
+finditem sand
+search #diamond
+wait 30
+expect ItemList.getFiltered().size() >= 5
+
+section 2 item panel pages, hide, focus, zoom
+search
+wait 60
+expect NEIClientEvents.ITEMS.page == 0
+finditem stone
+wait 3
+key pagedown
+wait 3
+expect NEIClientEvents.ITEMS.page == 1
+key pageup
+wait 3
+expect NEIClientEvents.ITEMS.page == 0
+finditem stone
+wait 3
+scroll here -1
+wait 3
+expect NEIClientEvents.ITEMS.page == 1
+scroll here 1
+wait 3
+expect NEIClientEvents.ITEMS.page == 0
+move 5 5
+key o
+wait 3
+expect NEIClientEvents.hidden == true
+key o
+wait 3
+expect NEIClientEvents.hidden == false
+key f
+wait 3
+expect searchfocused == true
+type cobble
+wait 10
+expect NEIClientEvents.searchText() == cobble
+clickwindow 60 5
+wait 3
+expect searchfocused == false
+finditem cobblestone
+wait 3
+press shift
+key z
+release shift
+wait 3
+expect NEIConfig.ZOOM_ENABLED.get() == true
+shot s2-zoom-on
+press shift
+key z
+release shift
+wait 3
+expect NEIConfig.ZOOM_ENABLED.get() == false
+
+section 3 copy keys
+finditem cobblestone
+wait 3
+press ctrl
+key c
+key x
+release ctrl
+wait 3
+expect clipboard == minecraft:cobblestone
+finditem cobblestone
+wait 3
+press ctrl
+key c
+release ctrl
+wait 3
+expect clipboard == Cobblestone
+finditem cobblestone
+wait 3
+press ctrl
+key d
+release ctrl
+wait 3
+expect clipboard contains minecraft:
+
+section 4 recipe window
+search oak planks
+wait 30
+finditem oak planks
+wait 3
+key r
+wait 60
+expect NEIClientEvents.overlay != null
+expect NEIClientEvents.overlay.uses == false
+expect NEIClientEvents.overlay.item contains oak_planks
+expect NEIClientEvents.overlay.groups.size() >= 1
+shot s4-recipes
+key esc
+wait 5
+expect NEIClientEvents.overlay == null
+search oak planks
+wait 30
+finditem oak planks
+wait 3
+key u
+wait 20
+expect NEIClientEvents.overlay.uses == true
+expect NEIClientEvents.overlay.groups.size() >= 1
+expect NEIClientEvents.overlay.tab == 0
+expect NEIClientEvents.overlay.pageCount() > 1
+key right
+wait 3
+expect NEIClientEvents.overlay.page == 1
+key left
+wait 3
+expect NEIClientEvents.overlay.page == 0
+key down
+wait 3
+expect NEIClientEvents.overlay.tab == 1
+key up
+wait 3
+expect NEIClientEvents.overlay.tab == 0
+key esc
+wait 5
+search stick
+wait 30
+finditem stick
+wait 3
+key u
+wait 20
+expect NEIClientEvents.overlay.uses == true
+clickpath NEIClientEvents.overlay.slotHits.get(0).x NEIClientEvents.overlay.slotHits.get(0).y 8 8
+wait 10
+expect NEIClientEvents.overlay.history.size() >= 1
+key backspace
+wait 5
+expect NEIClientEvents.overlay.item contains stick
+expect NEIClientEvents.overlay.uses == true
+key esc
+wait 5
+expect NEIClientEvents.overlay == null
+expect NEIClientEvents.HISTORY_LIST.size() >= 2
+
+section 5 favorites (heart)
+finditem stick
+wait 3
+key r
+wait 10
+clickpath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 5
+expect Favorites.recipeOf("minecraft:stick") != null
+clickpath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 5
+expect Favorites.recipeOf("minecraft:stick") == null
+key esc
+wait 5
+
+section 6 bookmarks
+expect Bookmarks.grid().size() == 0
+search diamond
+wait 30
+finditem diamond
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 1
+finditem diamond sword
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 2
+finditem BOOKMARKS diamond sword
+expect tooltip contains Diamond Sword
+key a
+wait 3
+expect Bookmarks.grid().size() == 1
+move 5 5
+key b
+wait 3
+expect NEIClientEvents.bookmarksVisible() == false
+key b
+wait 3
+expect NEIClientEvents.bookmarksVisible() == true
+search oak planks
+wait 30
+finditem oak planks
+wait 3
+key r
+wait 10
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+press shift
+key a
+release shift
+wait 5
+expect Bookmarks.grid().size() >= 3
+key esc
+wait 5
+shot s6-bookmarks
+chatmark
+finditem BOOKMARKS diamond
+wait 3
+press ctrl
+key l
+release ctrl
+wait 20
+expect chat contains Diamond
+
+section 7 crafting tree
+search oak planks
+wait 30
+finditem oak planks
+wait 3
+key r
+wait 10
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+press shift
+key t
+release shift
+wait 10
+expect NEIClientEvents.tree != null
+shot s7-tree
+key esc
+wait 5
+expect NEIClientEvents.tree == null
+expect screenkind == creative
+
+section 8 cheat clicks, quantity field, fluids, held stack
+search stone
+wait 30
+finditem stone
+clickhere
+wait 5
+expect carried == minecraft:stone
+expect carriedcount == 64
+clickhere right
+wait 5
+expect carriedcount == 63
+expect tooltip == Delete Item
+clickhere
+wait 5
+expect carried == empty
+finditem stone
+clickhere right
+wait 5
+expect carriedcount == 1
+clickhere
+wait 5
+call NEIConfig.QUANTITY.set(5)
+finditem stone
+clickhere
+wait 5
+expect carriedcount == 5
+clickhere
+wait 5
+call NEIConfig.QUANTITY.set(0)
+search lava
+wait 30
+finditem lava
+clickhere
+wait 5
+expect carried == minecraft:lava_bucket
+clickhere
+wait 5
+expect carried == empty
+search stone
+wait 30
+finditem stone
+clickhere
+wait 5
+clickinv 0
+wait 5
+expect inv:minecraft:stone == 64
+expect carried == empty
+finditem stone
+clickhere
+wait 5
+expect carried == minecraft:stone
+wait 10
+expect carried == minecraft:stone
+clickinv 1
+wait 5
+expect inv:minecraft:stone == 128
+cmd clear @s
+
+section 9 toolbar (server)
+toolbar time 0
+wait 30
+expect daytime >= 0
+expect daytime < 200
+toolbar time 1
+wait 30
+expect daytime >= 6000
+expect daytime < 6200
+toolbar time 2
+wait 30
+expect daytime >= 12000
+expect daytime < 12200
+toolbar time 3
+wait 30
+expect daytime >= 18000
+expect daytime < 18200
+cmd time set 1000
+toolbar rain
+wait 80
+expect raining == true
+toolbar rain
+wait 80
+expect raining == false
+expect Magnet.on() == false
+toolbar magnet
+wait 10
+expect Magnet.on() == true
+toolbar magnet
+wait 10
+expect Magnet.on() == false
+toolbar gamemode
+wait 10
+expect CreativePlus.active() == true
+toolbar gamemode
+wait 10
+expect CreativePlus.active() == false
+expect gamemode != creative
+cmd gamemode creative
+wait 10
+inv
+wait 20
+
+section 10 windows: settings, presets, subsets, enchant, potion
+clickbottom 12 12
+wait 10
+expect screen contains SettingsScreen
+shot s10-settings
+key esc
+wait 10
+expect screen !contains SettingsScreen
+clickbottom 56 12
+wait 10
+expect NEIClientEvents.modalWin contains PresetsWindow
+key esc
+wait 5
+expect NEIClientEvents.modalWin == null
+clickpath SubsetMenu.barX SubsetMenu.barY 20 6
+wait 5
+expect SubsetMenu.open == true
+shot s10-subsets
+move 5 5
+wait 40
+expect SubsetMenu.open == false
+search diamond sword
+wait 30
+finditem diamond sword
+wait 3
+key x
+wait 10
+expect NEIClientEvents.modalWin contains CreatorWindow
+shot s10-enchant
+key esc
+wait 5
+expect NEIClientEvents.modalWin == null
+move 5 5
+key p
+wait 10
+expect NEIClientEvents.modalWin contains CreatorWindow
+key esc
+wait 5
+expect NEIClientEvents.modalWin == null
+press ctrl
+clickbottom 12 12
+release ctrl
+wait 5
+expect NEIConfig.cheatMode() == 0
+cheatmode 2
+clickbottom 34 12
+wait 5
+expect NEIClientEvents.bookmarksVisible() == false
+clickbottom 34 12
+wait 5
+expect NEIClientEvents.bookmarksVisible() == true
+
+section 11 world keys (no screen)
+close
+wait 10
+expect MobOverlay.on == false
+key f7
+wait 5
+expect MobOverlay.on == true
+key f7
+wait 5
+expect MobOverlay.on == false
+call NEIConfig.HUD_ENABLED.set(false)
+key kp0
+wait 5
+expect NEIConfig.HUD_ENABLED.get() == true
+key kp0
+wait 5
+expect NEIConfig.HUD_ENABLED.get() == false
+
+section 12 data dumps
+inv
+wait 20
+call Dumps.dump("Item","items.csv",0)
+call Dumps.dump("Block","blocks.csv",0)
+call Dumps.dump("NEI Handlers","handlers.csv",0)
+wait 20
+expect file:dumps/items.csv == true
+expect file:dumps/blocks.csv == true
+expect file:dumps/handlers.csv == true
+
+section 13 survival: recipe fill (+), delete mode, heal, held stack (server)
+cmd gamemode survival
+cmd clear @s
+cmd kill @e[type=item]
+cmd give @s minecraft:oak_log 4
+close
+wait 10
+inv
+wait 20
+search oak planks
+wait 30
+finditem oak planks
+wait 3
+key r
+wait 10
+clickpath NEIClientEvents.overlay.plusHits.get(0).x NEIClientEvents.overlay.plusHits.get(0).y 4 4
+wait 20
+expect inv:minecraft:oak_log < 4
+expect NEIClientEvents.overlay == null
+shot s13-filled
+cmd clear @s
+cmd give @s minecraft:dirt 10
+wait 10
+toolbar delete
+wait 3
+expect Deleting.mode == true
+clickinv 0
+wait 10
+expect inv:minecraft:dirt == 0
+toolbar delete
+wait 3
+expect Deleting.mode == false
+cmd damage @s 6
+wait 10
+expect health < 20
+toolbar heal
+wait 10
+expect health == 20
+cmd give @s minecraft:stone 5
+wait 10
+clickinv 0
+wait 5
+expect carriedcount == 5
+search stone
+wait 30
+finditem stone
+wait 3
+expect tooltip == Delete Item
+clickhere
+wait 10
+expect carried == empty
+expect inv:minecraft:stone == 0
+cheatmode 0
+cmd give @s minecraft:stone 5
+wait 10
+clickinv 0
+wait 5
+finditem stone
+wait 3
+expect tooltip ==
+clickhere
+wait 10
+expect carried == empty
+cmd kill @e[type=item]
+cheatmode 2
+cmd gamemode creative
+
+section 14 uses of coal include JEI's fuel pages
+inv
+wait 20
+search coal
+wait 30
+finditem coal
+wait 3
+key u
+wait 10
+expect NEIClientEvents.overlay.groups contains fuel
+key esc
+wait 5
+
+section 16 quantity field and search history
+inv
+wait 20
+call NEIConfig.QUANTITY.set(0)
+clickpath NEIClientEvents.QUANTITY.x NEIClientEvents.QUANTITY.y 30 10
+wait 3
+expect NEIClientEvents.QUANTITY.focused == true
+type 12
+clickwindow 60 5
+wait 3
+expect NEIConfig.QUANTITY.get() == 12
+clickpath NEIClientEvents.QUANTITY.x NEIClientEvents.QUANTITY.y 10 10
+wait 3
+expect NEIConfig.QUANTITY.get() < 12
+call NEIConfig.QUANTITY.set(0)
+move 5 5
+key f
+wait 3
+type gravel
+wait 5
+clickwindow 60 5
+wait 3
+search
+wait 60
+key f
+wait 3
+key up
+wait 5
+expect NEIClientEvents.searchText() contains gravel
+clickwindow 60 5
+search
+wait 60
+
+section 17 recipe window: recipe search and history panel
+search stick
+wait 30
+finditem stick
+wait 3
+key u
+wait 10
+clickpath NEIClientEvents.overlay.left NEIClientEvents.overlay.top 24 23
+wait 3
+expect NEIClientEvents.overlay.searchOn == true
+type torch
+wait 10
+expect NEIClientEvents.overlay.filtered.size() >= 1
+shot s17-recipe-search
+key esc
+wait 5
+key esc
+wait 5
+expect NEIClientEvents.overlay == null
+finditem HISTORY stick
+wait 3
+key r
+wait 10
+expect NEIClientEvents.overlay != null
+key esc
+wait 5
+
+section 18 mob spawners in the item list, hotkey help, item zoom shot
+search spawner
+wait 30
+expect ItemList.getFiltered().size() >= 5
+search diamond
+wait 30
+finditem diamond
+wait 3
+press alt
+wait 5
+shot s18-alt-help
+release alt
+call NEIConfig.ZOOM_ENABLED.set(true)
+finditem diamond
+wait 5
+shot s18-zoom
+call NEIConfig.ZOOM_ENABLED.set(false)
+
+section 19 bookmark amounts and pull from a chest (server)
+close
+cmd gamemode survival
+cmd clear @s
+cmd tp @s ~ ~ ~ 0 0
+cmd setblock ~ ~1 ~2 minecraft:chest
+cmd item replace block ~ ~1 ~2 container.0 with minecraft:diamond 10
+wait 10
+use
+wait 20
+expect screenkind == chest
+finditem BOOKMARKS diamond
+expect Bookmarks.grid().items.get(0).id == minecraft:diamond
+expect Bookmarks.grid().items.get(0).amount == 0
+press ctrl
+scroll here 1
+scroll here 1
+release ctrl
+wait 5
+expect Bookmarks.grid().items.get(0).amount == 2
+press ctrl
+scroll here -1
+release ctrl
+wait 5
+expect Bookmarks.grid().items.get(0).amount == 1
+finditem BOOKMARKS diamond
+wait 3
+key v
+wait 20
+expect inv:minecraft:diamond > 0
+shot s19-pulled
+close
+wait 10
+
+section 20 recipe fill: Ctrl one set, Shift as many as fit; autocraft from a bookmarked recipe; craftables
+# GregTech (1.20.1 Forge test instance) makes oak planks from a log with a saw: the saw is given too (elsewhere the give just fails)
+cmd clear @s
+cmd give @s minecraft:oak_log 10
+cmd give @s gtceu:iron_saw
+wait 10
+inv
+wait 20
+search oak planks
+wait 30
+finditem oak planks
+wait 3
+key r
+wait 10
+expect NEIClientEvents.overlay != null
+expect NEIClientEvents.overlay.plusHits.size() > 0
+press ctrl
+clickpath NEIClientEvents.overlay.plusHits.get(0).x NEIClientEvents.overlay.plusHits.get(0).y 4 4
+release ctrl
+wait 20
+expect inv:minecraft:oak_log == 9
+close
+wait 10
+inv
+wait 20
+finditem oak planks
+wait 3
+key r
+wait 10
+press shift
+clickpath NEIClientEvents.overlay.plusHits.get(0).x NEIClientEvents.overlay.plusHits.get(0).y 4 4
+release shift
+wait 20
+expect inv:minecraft:oak_log == 0
+close
+wait 10
+cmd clear @s
+cmd give @s minecraft:oak_log 4
+cmd give @s gtceu:iron_saw
+wait 10
+inv
+wait 20
+call NEIConfig.CRAFTABLES_ENABLED.set(true)
+wait 20
+expect Craftables.items().size() > 0
+call NEIConfig.AUTOCRAFT.set(true)
+finditem BOOKMARKS oak planks
+wait 3
+press shift
+key c
+release shift
+wait 80
+expect inv:minecraft:oak_planks > 0
+shot s20-autocraft
+
+section 21 throw all of a kind (Shift + drop key over a slot)
+cmd clear @s
+cmd give @s minecraft:dirt 64
+cmd give @s minecraft:dirt 64
+cmd give @s minecraft:cobblestone 5
+close
+wait 10
+inv
+wait 20
+moveinv 0
+wait 3
+press shift
+key q
+release shift
+wait 20
+expect inv:minecraft:dirt == 0
+expect inv:minecraft:cobblestone == 5
+cmd kill @e[type=item]
+
+section 22 villager trades become recipes
+close
+cmd gamemode creative
+cmd tp @s ~ ~ ~ 0 0
+cmd setblock ~ ~1 ~2 minecraft:air
+cmd summon minecraft:villager ~ ~ ~2 {NoAI:1b,VillagerData:{profession:"minecraft:librarian",level:2,type:"minecraft:plains"}}
+wait 20
+use
+wait 20
+expect screenkind == merchant
+expect VillagerTrades.LEARNED.size() > 0
+close
+wait 5
+cmd kill @e[type=minecraft:villager]
+
+section 23 highlight tips and mob overlay (shots)
+call NEIConfig.HUD_ENABLED.set(true)
+cmd tp @s ~ ~ ~ 0 60
+wait 20
+shot s23-highlight-tips
+call NEIConfig.HUD_ENABLED.set(false)
+cmd time set 18000
+key f7
+wait 20
+shot s23-mob-overlay
+key f7
+cmd time set 1000
+inv
+wait 20
+
+section 24 fluids are in the item list: water, and a mod's fluid (NTM's unsaturated hydrocarbons)
+close
+wait 10
+cmd gamemode creative
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+cheatmode 0
+search &fluid/minecraft/water
+wait 40
+expect ItemList.getFiltered().size() == 1
+expect standin:notenoughitems:fluid/minecraft/water == none
+requires hbm:liquidator_helmet
+search &fluid/hbm/unsaturateds
+wait 40
+expect ItemList.getFiltered().size() == 1
+finditem unsaturated hydrocarbons
+wait 3
+shot s24-unsaturateds-in-list
+key r
+wait 10
+expect NEIClientEvents.overlay != null
+tab cracking
+wait 5
+expect NEIClientEvents.overlay.pageCount() >= 1
+move 5 5
+shot s24-unsaturateds-cracking
+key esc
+wait 5
+
+section 25 NTM - Continuum: a fluid is drawn as NTM's droplet
+requires hbm:liquidator_helmet continuum
+expect standin:notenoughitems:fluid/hbm/unsaturateds contains hbm:fluid_icon
+
+section 26 NTM: a fluid is drawn with its own texture, like water
+requires hbm:liquidator_helmet !continuum
+expect standin:notenoughitems:fluid/hbm/unsaturateds == none
+
+section 27 autocraft the NTM liquidator helmet from its recipe chain (lead and rubber cladding, duct tape ...)
+requires hbm:liquidator_helmet
+close
+wait 10
+cmd gamemode creative
+cmd clear @s
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+call NEIConfig.FAVORITES_ENABLED.set(true)
+call NEIConfig.FAVORITE_GENERATE.set(true)
+call NEIConfig.AUTOCRAFT.set(true)
+search liquidator suit helmet
+wait 30
+finditem liquidator suit helmet
+wait 3
+key r
+wait 10
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+press shift
+key a
+release shift
+wait 10
+expect chaingroups == 1
+expect chainout:hbm:liquidator_helmet == 1
+expect chaincraft:hbm:cladding_lead == 2
+expect chainin:hbm:cladding_lead == 0
+expect chaincraft:hbm:ducttape >= 10
+expect chainin:hbm:ducttape == 0
+probe chain
+key esc
+wait 5
+close
+wait 10
+cmd gamemode survival
+cmd clear @s
+cmd tp @s ~ ~ ~ 0 0
+cmd setblock ~ ~1 ~2 minecraft:crafting_table
+wait 10
+use
+wait 20
+expect screenkind == crafting
+# G over the chain group's strip (Cheat Mode) gives what the chain lacks
+# Cheat Mode first: its toolbar rows move the bookmark panel down
+cheatmode 2
+wait 3
+finditem BOOKMARKS liquidator suit helmet
+moveby -13 0
+wait 3
+press alt
+wait 5
+expect hotkeys contains Bookmarks Group|LMB
+expect hotkeys contains Give Missing Ingredients
+release alt
+wait 3
+key g
+wait 20
+expect chain contains missing={}
+# back to Recipe Mode (section 24's), which the sections after this one expect
+cheatmode 0
+finditem BOOKMARKS liquidator suit helmet
+wait 3
+press shift
+key c
+release shift
+waituntil inv:hbm:liquidator_helmet 1 120
+expect inv:hbm:liquidator_helmet == 1
+shot s27-helmet-crafted
+close
+wait 10
+cmd setblock ~ ~1 ~2 minecraft:air
+cmd gamemode creative
+
+section 28 chain maths with fluids: NTM rubber from the chemical plant, its unsaturated hydrocarbons from the cracking tower
+requires hbm:liquidator_helmet
+close
+wait 10
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+call NEIConfig.FAVORITE_WHEEL.set(true)
+search unsaturated hydrocarbons
+wait 30
+finditem unsaturated hydrocarbons
+wait 3
+key r
+wait 10
+tab cracking
+wait 5
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+scrolluntil NEIClientEvents.overlay.choice unsaturated_hydrocarbons 6
+clickhere
+wait 5
+key esc
+wait 5
+search rubber bar
+wait 30
+finditem rubber bar
+wait 3
+key r
+wait 10
+tab chemical plant
+wait 5
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+clickhere
+wait 5
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+press shift
+key a
+release shift
+wait 10
+expect chainout:hbm:ingot_rubber == 2
+expect chainin:hbm:sulfur == 1
+probe chain
+key esc
+wait 5
+movepath NEIClientEvents.BOOKMARKS.x NEIClientEvents.BOOKMARKS.gridY 2 4
+wait 5
+shot s28-rubber-chain-tooltip
+call NEIConfig.FAVORITE_WHEEL.set(false)
+
+section 29 the cracking tower makes the 500 mB of unsaturated hydrocarbons the chemical plant needs
+requires hbm:liquidator_helmet
+expect chaincraft:@unsaturated_hydrocarbons == 500
+expect chainin:@unsaturated_hydrocarbons == 0
+expect chainin:@steam > 0
+
+section 30 NTM - Continuum: recipes name its fluids with its droplets
+requires hbm:liquidator_helmet continuum
+expect chain contains hbm:fluid_icon~
+
+section 31 NTM (not Continuum): recipes name the fluid itself
+requires hbm:liquidator_helmet !continuum
+expect chain contains notenoughitems:fluid/hbm/
+# a packaged fluid is an item (one pack), not 32000 of them because its tooltip says 32000mB
+expect chainin:@packaged_natural_gas <= 1
+
+section 32 GregTech: the LV cutter's recipe chain; a tool counts the durability the chain takes from it (in blue)
+requires gtceu:lv_cutter
+close
+wait 10
+cmd gamemode creative
+cmd clear @s
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+favor gtceu:lv_electric_motor shaped gtceu:iron_rod
+favor gtceu:lv_conveyor_module shaped gtceu:rubber_plate
+favor gtceu:lv_machine_hull shaped
+favor gtceu:lv_machine_casing shaped
+favor gtceu:tin_single_cable shapeless
+favor gtceu:tin_single_wire shaped
+favor gtceu:cobalt_brass_buzz_saw_blade shaped
+favor gtceu:iron_rod shaped minecraft:iron_ingot
+favor gtceu:magnetic_iron_rod shapeless
+favor gtceu:copper_single_wire shaped
+favor gtceu:tin_plate shaped
+favor gtceu:wrought_iron_plate shaped
+favor gtceu:cobalt_brass_plate shaped
+search basic cutter
+wait 30
+finditem basic cutter
+wait 3
+key r
+wait 10
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+press shift
+key a
+release shift
+wait 10
+expect chainout:gtceu:lv_cutter == 1
+expect chaincraft:gtceu:lv_electric_motor == 3
+expect chaincraft:gtceu:tin_single_cable == 11
+expect chaincraft:gtceu:tin_plate == 11
+expect chainin:gtceu:tin_ingot == 22
+expect chaintool:gtceu:tin_ingot == false
+expect chaintool:*_hammer == true
+expect chaintool:*_wire_cutter == true
+expect chaintool:*_file == true
+expect chaintool:*_wrench == true
+# the number is durability: crafts that use the tool times what one craft takes (GregTech's own, by tool and material)
+expect chainuses:*_wire_cutter == 24
+expect chainuses:*_hammer == 18
+expect chainuses:*_file == 10
+expect chainin:*_hammer >= 18
+probe chain
+key esc
+wait 5
+movepath NEIClientEvents.BOOKMARKS.x NEIClientEvents.BOOKMARKS.gridY 2 4
+wait 5
+shot s31-cutter-tooltip
+press shift
+wait 5
+shot s31-cutter-tooltip-shift
+release shift
+givechain *_hammer
+wait 10
+expect chainmissing:*_hammer == 0
+expect chainhave:*_hammer >= 18
+
+section 33 GregTech: autocraft the LV cutter (the tools stay in the grid)
+requires gtceu:lv_cutter
+close
+wait 10
+cmd gamemode survival
+cmd clear @s
+cmd tp @s ~ ~ ~ 0 0
+cmd setblock ~ ~1 ~2 minecraft:crafting_table
+wait 10
+use
+wait 20
+expect screenkind == crafting
+# Cheat Mode first: its toolbar rows move the bookmark panel down
+cheatmode 2
+wait 3
+finditem BOOKMARKS basic cutter
+moveby -13 0
+wait 3
+press alt
+wait 5
+expect hotkeys contains Bookmarks Group|LMB
+expect hotkeys contains Give Missing Ingredients
+release alt
+wait 3
+key g
+wait 40
+expect chain contains missing={}
+finditem BOOKMARKS basic cutter
+wait 3
+press shift
+key c
+release shift
+waituntil inv:gtceu:lv_cutter 1 400
+expect inv:gtceu:lv_cutter == 1
+shot s32-cutter-crafted
+close
+wait 10
+cmd setblock ~ ~1 ~2 minecraft:air
+cmd gamemode creative
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+
+section 34 a held stack over a bookmark shows only the delete hint (NEIF issue #17)
+close
+wait 10
+cmd gamemode creative
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+cheatmode 2
+call NEIConfig.QUANTITY.set(0)
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+clickwindow 60 5
+wait 5
+search diamond
+wait 30
+finditem diamond
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 1
+search stone
+wait 30
+finditem stone
+clickhere
+wait 5
+expect carried == minecraft:stone
+finditem BOOKMARKS diamond
+wait 3
+expect tooltip == Delete Item
+shot s34-held-over-bookmark
+finditem stone
+wait 3
+clickhere
+wait 5
+expect carried == empty
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+section 35 two recipes of the stick: A over each output gives two bookmarks that remember their recipe (NEIF #18; NEI's Bookmark items with recipe)
+search stick
+wait 30
+finditem stick
+wait 3
+key r
+wait 30
+expect NEIClientEvents.overlay.item contains stick
+tab craft
+wait 10
+shot s35-stick-recipes
+findslot 1:stick
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 1
+expect Bookmarks.grid().items.get(0).recipeId != null
+findslot 2:stick
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 2
+expect Bookmarks.grid().items.get(1).recipeId != null
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+section 36 Shift+A over two recipes of the stick keeps both recipes (NEIF #18)
+key esc
+wait 5
+search stick
+wait 30
+finditem stick
+wait 3
+key r
+wait 30
+tab craft
+wait 10
+expect NEIClientEvents.overlay.page == 0
+findslot 1:stick
+wait 3
+press shift
+key a
+release shift
+wait 3
+expect Bookmarks.grid().size() >= 2
+findslot 2:stick
+wait 3
+press shift
+key a
+release shift
+wait 3
+expect Bookmarks.grid().size() >= 4
+shot s36-two-recipes
+key esc
+wait 5
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+section 37 GregTech: A over two macerator recipes of stone dust gives two bookmarks that remember their recipe (NEIF #18; NEI's Bookmark items with recipe)
+requires gtceu:stone_dust
+search stone dust
+wait 30
+finditem stone dust
+wait 3
+key r
+wait 60
+tab macerator
+wait 10
+shot s37-macerator
+findslot 1:stone dust
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 1
+expect Bookmarks.grid().items.get(0).recipeId != null
+findslot 2:stone dust
+wait 3
+key a
+wait 3
+expect Bookmarks.grid().size() == 2
+expect Bookmarks.grid().items.get(1).recipeId != null
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+section 38 GregTech: Shift+A over two macerator recipes keeps both recipes (NEIF #18)
+requires gtceu:stone_dust
+key esc
+wait 5
+search stone dust
+wait 30
+finditem stone dust
+wait 3
+key r
+wait 60
+tab macerator
+wait 10
+expect NEIClientEvents.overlay.page == 0
+findslot 1:stone dust
+wait 3
+press shift
+key a
+release shift
+wait 3
+expect Bookmarks.grid().size() >= 2
+findslot 2:stone dust
+wait 3
+press shift
+key a
+release shift
+wait 3
+expect Bookmarks.grid().size() >= 4
+shot s38-two-recipes
+key esc
+wait 5
+
+section 39 GregTech: a bookmarked GT recipe's Shift preview with the item zoom on; a held stack over the bookmarks after it (NEIF #20, shots)
+requires gtceu:stone_dust
+call NEIConfig.ZOOM_ENABLED.set(true)
+finditem BOOKMARKS stone dust
+wait 5
+press shift
+wait 5
+expect tooltip == Stone Dust
+shot s39-shift-preview-zoom
+release shift
+wait 3
+call NEIConfig.ZOOM_ENABLED.set(false)
+search stone
+wait 30
+finditem stone
+clickhere
+wait 5
+expect carried == minecraft:stone
+finditem BOOKMARKS stone dust
+wait 3
+shot s39-held-over-gt-bookmark
+moveby 36 0
+wait 3
+expect tooltip == Delete Item
+shot s39-held-over-third-bookmark
+moveby 18 0
+wait 3
+shot s39-held-over-fourth-bookmark
+finditem stone
+wait 3
+clickhere
+wait 5
+expect carried == empty
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+section 40 Cheat Mode: G over a crafting chain group's strip gives what the chain lacks; the Alt help lists it only in Cheat Mode (vanilla piston)
+requires minecraft:piston
+unless gtceu:lv_cutter
+close
+wait 10
+cmd gamemode creative
+cmd clear @s
+inv
+wait 20
+clickwindow 13 -14
+wait 5
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+call NEIConfig.FAVORITES_ENABLED.set(true)
+call NEIConfig.FAVORITE_GENERATE.set(true)
+call NEIConfig.AUTOCRAFT.set(true)
+search piston
+wait 30
+finditem piston
+wait 3
+key r
+wait 10
+movepath NEIClientEvents.overlay.heartHits.get(0).x NEIClientEvents.overlay.heartHits.get(0).y 4 4
+wait 3
+press shift
+key a
+release shift
+wait 10
+expect chaingroups == 1
+expect chainout:minecraft:piston == 1
+probe chain
+key esc
+wait 5
+close
+wait 10
+cmd gamemode survival
+cmd clear @s
+cmd tp @s ~ ~ ~ 0 0
+cmd setblock ~ ~1 ~2 minecraft:crafting_table
+wait 10
+use
+wait 20
+expect screenkind == crafting
+expect chain !contains missing={}
+finditem BOOKMARKS piston
+wait 3
+press alt
+wait 5
+expect hotkeys contains Fill Crafting Grid
+release alt
+wait 3
+# the mode first: Cheat Mode's toolbar rows move the bookmark panel
+cheatmode 0
+wait 3
+finditem BOOKMARKS piston
+moveby -13 0
+wait 3
+press alt
+wait 5
+expect hotkeys contains Bookmarks Group|LMB
+expect hotkeys contains Remove Group
+expect hotkeys !contains Give Missing Ingredients
+release alt
+wait 3
+key g
+wait 20
+expect inv:minecraft:iron_ingot == 0
+cheatmode 2
+wait 3
+finditem BOOKMARKS piston
+moveby -13 0
+wait 3
+press alt
+wait 5
+expect hotkeys contains Bookmarks Group|LMB
+wait 5
+expect hotkeys contains Give Missing Ingredients
+shot s40-strip-help
+release alt
+wait 3
+key g
+wait 20
+expect chain contains missing={}
+expect inv:minecraft:iron_ingot >= 1
+expect inv:minecraft:redstone >= 1
+finditem BOOKMARKS piston
+wait 3
+press shift
+key c
+release shift
+waituntil inv:minecraft:piston 1 120
+expect inv:minecraft:piston == 1
+close
+wait 10
+cmd setblock ~ ~1 ~2 minecraft:air
+cmd gamemode creative
+call Bookmarks.grid().items.clear()
+call Bookmarks.grid().changed()
+
+section 15 history and settings survive
+expect NEIClientEvents.HISTORY_LIST.size() >= 3
+quit

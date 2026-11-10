@@ -47,6 +47,7 @@
   "key.notenoughitems.favorite": "Save Favorite Recipe Tree (Shift +)",
   "key.notenoughitems.favorite_item": "Toggle Favorite Ingredient (Shift +)",
   "key.notenoughitems.remove_group": "Remove Bookmark Group (Shift +)",
+  "key.notenoughitems.give_missing": "Give Missing Ingredients of a Crafting Chain (Cheat Mode)",
   "key.notenoughitems.potion": "Open Potion Creator",
   "notenoughitems.configuration.panelEnabled": "Show item panel",
   "notenoughitems.configuration.panelEnabled.tooltip": "Show the item panel, bookmarks and the other NEI panels next to container screens.",

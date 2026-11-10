@@ -29,6 +29,13 @@ public interface Platform {
         return rest != null && rest.item().value() == stack.getItem();
     }
 
+    /** How much durability one craft takes from a tool that stays in the grid (0: not such a tool). */
+    default int toolDamagePerCraft(net.minecraft.world.item.ItemStack stack) {
+        if (!stack.isDamageableItem() || !staysInGrid(stack)) return 0;
+        final net.minecraft.world.item.ItemStackTemplate rest = stack.getItem().getCraftingRemainder();
+        return Math.max(1, rest.create().getDamageValue() - stack.getDamageValue());
+    }
+
     /** The display name of a fluid (the loaders keep it in their own fluid APIs). */
     net.minecraft.network.chat.Component fluidName(net.minecraft.world.level.material.Fluid fluid);
 

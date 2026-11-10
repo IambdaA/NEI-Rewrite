@@ -32,6 +32,14 @@ public final class NeoPlatform implements Platform {
         return rest != null && rest.item().value() == stack.getItem();
     }
 
+    /** The loader's remainder is the tool after one craft: the difference in damage is what a craft costs. */
+    @Override
+    public int toolDamagePerCraft(net.minecraft.world.item.ItemStack stack) {
+        if (!stack.isDamageableItem() || !staysInGrid(stack)) return 0;
+        final net.minecraft.world.item.ItemStackTemplate rest = stack.getItem().getCraftingRemainder(stack);
+        return Math.max(1, rest.create().getDamageValue() - stack.getDamageValue());
+    }
+
     @Override
     public net.minecraft.network.chat.Component fluidName(net.minecraft.world.level.material.Fluid fluid) {
         return fluid.getFluidType().getDescription();

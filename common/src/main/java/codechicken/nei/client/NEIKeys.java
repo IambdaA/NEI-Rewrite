@@ -84,6 +84,8 @@ public final class NEIKeys {
     public static final KeyMapping FAVORITE_ITEM = key("favorite_item", GLFW.GLFW_KEY_F);
     /** NEI's {@code bookmark.remove_recipe}: Shift + key over a bookmark group removes the group. */
     public static final KeyMapping REMOVE_GROUP = key("remove_group", GLFW.GLFW_KEY_A);
+    /** Not in NEI: in Cheat Mode, over a crafting chain group's strip, gives what the chain still lacks of its ingredients. */
+    public static final KeyMapping GIVE_MISSING = key("give_missing", GLFW.GLFW_KEY_G);
 
     /** NEI's {@code gui.search}: focuses the search field (the panel must be showing). */
     public static final KeyMapping FOCUS_SEARCH = key("focus_search", GLFW.GLFW_KEY_F);

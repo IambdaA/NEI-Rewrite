@@ -211,6 +211,7 @@ public final class NEIJeiPlugin implements IModPlugin {
     @SuppressWarnings("deprecation")
     private static int slotAmount(IRecipeSlotView slot, List<ItemStack> options) {
         final ItemStack first = options.get(0);
+        if (!FluidDisplay.namedLikeFluid(first)) return 0;
         if (first.getCount() > 1 || first.getComponentsPatch().isEmpty() || FluidDisplay.subtypeOf(first).isEmpty()) return 0;
         if (!(slot instanceof IRecipeSlotDrawable drawable)) return 0;
         try {
@@ -421,7 +422,7 @@ public final class NEIJeiPlugin implements IModPlugin {
                     final int own = FluidDisplay.itemFluidAmount(stack);
                     if (own > 0) return own;
                     if (!stack.getComponentsPatch().isEmpty() && !FluidDisplay.subtypeOf(stack).isEmpty()
-                            && s instanceof IRecipeSlotDrawable drawable) {
+                            && FluidDisplay.namedLikeFluid(stack) && s instanceof IRecipeSlotDrawable drawable) {
                         return FluidDisplay.amountIn(drawable.getTooltip());
                     }
                     return 0;

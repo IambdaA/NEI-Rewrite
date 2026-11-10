@@ -36,7 +36,9 @@ CRASH=$(find "$RUN/crash-reports" -newermt "@$START" -name '*.txt' 2>/dev/null |
 echo "=== screenshots"
 ls "$OUT/shots" 2>/dev/null | sed "s|^|$OUT/shots/|"
 if [ $CODE -eq 124 ]; then echo "RESULT: TIMEOUT"; exit 2; fi
-if [ -n "$CRASH" ] || ! grep -q 'QUIT errors=0' "$OUT/out.log" 2>/dev/null || [ -n "$PROBLEMS" ]; then
+echo "=== checks: $(grep -c '^PASS' "$OUT/out.log" 2>/dev/null) passed, $(grep -c '^FAIL' "$OUT/out.log" 2>/dev/null) failed"
+grep '^FAIL' "$OUT/out.log" 2>/dev/null
+if [ -n "$CRASH" ] || ! grep -qE 'QUIT errors=0( |$)' "$OUT/out.log" 2>/dev/null || grep -q '^FAIL' "$OUT/out.log" 2>/dev/null || [ -n "$PROBLEMS" ]; then
   echo "RESULT: FAIL"; exit 1
 fi
 echo "RESULT: PASS"
