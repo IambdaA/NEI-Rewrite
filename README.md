@@ -1,6 +1,6 @@
 # NEI Rewrite
 
-**Download on [CurseForge](https://www.curseforge.com/minecraft/mc-mods/nei-features-for-jei)**
+**Download on [CurseForge](www.curseforge.com/minecraft/mc-mods/unoffical-nei-rewrite)**
 
 > **IMPORTANT: recipes of modded machines need [JEI](https://modrinth.com/mod/jei) installed.**
 > NEI Rewrite shows vanilla recipes by itself. For machines from other mods (AE2, Create, Mekanism ...) it reads the
