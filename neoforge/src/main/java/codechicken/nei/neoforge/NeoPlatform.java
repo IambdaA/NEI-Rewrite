@@ -33,6 +33,13 @@ public final class NeoPlatform implements Platform {
         return !rest.isEmpty() && rest.is(stack.getItem());
     }
 
+    /** The loader's remainder is the tool after one craft: the difference in damage is what a craft costs (GregTech: its own). */
+    @Override
+    public int toolDamagePerCraft(net.minecraft.world.item.ItemStack stack) {
+        if (!stack.isDamageableItem() || !staysInGrid(stack)) return 0;
+        return Math.max(1, stack.getCraftingRemainingItem().getDamageValue() - stack.getDamageValue());
+    }
+
     @Override
     public net.minecraft.world.level.material.Fluid fluidOf(Object ingredient) {
         return ingredient instanceof net.neoforged.neoforge.fluids.FluidStack stack ? stack.getFluid() : null;

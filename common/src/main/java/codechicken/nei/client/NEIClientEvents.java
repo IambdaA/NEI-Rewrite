@@ -540,32 +540,40 @@ public final class NEIClientEvents {
      * NEI may delete (Cheat Mode, or Utility Mode with Delete) a left click deletes the held stack and a right click one
      * item of it; otherwise the stack is dropped as vanilla drops it outside the window (left all, right one).
      */
-    /** Whether a click on a panel deletes the held stack (else it drops it): see {@link #heldClick}. */
-    private static boolean heldDeletes(Screen screen) {
-        final boolean creative = screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
-        return NEIConfig.canPerform("delete") && (creative || Deleting.server());
-    }
-
-    /** True over the panels whose clicks go to {@link #clickEntry} (and so to {@link #heldClick} while holding a stack). */
-    private static boolean overClickPanel(double mx, double my) {
+    /**
+     * NEI's {@code HeldItemHandler#contains}: a stack on the cursor over the bookmarks or the item panels, while no bookmarks
+     * are being edited and no autocrafting runs.
+     */
+    private static boolean heldOverPanel(Screen screen, double mx, double my) {
+        if (!(screen instanceof AbstractContainerScreen<?> container) || container.getMenu().getCarried().isEmpty()) return false;
+        if (BOOKMARKS.inEditingState() || AutoCraft.running()) return false;
         return ITEMS.contains(mx, my) || HISTORY.contains(mx, my) || CRAFTABLES.contains(mx, my)
                 || bookmarksVisible() && BOOKMARKS.contains(mx, my);
     }
 
-    /** NEI's prompt while a held stack is over a panel: says what a click will do instead of the item's tooltip. */
-    private static void requestHeldHint(Screen screen, int mx, int my) {
-        if (!(screen instanceof AbstractContainerScreen<?> container) || container.getMenu().getCarried().isEmpty()) return;
-        if (!overClickPanel(mx, my)) return;
-        final boolean delete = heldDeletes(screen);
-        ItemTooltip.requestPlain(List.of(
-                Component.literal(delete ? "Click to delete" : "Click to drop").withStyle(net.minecraft.ChatFormatting.RED),
-                Component.literal(delete ? "Right click: delete one" : "Right click: drop one").withStyle(net.minecraft.ChatFormatting.GRAY)));
+    /**
+     * NEI's rule for a click with a held stack: delete it when the delete and item actions are allowed or the player is in
+     * creative mode, else drop it. Deleting also needs a way to do it here: the creative inventory, or NEI on the server.
+     */
+    private static boolean heldDeletes(Screen screen) {
+        final boolean creativeScreen = screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+        final var player = Minecraft.getInstance().player;
+        final boolean allowed = NEIConfig.canPerform("delete") && NEIConfig.canPerform("item") || player != null && player.isCreative();
+        return allowed && (creativeScreen || Deleting.server());
     }
 
-    private static boolean heldClick(Screen screen, int button) {
-        if (!(screen instanceof AbstractContainerScreen<?> container)) return false;
+    /** NEI's {@code HeldItemHandler#handleTooltip}: over a panel the held stack's tooltip is "Delete Item", or nothing at all. */
+    private static void requestHeldHint(Screen screen, int mx, int my) {
+        if (!heldOverPanel(screen, mx, my)) return;
+        ItemTooltip.requestPlain(heldDeletes(screen)
+                ? List.of(Component.literal("Delete Item").withStyle(net.minecraft.ChatFormatting.RED))
+                : List.of());
+    }
+
+    private static boolean heldClick(Screen screen, int button, double mx, double my) {
+        if (!heldOverPanel(screen, mx, my)) return false;
+        final var container = (AbstractContainerScreen<?>) screen;
         final ItemStack held = container.getMenu().getCarried();
-        if (held.isEmpty()) return false;
         final boolean creative = screen instanceof net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
         if (heldDeletes(screen)) {
             if (button == 1) Deleting.decreaseHeld(container);
@@ -587,9 +595,9 @@ public final class NEIClientEvents {
      * the item and Shift + click opens recipes / uses; otherwise (cheats off, or the recipe window is open) a click
      * opens recipes (left) / uses (right).
      */
-    private static void clickEntry(Screen screen, ItemEntry entry, int button, boolean shift) {
+    private static void clickEntry(Screen screen, ItemEntry entry, int button, boolean shift, double mx, double my) {
         if (button != 0 && button != 1) return;
-        if (heldClick(screen, button)) return;
+        if (heldClick(screen, button, mx, my)) return;
         if (entry == null) return;
         if (!shift && overlayFor(screen) == null && NEIConfig.CHEAT_ENABLED.getAsBoolean()
                 && !(codechicken.nei.item.FluidDisplay.is(entry.stack) && NEIActions.bucketOf(entry.stack).isEmpty())) {
@@ -722,13 +730,13 @@ public final class NEIClientEvents {
 
         if (CRAFTABLES.contains(mx, my)) {
             event.setCanceled(true);
-            clickEntry(screen, CRAFTABLES.entryAt(mx, my), button, shift);
+            clickEntry(screen, CRAFTABLES.entryAt(mx, my), button, shift, mx, my);
             return;
         }
 
         if (HISTORY.contains(mx, my)) {
             event.setCanceled(true);
-            clickEntry(screen, HISTORY.entryAt(mx, my), button, shift);
+            clickEntry(screen, HISTORY.entryAt(mx, my), button, shift, mx, my);
             return;
         }
 
@@ -737,7 +745,7 @@ public final class NEIClientEvents {
             if (BOOKMARKS.pressed(mx, my, button, shift)) return; // group strip: drag to group, click to change view
             if (BOOKMARKS.mouseClicked(mx, my, button)) return; // page buttons
             if (button == 0 && HotkeyHelp.isAltDown() && BOOKMARKS.altClicked(mx, my)) return;
-            clickEntry(screen, BOOKMARKS.entryAt(mx, my), button, shift);
+            clickEntry(screen, BOOKMARKS.entryAt(mx, my), button, shift, mx, my);
             return;
         }
 
@@ -745,7 +753,7 @@ public final class NEIClientEvents {
             event.setCanceled(true);
             if (ITEMS.mouseClicked(mx, my, button)) return;
             if (button == 0 && HotkeyHelp.isAltDown() && ITEMS.altClicked(mx, my)) return;
-            clickEntry(screen, ITEMS.entryAt(mx, my), button, shift);
+            clickEntry(screen, ITEMS.entryAt(mx, my), button, shift, mx, my);
             return;
         }
 
@@ -805,7 +813,7 @@ public final class NEIClientEvents {
             event.setCanceled(true);
             // a Shift + click on a bookmark that did not turn into a sorting drag is a click after all
             final ItemEntry deferred = BOOKMARKS.takeDeferredClick();
-            if (deferred != null) clickEntry(event.getScreen(), deferred, 0, true);
+            if (deferred != null) clickEntry(event.getScreen(), deferred, 0, true, event.getMouseX(), event.getMouseY());
         }
     }
 
@@ -1046,6 +1054,21 @@ public final class NEIClientEvents {
             return;
         }
 
+        // NEI's gui.prev / gui.next (PanelWidget#onHotkeyPressed): over a panel, its previous / next page
+        if (treeWindow == null && (NEIKeys.is(NEIKeys.PREV_PAGE, pressed) || NEIKeys.is(NEIKeys.NEXT_PAGE, pressed))) {
+            final int delta = NEIKeys.is(NEIKeys.NEXT_PAGE, pressed) ? 1 : -1;
+            if (ITEMS.contains(lastMouseX, lastMouseY)) {
+                ITEMS.changePage(delta);
+                event.setCanceled(true);
+                return;
+            }
+            if (bookmarksVisible() && BOOKMARKS.contains(lastMouseX, lastMouseY)) {
+                BOOKMARKS.changePage(delta);
+                event.setCanceled(true);
+                return;
+            }
+        }
+
         if (treeWindow == null && NEIKeys.is(NEIKeys.TOGGLE_BOOKMARKS, pressed)) {
             toggleBookmarks();
             event.setCanceled(true);
@@ -1060,7 +1083,8 @@ public final class NEIClientEvents {
             return;
         }
         if (HotkeyHelp.isShiftDown() && treeWindow == null && NEIKeys.is(NEIKeys.FAVORITE, pressed)
-                && (ITEMS.contains(lastMouseX, lastMouseY) || HISTORY.contains(lastMouseX, lastMouseY))) {
+                && (ITEMS.contains(lastMouseX, lastMouseY) || HISTORY.contains(lastMouseX, lastMouseY)
+                        || CRAFTABLES.contains(lastMouseX, lastMouseY))) {
             final ItemStack over = panelStackAt(lastMouseX, lastMouseY);
             if (!over.isEmpty()) RecipeBookmarks.saveFavoriteTree(codechicken.nei.item.FluidDisplay.idOf(over));
             event.setCanceled(true);
@@ -1240,6 +1264,18 @@ public final class NEIClientEvents {
                 event.setCanceled(true);
             }
             return;
+        }
+
+        // Not in NEI: in Cheat Mode the key over a crafting chain group's strip gives what the chain still lacks of its
+        // ingredients (its Shift tooltip's Missing Items), so the group can be autocrafted from there
+        if (treeWindow == null && !NEIKeys.GIVE_MISSING.isUnbound() && NEIKeys.is(NEIKeys.GIVE_MISSING, pressed)
+                && NEIConfig.CHEAT_ENABLED.getAsBoolean() && bookmarksVisible() && BOOKMARKS.contains(lastMouseX, lastMouseY)) {
+            final int groupId = BOOKMARKS.hoveredGroup(lastMouseX, lastMouseY);
+            if (groupId >= 0 && Bookmarks.grid().group(groupId).crafting) {
+                codechicken.nei.NEIActions.giveMissing(Bookmarks.grid(), groupId);
+                event.setCanceled(true);
+                return;
+            }
         }
 
         // As in NEI, Shift + the tree key over a recipe's heart saves the recipe tree and opens it; the key alone over a

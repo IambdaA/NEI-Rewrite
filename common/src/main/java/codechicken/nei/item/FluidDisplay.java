@@ -99,6 +99,7 @@ public final class FluidDisplay {
      */
     public static int itemFluidAmount(ItemStack stack) {
         if (stack.isEmpty() || stack.getComponentsPatch().isEmpty() || subtypeOf(stack).isEmpty()) return 0;
+        if (!namedLikeFluid(stack)) return 0; // a pack, barrel or tank of a fluid is an item, only the fluid itself counts in mB
         final int amount = TOOLTIP_AMOUNTS.computeIfAbsent(stack.getComponentsPatch(), k -> {
             try {
                 for (var line : stack.getTooltipLines(net.minecraft.world.item.Item.TooltipContext.EMPTY,
@@ -113,6 +114,27 @@ public final class FluidDisplay {
         });
         if (amount > 0) AMOUNT_IDS.add(idOf(stack));
         return amount;
+    }
+
+    private static volatile java.util.Set<String> fluidNames = java.util.Set.of();
+    private static volatile int fluidNamesFor = -1;
+
+    /**
+     * Whether an item is named exactly like a fluid NEI knows: NTM - Continuum's droplet "Unsaturated Hydrocarbons" is the
+     * fluid, NTM's "Packaged Natural Gas" or a "Fluid Barrel: ..." only hold one, even though their tooltips say "32000mB".
+     */
+    public static boolean namedLikeFluid(ItemStack stack) {
+        if (fluidNamesFor != ITEMS.size()) {
+            final java.util.Set<String> names = new java.util.HashSet<>();
+            for (Fluid fluid : ITEMS.keySet()) {
+                final String name = plainName(codechicken.nei.NotEnoughItems.platform().fluidName(fluid));
+                if (name != null && !name.isEmpty()) names.add(name.toLowerCase(java.util.Locale.ROOT));
+            }
+            fluidNames = names;
+            fluidNamesFor = ITEMS.size();
+        }
+        final String name = plainName(stack.getHoverName());
+        return name != null && fluidNames.contains(name.toLowerCase(java.util.Locale.ROOT));
     }
 
     /** An amount of fluid as short text that fits a slot: {@code 250mB}, {@code 1B}, {@code 2.5B}, {@code 12B}. */
@@ -183,7 +205,7 @@ public final class FluidDisplay {
             represented = true;
             try {
                 indexRepresentatives();
-                codechicken.nei.ItemList.refilter(); // the fluids that have a stand-in leave the list (see hasStandIn)
+                codechicken.nei.ItemList.refilter(); // a fluid whose stand-in is listed leaves the list (see standInListed)
             } catch (RuntimeException e) {
                 represented = false; // JEI not ready yet
             }
@@ -199,6 +221,13 @@ public final class FluidDisplay {
     public static boolean hasStandIn(ItemStack stack) {
         final Fluid fluid = fluidOf(stack);
         return fluid != null && REPRESENTED.containsKey(fluid);
+    }
+
+    /** A fluid display stack whose stand-in is itself in the item list (only then the fluid's own entry is left out). */
+    public static boolean standInListed(ItemStack stack) {
+        final Fluid fluid = fluidOf(stack);
+        final ItemStack standIn = fluid == null ? null : REPRESENTED.get(fluid);
+        return standIn != null && codechicken.nei.ItemList.listed(idOf(standIn));
     }
 
     private static void indexRepresentatives() {
@@ -227,10 +256,13 @@ public final class FluidDisplay {
         for (Fluid fluid : ITEMS.keySet()) {
             final Map<Item, ItemStack> found = byWord.get(BuiltInRegistries.FLUID.getKey(fluid).toString());
             if (found == null) continue;
-            // the plain name wins: NTM's icon is "Unsaturated Hydrocarbons", its bucket "... Bucket", a canister "Canister (...)"
+            // only an item named exactly like the fluid stands for it: NTM - Continuum's icon is "Unsaturated Hydrocarbons",
+            // while a bucket ("... Bucket"), a tank ("Fluid Barrel: ..."), NTM's ducts or vanilla's Water Bottle only hold it
+            final String fluidName = plainName(codechicken.nei.NotEnoughItems.platform().fluidName(fluid));
             Item best = null;
             int bestLen = Integer.MAX_VALUE;
             for (Map.Entry<Item, ItemStack> e : found.entrySet()) {
+                if (fluidName == null || !plainName(e.getValue().getHoverName()).equalsIgnoreCase(fluidName)) continue;
                 final int len = e.getValue().getHoverName().getString().length();
                 if (best == null || len < bestLen
                         || len == bestLen && score(e.getKey(), fluidItems, fluidsPerItem) > score(best, fluidItems, fluidsPerItem)) {
@@ -238,8 +270,14 @@ public final class FluidDisplay {
                     bestLen = len;
                 }
             }
-            REPRESENTED.put(fluid, found.get(best));
+            if (best != null) REPRESENTED.put(fluid, found.get(best));
         }
+    }
+
+    private static String plainName(net.minecraft.network.chat.Component name) {
+        if (name == null) return null;
+        final String text = net.minecraft.ChatFormatting.stripFormatting(name.getString());
+        return text == null ? null : text.trim();
     }
 
     private static long score(Item item, java.util.Set<Item> fluidItems, Map<Item, Integer> fluidsPerItem) {

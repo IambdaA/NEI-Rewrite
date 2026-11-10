@@ -5,7 +5,7 @@
 </blockquote>
 <hr>
 <h2>NEI Rewrite</h2>
-<p>An <strong>unofficial rewrite of the GTNH fork of NotEnoughItems</strong> for Minecraft 1.21.1 on NeoForge and Fabric. It looks and works like NEI in GregTech: New Horizons.</p>
+<p>An <strong>unofficial rewrite of the GTNH fork of NotEnoughItems</strong> for Minecraft 26.2, 26.1.2 and 1.21.1 on NeoForge and Fabric, and 1.20.1 on Forge and Fabric. It looks and works like NEI in GregTech: New Horizons.</p>
 <p><em>Based on <a href="https://github.com/GTNewHorizons/NotEnoughItems">NotEnoughItems (GregTech: New Horizons fork)</a> by Chicken-Bones, mitchej123 and the GTNH team. See <strong>Credits &amp; original work</strong> below.</em></p>
 <h3>Features</h3>
 <ul>
@@ -22,16 +22,196 @@
 <li><strong>Plays well with other mods' buttons</strong>: the panels and the cheat toolbar move aside for what other mods add beside the inventory (FTB Quests / FTB Teams sidebar and the like)</li>
 <li><strong>Mod API</strong> for other mods</li>
 </ul>
-<p>Hold <strong>Alt</strong> over an item to see its hotkeys. All keys are under <em>Options &gt; Controls &gt; NotEnoughItems</em>; the wrench button opens the settings screen.</p>
+<p>Hold <strong>Alt</strong> over an item to see its hotkeys. All keys are under <em>Options &gt; Controls &gt; Key Binds &gt; NotEnoughItems</em>; the wrench button opens the settings screen. The <strong>Guide</strong> below explains every feature and key.</p>
 <h3>Requirements</h3>
 <ul>
-<li>Minecraft <strong>1.21.1</strong> with <strong>NeoForge 21.1.x</strong>, or <strong>Fabric Loader 0.16+ with Fabric API</strong></li>
-<li><a href="https://www.curseforge.com/minecraft/mc-mods/jei">JEI</a> for 1.21.1 to see <strong>modded machine recipes</strong> (optional: vanilla recipes work without it)</li>
+<li>Minecraft <strong>26.2</strong>: NeoForge <strong>26.2.0.90</strong> or newer, or Fabric Loader 0.19+ with Fabric API</li>
+<li>Minecraft <strong>26.1.2</strong>: NeoForge 26.1.2.x, or Fabric Loader 0.19+ with Fabric API</li>
+<li>Minecraft <strong>1.21.1</strong>: NeoForge 21.1.235 or newer 21.1.x, or Fabric Loader 0.16+ with Fabric API</li>
+<li>Minecraft <strong>1.20.1</strong>: Forge 47.1 or newer, or Fabric Loader 0.15+ with Fabric API</li>
+<li><a href="https://www.curseforge.com/minecraft/mc-mods/jei">JEI</a> for your Minecraft version (JEI 30 for 26.2, 29 for 26.1.2, 19 for 1.21.1, 15 for 1.20.1) to see <strong>modded machine recipes</strong> (optional: vanilla recipes work without it)</li>
+</ul>
+<h3>Guide</h3>
+<p>Everything here works in the inventory and in every container screen (chests, crafting tables, machines). Hold <strong>Alt</strong> over an item, a bookmark group's strip, a subset or a recipe's heart to see the keys that work there. Every key can be changed under <em>Options &gt; Controls &gt; Key Binds &gt; NotEnoughItems</em>; the keys below are the defaults.</p>
+<h4>The screen</h4>
+<ul>
+<li><strong>Item list</strong> (right): every item and fluid in the game, with a page row above it. The <strong>search field</strong> is at the bottom centre.</li>
+<li><strong>Bookmarks</strong> (left): the items, recipes and groups you bookmarked.</li>
+<li><strong>Wrench button</strong> (bottom left): the settings and the three modes. <strong>Book button</strong>: shows or hides the bookmarks (also <strong>B</strong>).</li>
+<li><strong>Toolbar</strong> (top left, Utility and Cheat Mode): time, rain, heal, game mode, delete, magnet, enchanting, potions.</li>
+<li><strong>Subsets bar</strong> (top centre): menus of item groups.</li>
+<li><strong>History</strong> and <strong>craftables</strong> rows under the item list.</li>
+<li><strong>O</strong> hides all of NEI until you press it again.</li>
+</ul>
+<h4>Modes (the wrench)</h4>
+<p>Ctrl + click the wrench to switch modes. Its colour shows the mode, its tooltip names it, and a plain click opens the settings.</p>
+<ul>
+<li><strong>Recipe Mode</strong> (white wrench): a left click on an item of the list shows its recipes, a right click its uses.</li>
+<li><strong>Utility Mode</strong> (gold): adds the toolbar's Delete and Magnet buttons, also in survival. <em>Inventory &gt; Utilities</em> in the settings picks which buttons it shows.</li>
+<li><strong>Cheat Mode</strong> (red): a left click gives the item (as many as the quantity field says, a stack while it is empty), a right click gives one. Shift + left / right click shows recipes / uses. The whole toolbar is shown. Needs creative mode or operator rights.</li>
+</ul>
+<h4>Item list</h4>
+<ul>
+<li><strong>Pages</strong>: the arrows above the list, the mouse wheel, or <strong>Page Up / Page Down</strong> over the list.</li>
+<li><strong>Quantity field</strong> (under the list): how many items a cheat click gives. Type digits, use the wheel or the - / + buttons (Shift: steps of 10, Ctrl: 64).</li>
+<li><strong>Collapsible items</strong>: similar items (spawn eggs, music discs, potions ...) share one slot. <strong>Alt + click</strong> opens or closes a group. The groups are search lines in <code>config/notenoughitems-collapsible.txt</code>, which you can edit.</li>
+<li><strong>Item zoom</strong>: <strong>Shift + Z</strong> switches it on. The item under the mouse is drawn big beside the window.</li>
+<li><strong>Sorting</strong>: the item sort page of the settings orders the list (Minecraft first, by mod, by id, by name).</li>
+<li><strong>Subsets</strong> (bar at the top centre): menus of item groups (by mod, tools, armour, and mods' own subsets). Left click shows a subset, right click hides it, double click shows only that subset, and a double click on the bar shows everything again. The items in a menu: left click shows one, right click hides it, Ctrl + click gives it (Cheat Mode), Shift + click searches for it. Hidden items are kept in <code>config/notenoughitems-hidden.txt</code>.</li>
+<li><strong>Presets</strong> (<em>World &gt; Presets List</em>): named lists of items that hide items, remove them together with their recipes, or make a subset or a collapsible group of your own.</li>
+<li><strong>History panel</strong>: the items whose recipes or uses you looked up, in rows under the list.</li>
+<li><strong>Craftables panel</strong> (off by default, <em>Inventory &gt; Craftables Panel</em>): what you can craft right now from your inventory, favorites first.</li>
+<li>Mob spawners in the list show their mob.</li>
+<li><strong>A stack on the cursor</strong> clicked onto NEI's panels is deleted in Cheat Mode or creative mode (a right click deletes one item), otherwise it is dropped. The tooltip says which.</li>
+</ul>
+<h4>Search</h4>
+<p>Type in the search field (<strong>F</strong> focuses it). Words separated by a space must all match.</p>
+<ul>
+<li><code>@mod</code> searches mod names, <code>#text</code> tooltips, <code>&amp;id</code> registry ids, <code>$tag</code> item tags and <code>%subset</code> subsets. Plain text searches the name.</li>
+<li><code>-word</code> or <code>!word</code> leaves matches out, <code>"quoted text"</code> keeps a space, and <code>a b | c</code> means (a and b) or c.</li>
+<li>By default the text is a regular expression (<em>Search &gt; Search Mode: Regex</em>). The other modes: Plain, Extended (<code>?</code> is one character, <code>*</code> anything, <code>r/regex/</code> a regular expression) and Extended+ (also <code>{ }</code> groups, <code>/regex/</code> and <code>\</code> escapes).</li>
+<li>Each prefix can be set to Always (also searched without the prefix), Prefix or Never. A space can mean AND, a plain space, or AND-X (every word in the same kind of text). Search Format: Old Format swaps <code>%</code> and <code>@</code>.</li>
+<li><strong>Up / Down</strong> while typing go through your earlier searches. The text is coloured by its syntax.</li>
+<li>Options: Widget Position (centre or right), Hide Until Searching (empty list until you type), Autofocus.</li>
+<li>With an Applied Energistics terminal open, its search and NEI's search stay the same, whichever one you type in.</li>
+</ul>
+<h4>Recipes and uses</h4>
+<ul>
+<li><strong>R</strong> over any item shows its recipes and <strong>U</strong> its uses: in the item list, your inventory, the bookmarks, the recipe window and the crafting tree. Fluids work too.</li>
+<li><strong>Tabs</strong> above the window are the recipe types. The <strong>machines column</strong> on its left shows what makes that type; click a machine for its recipes. U on a machine also lists everything it makes (hold Ctrl while looking up to leave that out).</li>
+<li><strong>Left / Right</strong> turn the pages and <strong>Up / Down</strong> change the recipe type. The wheel turns pages (Shift + wheel, or the wheel over the title row, changes the type). <strong>Backspace</strong> goes back to the previous lookup.</li>
+<li>The <strong>magnifier</strong> button keeps only the recipes with an item matching your search.</li>
+<li><strong>Shift + D</strong> shows a box with what is known about the recipe type (turn on <em>Recipes GUI &gt; Handler Info Widget</em> first).</li>
+<li>Ingredients that cycle through alternatives stop while the mouse is on them or Shift is held. Their tooltip lists every accepted item, favorite ingredients first.</li>
+<li>The <strong>+</strong> button moves the recipe into the open crafting grid: a click moves as many sets as fit, Ctrl + click one set. While the mouse is on it, the ingredients you lack are red and the ones you have green. With <em>Require holding shift to move items</em> on, a click only shows the recipe faded in the grid and Shift + click moves the items.</li>
+<li>The <strong>heart</strong> makes the recipe its item's favorite (see Favorites).</li>
+<li><strong>Villager trades</strong>: a tab with the trades of every villager you opened in this session.</li>
+<li><strong>Fluid amounts</strong> show in buckets from 1000 mB on (<code>250mB</code>, <code>2.5B</code>); <em>Fluid Amounts in mB Only</em> keeps millibuckets.</li>
+<li><strong>With JEI</strong>: the recipes every mod gives JEI, JEI's information pages and, on 26.2 and 26.1.2, its fuel pages.</li>
+<li>Options: tab style, machines column (None, Grid or Scroll), infinite scroll instead of pages, maximum height.</li>
+</ul>
+<h4>Bookmarks</h4>
+<ul>
+<li><strong>A</strong> over an item bookmarks it; <strong>A</strong> over a bookmark removes it. <strong>Ctrl + A</strong> bookmarks it with its amount.</li>
+<li>In the recipe window, <strong>Shift + A</strong> bookmarks the item together with its recipe and <strong>Ctrl + Shift + A</strong> with the recipe's amounts. A bookmark that remembers a recipe is marked with an R (or the recipe type's icon, <em>Show Handler Icon</em>); Shift + A over it removes the recipe.</li>
+<li>Click a bookmark for its recipes or uses (Cheat Mode: gives it).</li>
+<li><strong>Ctrl + wheel</strong> changes a bookmark's amount, <strong>Ctrl + Alt + wheel</strong> in bigger steps. <strong>Shift + drag</strong> moves it.</li>
+<li>The arrows at the top turn the bookmark pages. The row at the bottom switches between separate bookmark lists; there is always an empty one after the last.</li>
+<li>The <strong>P</strong> button beside the bottom row pulls every bookmarked item out of the open chest (Shift + click: only what is missing).</li>
+<li>Options: World Specific (separate bookmarks per world or server), pop-up animation, recipe tooltips, the recipe marker and its colour.</li>
+</ul>
+<h4>Groups and crafting chains</h4>
+<p>The thin strip left of the bookmarks shows the groups.</p>
+<ul>
+<li><strong>Drag with the left button</strong> along the strip to put rows in a group; drag with the right button to take rows out.</li>
+<li><strong>Click</strong> the strip to switch the group between a grid and a todo list (one item per row). <strong>Alt + click</strong> collapses it, <strong>Shift + A</strong> removes it, <strong>Shift + drag</strong> moves it, <strong>Ctrl + wheel</strong> changes how many times it is made.</li>
+<li><strong>Right click</strong> the strip to make the group a <strong>crafting chain</strong> (green strip): its bookmarked recipes are linked, so the amounts add up through every step. Hovering the strip lists what the chain makes and needs. Holding <strong>Shift</strong> shows Required Crafts, Missing Items and the ingredients you already have. A tool that wears down (GregTech's hammers, files, saws ...) shows the durability the chain takes from it, in blue.</li>
+<li>Over a group's strip:<ul>
+<li><strong>V</strong> takes its items out of the open chest, <strong>Shift + V</strong> only what is missing.</li>
+<li><strong>Ctrl + L</strong> sends the group to chat.</li>
+</ul></li>
+<li>Over a crafting chain's strip:<ul>
+<li><strong>T</strong> opens its crafting tree.</li>
+<li><strong>Shift + C</strong> autocrafts it, <strong>Shift + Ctrl + C</strong> only what is missing.</li>
+<li><strong>G</strong> (Cheat Mode only) gives everything the chain still lacks, plus what its machine and furnace steps make, so the rest can be autocrafted. A tool comes as enough whole tools for the durability the chain takes, a fluid as filled buckets.</li>
+</ul></li>
+</ul>
+<h4>Crafting tree</h4>
+<p>A window that draws a crafting chain as a tree: every recipe is a box, with the boxes of its ingredients below it. Open it with <strong>T</strong> over a crafting chain's strip, or <strong>Shift + T</strong> over a recipe's heart.</p>
+<ul>
+<li>The wheel scrolls, Shift + wheel scrolls sideways and Ctrl + wheel zooms (<em>Tree Zoom without Ctrl</em> zooms with the wheel alone). Drag the background to move around.</li>
+<li>Ctrl + wheel over a top box changes how many to make, Ctrl + Alt + wheel in stacks.</li>
+<li>Click a box for its recipes (left) or uses (right). The + in that recipe window makes that recipe the box's recipe.</li>
+<li>The small recipe icon in a box's corner removes its recipe. The arrow under a box hides or shows everything below it.</li>
+<li><strong>A</strong> over a box bookmarks the item, <strong>Ctrl + A</strong> with its amount.</li>
+<li>Toolbar: use your inventory for the maths (a snapshot, click again to clear), fit the tree to the window, collapse or expand everything, collapse what has nothing left to craft, the stats panel (results, remainders, ingredients and crafts needed and available, recipe types; choose which sections show), <strong>save the tree as a PNG</strong> in <code>screenshots/</code>, and send the group to chat.</li>
+</ul>
+<h4>Favorites</h4>
+<ul>
+<li>The <strong>heart</strong> on a recipe makes it the favorite recipe of its result. For a recipe that makes several things, <strong>Shift + F</strong> over one result favorites the recipe for that result.</li>
+<li><strong>Shift + F</strong> over an ingredient in the recipe window makes it a favorite ingredient: it is listed first (marked F) wherever a recipe accepts several items.</li>
+<li><strong>Shift + F</strong> over an item in the item list, or <strong>Shift + A</strong> over a heart, saves the favorite recipe tree as a crafting chain in the bookmarks: the item's favorite recipe and the favorite recipes of its ingredients, down to the <em>Depth</em> set under Favorites. <strong>Shift + T</strong> over a heart opens that tree.</li>
+<li>Items and machines with a favorite recipe show it in their tooltip, and the craftables panel lists favorites first.</li>
+<li>Options: World Specific, Generate Single-Recipe Favorites (an item made by only one recipe uses it), Depth, Single Favorite Counts for All Results, Choose Result with Mouse Wheel.</li>
+</ul>
+<h4>Crafting help</h4>
+<ul>
+<li><strong>Shift + S</strong> over an item fills the open crafting grid with its bookmarked or favorite recipe, <strong>Shift + Ctrl + S</strong> with the bookmark's amount.</li>
+<li><strong>Autocrafting</strong>: with a crafting table or your inventory open, <strong>Shift + C</strong> over a bookmarked recipe, a crafting chain or a recipe in the recipe window crafts it, every step from the bottom up. <strong>Shift + Ctrl + C</strong> crafts only what is missing. It stops and says why in chat when something is missing. Machine and furnace steps cannot be autocrafted (in Cheat Mode, G gives their results). A tool that stays in the grid is used for as many sets as its durability allows.</li>
+<li><strong>Pulling</strong>: <strong>V</strong> over a bookmark or a group's strip takes its items out of the open chest, barrel, shulker box or ender chest into your inventory, <strong>Shift + V</strong> only what is missing.</li>
+<li><strong>Mouse wheel transfer</strong>: the wheel down over a slot moves one item to where Shift + click would send it, the wheel up pulls one in. Shift + click an empty slot while holding a stack to move every stack of that kind there. Shift + click outside the window (or Shift + the drop key over a slot) throws every stack of that kind.</li>
+</ul>
+<h4>Copy and share</h4>
+<ul>
+<li><strong>Ctrl + C</strong> copies an item's name, <strong>Ctrl + X</strong> its id and <strong>Ctrl + D</strong> its tags.</li>
+<li><strong>Ctrl + L</strong> sends an item, a bookmarked recipe or a whole group to chat, and <strong>Ctrl + Shift + L</strong> in the recipe window sends the recipe. Players with NEI Rewrite click the message to add it to their bookmarks (needs the mod on the server).</li>
+<li><strong>T</strong> over an item, with an Applied Energistics terminal open, types its name into the terminal's search.</li>
+</ul>
+<h4>Cheat tools</h4>
+<p>The toolbar needs creative mode or operator rights; it sends normal commands, so the server's permissions decide.</p>
+<ul>
+<li><strong>Time</strong> (dawn, noon, dusk, midnight), <strong>rain</strong> and <strong>heal</strong>.</li>
+<li><strong>Game mode</strong>: cycles survival, creative, creative+ and adventure (<em>Inventory &gt; Gamemodes</em> picks which).</li>
+<li><strong>Creative+</strong>: the inventory key opens an extended creative inventory with 54 more slots, kept by the server. Ctrl + wheel in the world cycles its rows, the inventory and the hotbar.</li>
+<li><strong>Delete</strong>: click it to switch delete mode on, then click a slot to delete its stack (right click: one item, Shift + click: every item of that kind). Shift + click the button deletes your whole inventory; clicking it with a stack on the cursor deletes that stack.</li>
+<li><strong>Magnet</strong>: pulls dropped items towards you.</li>
+<li><strong>Enchanting</strong> (<strong>X</strong> over an item): every enchantment that fits the item, at any level up to 255.</li>
+<li><strong>Potions</strong> (<strong>P</strong>): a potion, splash potion, lingering potion or tipped arrow with any effects, levels and durations.</li>
+<li><strong>Mob spawn overlay</strong> (<strong>F7</strong>, in the world): an X on every block around you where monsters can spawn, red at any time and yellow only at night.</li>
+<li><strong>Highlight tooltips</strong> (<strong>numpad 0</strong>, in the world): the name of the block you look at. <em>World &gt; Highlight Tooltips</em> places it.</li>
+<li>World keys (unbound by default): dawn, noon, dusk, midnight, rain, heal and creative, while no screen is open.</li>
+<li><em>Commands</em> page of the settings: the commands the toolbar and the give action send, for servers with other commands.</li>
+</ul>
+<h4>Settings</h4>
+<p>The wrench opens a settings screen with NEI's pages:</p>
+<ul>
+<li><strong>Inventory</strong>: NEI on / off, the mode, Utilities, Gamemodes, item sort, and the pages Search, Bookmarks Panel, Recipes GUI, Subsets, History, Craftables, Collapsible Items, Item Zoom, Favorites and Tooltips. Then Item Panel Scale, mouse wheel transfer, the hotkey help, the quantity field, Autocrafting, <strong>UI Style</strong> (NTNH-Approximate, GTNH-Modernity or Vanilla buttons) and the release notice.</li>
+<li><strong>World</strong>: Highlight Tooltips, <strong>Panels Settings</strong> (drag the edges of the bookmark and item panels), Presets List, the overlays and the mob overlay's range.</li>
+<li><strong>Commands</strong>: the command templates.</li>
+<li><strong>Tools &gt; Data Dumps</strong>: writes the items, blocks, potions, enchantments, biomes, the item panel (CSV, NBT or JSON) and the recipe types (CSV or JSON) to <code>dumps/</code>.</li>
+<li><strong>Report Issues</strong> (first page) opens the issue tracker.</li>
+<li>Options are kept in <code>config/notenoughitems-client.json</code>, bookmarks in <code>config/notenoughitems-bookmarks.txt</code>.</li>
+</ul>
+<h4>Other mods</h4>
+<ul>
+<li><strong>JEI</strong>: NEI reads every mod's recipes, information pages and recipe transfer handlers from JEI's plugins, so the + works in modded crafting screens too. JEI's own screens are switched off.</li>
+<li><strong>Applied Energistics 2</strong>: search sync, T types into the terminal, and the + works in the crafting terminal (with JEI).</li>
+<li><strong>Other mods' buttons</strong>: the panels and the toolbar move aside for what other mods draw beside the inventory (the FTB Quests / FTB Library sidebar, the recipe book, areas mods register with JEI).</li>
+<li><strong>Fluids</strong>: in the item list and in recipes with their amounts; a cheat click gives a bucket. Fluids that a mod shows as an item of its own (NTM - Continuum) use that item's icon, name and tooltip.</li>
+</ul>
+<h4>All keys</h4>
+<ul>
+<li><strong>R / U</strong> (over an item): Recipes / uses</li>
+<li><strong>A</strong> (over an item): Add or remove a bookmark (Ctrl: with amount)</li>
+<li><strong>Shift + A</strong> (recipe window / bookmark / group strip / heart): Bookmark with recipe (Ctrl: with amounts) / remove the recipe / remove the group / save the recipe tree</li>
+<li><strong>B</strong> (anywhere): Show or hide the bookmarks</li>
+<li><strong>O</strong> (anywhere): Hide or show all of NEI</li>
+<li><strong>F</strong> (anywhere): Focus the search field</li>
+<li><strong>Up / Down</strong> (search field): Earlier searches</li>
+<li><strong>Page Up / Page Down</strong> (item list, bookmarks): Turn the page</li>
+<li><strong>Left / Right, Up / Down</strong> (recipe window): Page, recipe type</li>
+<li><strong>Backspace</strong> (recipe window): Back</li>
+<li><strong>Shift + D</strong> (recipe window): Recipe type info (Handler Info Widget option)</li>
+<li><strong>Shift + F</strong> (item list / recipe window): Save the favorite recipe tree / favorite ingredient or favorite recipe for this result</li>
+<li><strong>T</strong> (group strip / item): Crafting tree / type the name into an AE2 terminal</li>
+<li><strong>Shift + T</strong> (heart): Crafting tree of the favorite</li>
+<li><strong>Shift + C</strong> (bookmark, group strip, recipe): Autocraft (Ctrl: only what is missing)</li>
+<li><strong>G</strong> (crafting chain strip, Cheat Mode): Give the missing ingredients</li>
+<li><strong>V</strong> (bookmark, group strip): Pull items from the open chest (Shift: only missing)</li>
+<li><strong>Shift + S</strong> (over an item): Fill the crafting grid (Ctrl: with amount)</li>
+<li><strong>Ctrl + L</strong> (item, bookmark, group strip): Send to chat (Shift in the recipe window: the recipe)</li>
+<li><strong>Ctrl + C / X / D</strong> (over an item): Copy name / id / tags</li>
+<li><strong>Shift + Z</strong> (anywhere): Item zoom on / off (hold, zoom in and zoom out keys unbound)</li>
+<li><strong>X</strong> (over an item): Enchanting window</li>
+<li><strong>P</strong> (anywhere): Potion window</li>
+<li><strong>F7</strong> (in the world): Mob spawn overlay</li>
+<li><strong>Numpad 0</strong> (in the world): Highlight tooltips</li>
+<li><strong>Alt</strong> (over an item, strip, subset or heart): Show its keys</li>
 </ul>
 <h3>Multiplayer</h3>
 <p>Works on the client alone. Install it on the <strong>server too</strong> to get recipe lookup for everything the server knows, and for the delete mode, item magnet and extended creative inventory (they need the mod on the server and creative mode or operator rights). JEI's recipe transfer in modded screens also needs the mod's JEI part on the server.</p>
 <h3>Status</h3>
-<p>Beta. A few NEI features are not ported. Please report bugs on <a href="https://github.com/IambdaA/NEI-Rewrite/issues">GitHub</a> together with your <code>latest.log</code>. Source code: <a href="https://github.com/IambdaA/NEI-Rewrite">https://github.com/IambdaA/NEI-Rewrite</a></p>
+<p>Beta. A few NEI features are not ported. Please report bugs on <a href="https://github.com/IambdaA/NEI-Rewrite/issues">GitHub</a> together with your <code>latest.log</code>. Source code: <a href="https://github.com/IambdaA/NEI-Rewrite">https://github.com/IambdaA/NEI-Rewrite</a>. Download: <a href="https://www.curseforge.com/minecraft/mc-mods/unoffical-nei-rewrite">https://www.curseforge.com/minecraft/mc-mods/unoffical-nei-rewrite</a></p>
 <h3>Credits &amp; original work</h3>
 <p>NEI Rewrite is a <strong>derivative work</strong>. It is based on <strong>NotEnoughItems (NEI)</strong>, and the credit for the design, the features and the look belongs to the original authors:</p>
 <ul>
@@ -42,10 +222,10 @@
 <p>The original NEI is open source under <strong>LGPL-3.0-or-later</strong>. NEI Rewrite is released under the same license and is a modified, rewritten version of it. The GUI textures come unchanged from the GTNH repository. NEI Rewrite is made by <strong>Iambda</strong> and is <strong>not affiliated with or endorsed by</strong> the original authors or the GTNH team. Please do not report problems of this mod to them.</p>
 <h3>How NEI Rewrite differs from the original</h3>
 <ul>
-<li><strong>A new implementation, not a copy of the old mod.</strong> The original is a Forge mod for Minecraft 1.7.10. NEI Rewrite is new Java code written for modern Minecraft on NeoForge and Fabric. It follows NEI's behaviour, look and search rules, and the GUI textures come unchanged from the GTNH repository.</li>
+<li><strong>A new implementation, not a copy of the old mod.</strong> The original is a Forge mod for Minecraft 1.7.10. NEI Rewrite is new Java code written for modern Minecraft on Forge, NeoForge and Fabric. It follows NEI's behaviour, look and search rules, and the GUI textures come unchanged from the GTNH repository.</li>
 <li><strong>Recipes come from the game and from JEI.</strong> The original reads recipes through its own recipe handler system (and GregTech: New Horizons' machine handlers). NEI Rewrite reads vanilla recipes from the game's recipe system and the recipes of other mods from JEI's plugins, so modded machines need JEI installed. There are no GregTech / GTNH-specific recipe handlers.</li>
 <li><strong>Tags instead of the ore dictionary.</strong> The <code>$</code> search matches item tags, which replaced the ore dictionary in modern Minecraft.</li>
 <li><strong>Own settings and keys.</strong> Options are kept in a config file and edited in the wrench button's settings screen; hotkeys are normal Minecraft key binds. NEI's 1.7.10 config files are not read.</li>
-<li><strong>A smaller mod API.</strong> The API class is the same idea as NEI's, but mods register through a NeoForge event (<code>NEIRegisterEvent</code>) or a Fabric entrypoint (<code>NEIPlugin</code>). NEI's 1.7.10 GUI handler and overlay APIs are not carried over.</li>
+<li><strong>A smaller mod API.</strong> The API class is the same idea as NEI's, but mods register through a Forge / NeoForge event (<code>NEIRegisterEvent</code>) or a Fabric entrypoint (<code>NEIPlugin</code>). NEI's 1.7.10 GUI handler and overlay APIs are not carried over.</li>
 <li><strong>Not everything is ported.</strong> A few NEI features are missing (giving items with cheats off, the chunk boundary overlay). See the changelog.</li>
 </ul>
